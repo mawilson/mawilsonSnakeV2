@@ -1,17 +1,35 @@
 import { info, move } from '../src/logic'
-import { Battlesnake, Coord, GameState, MoveResponse } from '../src/types';
+import { Battlesnake, Coord, GameState, MoveResponse, RulesetSettings } from '../src/types';
+
+function createRulesetSettings() : RulesetSettings {
+  return {
+    "foodSpawnChance": 25,
+    "minimumFood": 1,
+    "hazardDamagePerTurn": 14,
+    "royale": {
+      "shrinkEveryNTurns": 5
+    },
+    "squad": {
+      "allowBodyCollisions": true,
+      "sharedElimination": true,
+      "sharedHealth": true,
+      "sharedLength": true
+    }
+  }
+}
 
 function createGameState(me: Battlesnake): GameState {
     return {
         game: {
-            id: "",
-            ruleset: { name: "", version: "" },
-            timeout: 0
+            id: "totally-unique-game-id",
+            ruleset: { name: "standard", version: "v1.2.3", settings: createRulesetSettings() },
+            timeout: 500,
+            source: "testing"
         },
         turn: 0,
         board: {
-            height: 0,
-            width: 0,
+            height: 11,
+            width: 11,
             food: [],
             snakes: [me],
             hazards: []
@@ -24,7 +42,7 @@ function createBattlesnake(id: string, body: Coord[]): Battlesnake {
     return {
         id: id,
         name: id,
-        health: 0,
+        health: 100,
         body: body,
         latency: "",
         head: body[0],
@@ -48,7 +66,7 @@ describe('Battlesnake Moves', () => {
         const gameState = createGameState(me)
 
         // Act 1,000x (this isn't a great way to test, but it's okay for starting out)
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 50; i++) {
             const moveResponse: MoveResponse = move(gameState)
             // In this state, we should NEVER move left.
             const allowedMoves = ["up", "down", "right"]
@@ -59,6 +77,11 @@ describe('Battlesnake Moves', () => {
 
 describe('BattleSnake can chase tail', () => {
   it('should be allowed to chase its tail into the space it currently occupies', () => {
-    
+    const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 0, y: 1}])
+    const gameState = createGameState(snek)
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up")
+
   })
 })
