@@ -56,3 +56,9 @@ describe('Battlesnake Moves', () => {
         }
     })
 })
+
+describe('BattleSnake can chase tail', () => {
+  it('should be allowed to chase its tail into the space it currently occupies', () => {
+    
+  })
+})
