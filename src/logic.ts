@@ -25,13 +25,30 @@ class Board2d {
     this.cells = new Array(_width * _height);
   }
 
-  getCell(x: number, y: number) : BoardCell {
+  getCell(coord: Coord) : BoardCell {
+    let x = coord.x;
+    let y = coord.y;
     let idx = y * this.width + x;
     if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
       this.cells[idx] = new BoardCell([], false, false);
-      //this.cells[idx].otherSnakes = [];
     }
     return this.cells[idx];
+  }
+
+  logCell(coord: Coord) : void {
+    console.log(`board2d at (${coord.x},${coord.y}) food: ${this.getCell(coord).food}`);
+    console.log(`board2d at (${coord.x},${coord.y}) hazard: ${this.getCell(coord).hazard}`);
+    console.log(`board2d at (${coord.x},${coord.y}) has snakes: ${this.getCell(coord).otherSnakes.length > 0}`);
+    console.log(`board2d at (${coord.x},${coord.y}) has you: ${this.getCell(coord).you !== undefined}`);
+  }
+
+  logBoard() : void {
+    for (let i = 0; i < this.width; i++) {
+      for (let j = 0; j < this.height; j++) {
+        let tempCoord = {x: i, y: j} as Coord;
+        this.logCell(tempCoord);
+      }
+    }
   }
 
   // setCell(newCell : BoardCell, x: number, y: number) : void {
@@ -97,7 +114,7 @@ export function move(gameState: GameState): MoveResponse {
             isHead: coordsEqual(part, inputSnake.head),
             isTail: coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])
           },
-              board2dCell = board2d.getCell(part.x, part.y)
+              board2dCell = board2d.getCell(part)
           if (inputSnake.id === you.id) {
             //board2d.cells[part.x][part.y].you = newSnakeCell
             board2dCell.you = newSnakeCell
@@ -111,31 +128,27 @@ export function move(gameState: GameState): MoveResponse {
         })
       }
 
-      // for (let i: number = 0; i < board.width; i++) {
-      //   for (let j: number = 0; j < board.height; j++) {
-      //     let newCell : BoardCell = {
-      //       you: undefined,
-      //       otherSnakes: [],
-      //       food: false,
-      //       hazard: false
-      //     }
-      //     board2d.cells[i][j] = newCell
-      //   }
-      // }
-
       processSnake(you)
       board.snakes.forEach(processSnake)
+
+      board.food.forEach(function addFood(coord : Coord) : void {
+        let board2dCell = board2d.getCell(coord)
+        board2dCell.food = true
+      })
+
+      board.hazards.forEach(function addHazard(coord: Coord) : void {
+        let board2dCell = board2d.getCell(coord)
+        board2dCell.hazard = true
+      })
 
       return board2d
     }
 
     const board2d = buildBoard2d(gameState.board, gameState.you)
 
-    //console.log("board2d!!: " + board2d.rows.toString())
-    console.log("board2d at 0,0 food: " + board2d.getCell(0, 0).food)
-    console.log("board2d at 0,0 hazard: " + board2d.getCell(0, 0).hazard)
-    console.log("board2d at 0,0 has snakes: " + (board2d.getCell(0, 0).otherSnakes.length > 0))
-    console.log("board2d at 0,0 has you: " + (board2d.getCell(0, 0).you !== undefined))
+    //let tempCell = {x: 0, y: 0} as Coord
+    console.log(`Turn: ${gameState.turn}`)
+    board2d.logBoard()
 
     const priorities : { [key: string]: number } = {
       kill: 0,
@@ -162,7 +175,7 @@ export function move(gameState: GameState): MoveResponse {
       return timeLeft > 50
     }
 
-    logCoord(myTail, "myTail")
+    //logCoord(myTail, "myTail")
     //console.log("myTail x: %d, y: %d", myTail.x, myTail.y)
 
     //logCoord(myHead, "myHead")
