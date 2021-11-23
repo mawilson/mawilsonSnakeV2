@@ -59,29 +59,33 @@ describe('Battlesnake API Version', () => {
     })
 })
 
-describe('Battlesnake Moves', () => {
-    it('should never move into its own neck', () => {
-        // Arrange
-        const me = createBattlesnake("me", [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }])
-        const gameState = createGameState(me)
+// describe('Battlesnake Moves', () => {
+//     it('should never move into its own neck', () => {
+//         // Arrange
+//         const me = createBattlesnake("me", [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }])
+//         const gameState = createGameState(me)
 
-        // Act 1,000x (this isn't a great way to test, but it's okay for starting out)
-        for (let i = 0; i < 50; i++) {
-            const moveResponse: MoveResponse = move(gameState)
-            // In this state, we should NEVER move left.
-            const allowedMoves = ["up", "down", "right"]
-            expect(allowedMoves).toContain(moveResponse.move)
-        }
-    })
-})
+//         // Act 1,000x (this isn't a great way to test, but it's okay for starting out)
+//         for (let i = 0; i < 50; i++) {
+//             const moveResponse: MoveResponse = move(gameState)
+//             // In this state, we should NEVER move left.
+//             const allowedMoves = ["up", "down", "right"]
+//             expect(allowedMoves).toContain(moveResponse.move)
+//         }
+//     })
+// })
 
 describe('BattleSnake can chase tail', () => {
   it('should be allowed to chase its tail into the space it currently occupies', () => {
-    const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 0, y: 1}])
+    const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}])
     const gameState = createGameState(snek)
 
-    let moveResponse: MoveResponse = move(gameState)
-    expect(moveResponse.move).toBe("up")
+    // console.log("gameState height, width: %d, %d", gameState.board.height, gameState.board.width)
+    // console.log("gameState snek head, tail: (%d,%d), (%d,%d)", gameState.you.body[0].x, gameState.you.body[0].y, gameState.you.body[gameState.you.body.length -1].x, gameState.you.body[gameState.you.body.length - 1].y)
 
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right")
+    }
   })
 })

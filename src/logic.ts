@@ -1,4 +1,43 @@
-import { InfoResponse, GameState, MoveResponse, Game, Coord, Battlesnake } from "./types"
+import { InfoResponse, GameState, MoveResponse, Game, Coord, Battlesnake, Board, IBoardCell, SnakeCell } from "./types"
+
+class BoardCell implements IBoardCell {
+  you?: SnakeCell;
+  otherSnakes: SnakeCell[];
+  food: boolean;
+  hazard: boolean;
+
+  constructor(_otherSnakes: SnakeCell[], _food: boolean, _hazard: boolean, _you?: SnakeCell) {
+    this.you = _you;
+    this.otherSnakes = _otherSnakes;
+    this.food = _food;
+    this.hazard = _hazard;
+  }
+}
+
+class Board2d {
+  private cells: Array<BoardCell>;
+  width: number;
+  height: number;
+
+  constructor(_width: number, _height: number) {
+    this.width = _width;
+    this.height = _height;
+    this.cells = new Array(_width * _height);
+  }
+
+  getCell(x: number, y: number) : BoardCell {
+    let idx = y * this.width + x;
+    if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
+      this.cells[idx] = new BoardCell([], false, false);
+      //this.cells[idx].otherSnakes = [];
+    }
+    return this.cells[idx];
+  }
+
+  // setCell(newCell : BoardCell, x: number, y: number) : void {
+  //   this.cells[y * this.width + x] = newCell
+  // }
+}
 
 function logCoord(c: Coord, descriptor: string) : void {
   console.log(descriptor + " x: %d, y: %d", c.x, c.y)
@@ -41,6 +80,62 @@ export function move(gameState: GameState): MoveResponse {
     const myTail: Coord = myBody[myBody.length - 1]
     const snakeBites = gameState.board.food
 
+    function coordsEqual(c1: Coord, c2: Coord): boolean {
+      return (c1.x === c2.x && c1.y === c2.y)
+    }
+
+    function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
+      // const board2d : Board2d = {
+      //   cells: Array.from(Array(board.width), () => new Array(board.height))
+      // }
+      const board2d = new Board2d(board.width, board.height)
+
+      function processSnake(inputSnake : Battlesnake) : void {
+        inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
+          let newSnakeCell : SnakeCell = {
+            id: inputSnake.id,
+            isHead: coordsEqual(part, inputSnake.head),
+            isTail: coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])
+          },
+              board2dCell = board2d.getCell(part.x, part.y)
+          if (inputSnake.id === you.id) {
+            //board2d.cells[part.x][part.y].you = newSnakeCell
+            board2dCell.you = newSnakeCell
+          } else {
+            //board2d.cells[part.x][part.y].otherSnakes.push(newSnakeCell)
+            // if (!board2dCell.otherSnakes) {
+            //   board2dCell.otherSnakes = []
+            // }
+            board2dCell.otherSnakes.push(newSnakeCell)
+          }
+        })
+      }
+
+      // for (let i: number = 0; i < board.width; i++) {
+      //   for (let j: number = 0; j < board.height; j++) {
+      //     let newCell : BoardCell = {
+      //       you: undefined,
+      //       otherSnakes: [],
+      //       food: false,
+      //       hazard: false
+      //     }
+      //     board2d.cells[i][j] = newCell
+      //   }
+      // }
+
+      processSnake(you)
+      board.snakes.forEach(processSnake)
+
+      return board2d
+    }
+
+    const board2d = buildBoard2d(gameState.board, gameState.you)
+
+    //console.log("board2d!!: " + board2d.rows.toString())
+    console.log("board2d at 0,0 food: " + board2d.getCell(0, 0).food)
+    console.log("board2d at 0,0 hazard: " + board2d.getCell(0, 0).hazard)
+    console.log("board2d at 0,0 has snakes: " + (board2d.getCell(0, 0).otherSnakes.length > 0))
+    console.log("board2d at 0,0 has you: " + (board2d.getCell(0, 0).you !== undefined))
 
     const priorities : { [key: string]: number } = {
       kill: 0,
@@ -63,11 +158,11 @@ export function move(gameState: GameState): MoveResponse {
           timeElapsed : number = timeCurrent - timeBeginning,
           _myLatency : number = myLatency ? parseInt(myLatency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
           timeLeft = timeout - timeElapsed - _myLatency
-      console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", timeElapsed, _myLatency, timeLeft)
+      console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", turn, timeElapsed, _myLatency, timeLeft)
       return timeLeft > 50
     }
 
-    //logCoord(myTail, "myTail")
+    logCoord(myTail, "myTail")
     //console.log("myTail x: %d, y: %d", myTail.x, myTail.y)
 
     //logCoord(myHead, "myHead")
@@ -102,10 +197,6 @@ export function move(gameState: GameState): MoveResponse {
 
     // TODO: Step 2 - Don't hit yourself.
     // Use information in gameState to prevent your Battlesnake from colliding with itself.
-
-    function coordsEqual(c1: Coord, c2: Coord): boolean {
-      return (c1.x === c2.x && c1.y === c2.y)
-    }
 
     // returns true if c1 is directly above c2
     function isAbove(c1: Coord, c2: Coord): boolean {
@@ -264,27 +355,27 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     // update myHead's position to the new position we will be moving to
-    switch (chosenMove) {
-      case "up":
-        myHead.y = myHead.y + 1
-        break;
-      case "down":
-        myHead.y = myHead.y - 1
-        break;
-      case "left":
-        myHead.x = myHead.x - 1
-        break
-      default: // case "right":
-        myHead.x = myHead.x + 1
-        break
-    }
+    // switch (chosenMove) {
+    //   case "up":
+    //     myHead.y = myHead.y + 1
+    //     break;
+    //   case "down":
+    //     myHead.y = myHead.y - 1
+    //     break;
+    //   case "left":
+    //     myHead.x = myHead.x - 1
+    //     break
+    //   default: // case "right":
+    //     myHead.x = myHead.x + 1
+    //     break
+    // }
     //logCoord(myHead, "new position")
 
     // if (coordsEqual(myHead, myTail)) {
     //   console.log("new position (%d,%d) is the same as the old tail position!", myHead.x, myHead.y)
     // }
 
-    checkTime()
+    //checkTime()
 
     //console.log(`${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
     return response
