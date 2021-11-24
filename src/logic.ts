@@ -1,14 +1,12 @@
 import { InfoResponse, GameState, MoveResponse, Game, Coord, Battlesnake, Board, IBoardCell, SnakeCell } from "./types"
 
 class BoardCell implements IBoardCell {
-  you?: SnakeCell;
-  otherSnakes: SnakeCell[];
+  snakeCell?: SnakeCell;
   food: boolean;
   hazard: boolean;
 
-  constructor(_otherSnakes: SnakeCell[], _food: boolean, _hazard: boolean, _you?: SnakeCell) {
-    this.you = _you;
-    this.otherSnakes = _otherSnakes;
+  constructor(_food: boolean, _hazard: boolean, _snakeCell?: SnakeCell) {
+    this.snakeCell = _snakeCell;
     this.food = _food;
     this.hazard = _hazard;
   }
@@ -30,16 +28,16 @@ class Board2d {
     let y = coord.y;
     let idx = y * this.width + x;
     if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
-      this.cells[idx] = new BoardCell([], false, false);
+      this.cells[idx] = new BoardCell(false, false);
     }
     return this.cells[idx];
   }
 
   logCell(coord: Coord) : void {
-    console.log(`board2d at (${coord.x},${coord.y}) food: ${this.getCell(coord).food}`);
-    console.log(`board2d at (${coord.x},${coord.y}) hazard: ${this.getCell(coord).hazard}`);
-    console.log(`board2d at (${coord.x},${coord.y}) has snakes: ${this.getCell(coord).otherSnakes.length > 0}`);
-    console.log(`board2d at (${coord.x},${coord.y}) has you: ${this.getCell(coord).you !== undefined}`);
+    let cell = this.getCell(coord);
+    console.log(`board2d at (${coord.x},${coord.y}) food: ${cell.food}`);
+    console.log(`board2d at (${coord.x},${coord.y}) hazard: ${cell.hazard}`);
+    console.log(`board2d at (${coord.x},${coord.y}) has snake: ${cell.snakeCell !== undefined}`);
   }
 
   logBoard() : void {
@@ -51,10 +49,37 @@ class Board2d {
     }
   }
 
-  // setCell(newCell : BoardCell, x: number, y: number) : void {
-  //   this.cells[y * this.width + x] = newCell
-  // }
+  hasSnake(coord: Coord, inputSnake: Battlesnake) : boolean {
+    let cell = this.getCell(coord);
+    return cell.snakeCell ? cell.snakeCell.snake.id === inputSnake.id : false;
+  }
 }
+
+class Moves {
+  up: boolean;
+  down: boolean;
+  right: boolean;
+  left: boolean;
+
+  constructor(up: boolean, down: boolean, right: boolean, left: boolean) {
+    this.up = up;
+    this.down = down;
+    this.right = right;
+    this.left = left;
+  }
+}
+
+// returns true if snake length does not match body length, indicating it ate this turn
+function snakeHasEaten(snake: Battlesnake) {
+  return snake.length !== snake.body.length
+}
+
+function getRandomInt(min: number, max: number) : number {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+}
+
 
 function logCoord(c: Coord, descriptor: string) : void {
   console.log(descriptor + " x: %d, y: %d", c.x, c.y)
@@ -88,7 +113,7 @@ export function move(gameState: GameState): MoveResponse {
         right: true
     }
 
-    var myHead: Coord = gameState.you.head
+    const myHead: Coord = gameState.you.head
     const myNeck: Coord = gameState.you.body[1]
     const boardWidth: number = gameState.board.width
     const boardHeight: number = gameState.board.height
@@ -110,21 +135,12 @@ export function move(gameState: GameState): MoveResponse {
       function processSnake(inputSnake : Battlesnake) : void {
         inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
           let newSnakeCell : SnakeCell = {
-            id: inputSnake.id,
+            snake: inputSnake,
             isHead: coordsEqual(part, inputSnake.head),
             isTail: coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])
           },
               board2dCell = board2d.getCell(part)
-          if (inputSnake.id === you.id) {
-            //board2d.cells[part.x][part.y].you = newSnakeCell
-            board2dCell.you = newSnakeCell
-          } else {
-            //board2d.cells[part.x][part.y].otherSnakes.push(newSnakeCell)
-            // if (!board2dCell.otherSnakes) {
-            //   board2dCell.otherSnakes = []
-            // }
-            board2dCell.otherSnakes.push(newSnakeCell)
-          }
+          board2dCell.snakeCell = newSnakeCell
         })
       }
 
@@ -147,8 +163,8 @@ export function move(gameState: GameState): MoveResponse {
     const board2d = buildBoard2d(gameState.board, gameState.you)
 
     //let tempCell = {x: 0, y: 0} as Coord
-    console.log(`Turn: ${gameState.turn}`)
-    board2d.logBoard()
+    // console.log(`Turn: ${gameState.turn}`)
+    // board2d.logBoard()
 
     const priorities : { [key: string]: number } = {
       kill: 0,
@@ -250,20 +266,64 @@ export function move(gameState: GameState): MoveResponse {
       return body.slice(0, -1)
     }
 
-    // return true if food array contains the provided coordinate
-    function hasFood(coord: Coord, food: Coord[]) : boolean {
-      return food.some(foodUnit => foodUnit.x === coord.x && foodUnit.y === coord.y)
+    // return true if board has food at the provided coordinate
+    function hasFood(coord: Coord, board2d: Board2d) : boolean {
+      return board2d.getCell(coord).food
+      //return food.some(foodUnit => foodUnit.x === coord.x && foodUnit.y === coord.y)
     }
 
-    if (hasFood(myTail, snakeBites)) { // if our tail has food on it, we don't want to treat it as a valid tile to enter
-      myBody.forEach(partChecker)
-    } else {
-      getBodyWithoutTail(myBody).forEach(partChecker)
+    // if (hasFood(myTail, snakeBites)) { // if our tail has food on it, we don't want to treat it as a valid tile to enter
+    //   myBody.forEach(partChecker)
+    // } else {
+    //   getBodyWithoutTail(myBody).forEach(partChecker)
+    // }
+
+    // // TODO: Step 3 - Don't collide with others.
+    // // Use information in gameState to prevent your Battlesnake from colliding with others.
+    // otherSnakes.forEach(enemySnake => getBodyWithoutTail(enemySnake.body).forEach(partChecker))
+
+    function checkForSnakesAndWalls(me: Battlesnake, board: Board2d) {
+      function checkCell(x: number, y: number) : boolean {
+        if (x < 0) { // indicates a move into the left wall
+          return false
+        } else if (y < 0) { // indicates a move into the bottom wall
+          return false
+        } else if (x >= board.width) { // indicates a move into the right wall
+          return false
+        } else if (y >= board.height) { // indicates a move into the top wall
+          return false
+        }
+        let newCoord = {x, y} as Coord
+        let newCell = board.getCell(newCoord)
+        if (newCell.snakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
+          let snakeCell = newCell.snakeCell as SnakeCell // if we've reached here, we know it's not undefined
+          if (snakeCell.isTail && !snakeHasEaten(me)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
+            return true
+          } else { // cannot move into any other body part
+            return false
+          }
+        } else {
+          return true
+        }
+      }
+      
+      let myCoords : Coord = me.head
+
+      if (!checkCell(myCoords.x - 1, myCoords.y)) {
+        possibleMoves.left = false
+      }
+      if (!checkCell(myCoords.x, myCoords.y - 1)) {
+        possibleMoves.down = false
+      }
+      if (!checkCell(myCoords.x + 1, myCoords.y)) {
+        possibleMoves.right = false
+      }
+      if (!checkCell(myCoords.x, myCoords.y + 1)) {
+        possibleMoves.up = false
+      }
     }
 
-    // TODO: Step 3 - Don't collide with others.
-    // Use information in gameState to prevent your Battlesnake from colliding with others.
-    otherSnakes.forEach(enemySnake => getBodyWithoutTail(enemySnake.body).forEach(partChecker))
+    checkForSnakesAndWalls(gameState.you, board2d)
 
     // TODO: Step 4 - Find food.
     // Use information in gameState to seek out and find food.
@@ -337,52 +397,77 @@ export function move(gameState: GameState): MoveResponse {
 
     const foodSearchDepth = 2
     const nearbyFood = findFood(foodSearchDepth, snakeBites, myHead)
-    var foodToHunt : Coord | undefined
+    let foodToHunt : Coord[] = []
 
     for (let i: number = 1; i <= foodSearchDepth; i++) {
-      foodToHunt = nearbyFood[i] ? nearbyFood[i].shift(): undefined
-      if (foodToHunt) { // the hunt was successful! Don't look any farther
+      foodToHunt = nearbyFood[i]
+      if (foodToHunt && foodToHunt.length > 0) { // the hunt was successful! Don't look any farther
         break
       }
     }
 
-    if (foodToHunt) { // if we've found food nearby, navigate towards it
+    if (foodToHunt && foodToHunt.length > 0) { // if we've found food nearby, navigate towards one at random
       //console.log("food found within %d of head, navigating towards (%d,%d)", foodSearchDepth, foodToHunt.x, foodToHunt.y)
-      navigateTowards(myHead, foodToHunt)
+      navigateTowards(myHead, foodToHunt[getRandomInt(0, foodToHunt.length)])
     }
 
     // Finally, choose a move from the available safe moves.
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
     const safeMoves = Object.keys(possibleMoves).filter(key => possibleMoves[key])
     
+    function getCoordAfterMove(coord: Coord, move: string) : Coord {
+      let newPosition : Coord = {x: coord.x, y: coord.y} as Coord
+      switch (move) {
+        case "up":
+          newPosition.y = newPosition.y + 1
+          break;
+        case "down":
+          newPosition.y = newPosition.y - 1
+          break;
+        case "left":
+          newPosition.x = newPosition.x - 1
+          break
+        default: // case "right":
+          newPosition.x = newPosition.x + 1
+          break
+      }
+      return newPosition
+    }
+
+    // alternative to random movement, will return move that brings it closer to the midpoint of the map
+    function moveTowardsCenter(coord: Coord, board: Board, moves: string[]) : string {
+      let shortestMove : string = "up",
+          shortestDist: number,
+          midX = board.width / 2,
+          midY = board.height / 2,
+          midCoord = {x: midX, y: midY} as Coord
+
+      moves.forEach(function checkDistanceFromMiddle(move) {
+        let newCoord = getCoordAfterMove(coord, move)
+        let d = getDistance(newCoord, midCoord)
+        if (!shortestDist || d < shortestDist) {
+          shortestDist = d
+          shortestMove = move
+        } else if (d === shortestDist && getRandomInt(0, 1)) { // given another valid route towards middle, choose it half of the time
+          shortestMove = move
+        }
+      })
+      return shortestMove
+    }
+
     function getRandomMove(moves: string[]) : string {
-      let randomMove : string = moves[Math.floor(Math.random() * moves.length)]
+      let randomMove : string = moves[getRandomInt(0, moves.length)]
       //console.log("of available moves %s, choosing random move %s", moves.toString(), randomMove)
       return randomMove
     }
     
-    let chosenMove : string = safeMoves.length < 1 ? "up" : safeMoves.length === 1 ? safeMoves[0] : getRandomMove(safeMoves)
+    let chosenMove : string = safeMoves.length < 1 ? "up" : safeMoves.length === 1 ? safeMoves[0] : moveTowardsCenter(myHead, gameState.board, safeMoves)
     const response: MoveResponse = { // if no valid moves, go up by default
         move: chosenMove
         //move: safeMoves.length > 0 ? safeMoves[Math.floor(Math.random() * safeMoves.length)] : "up"
     }
-
-    // update myHead's position to the new position we will be moving to
-    // switch (chosenMove) {
-    //   case "up":
-    //     myHead.y = myHead.y + 1
-    //     break;
-    //   case "down":
-    //     myHead.y = myHead.y - 1
-    //     break;
-    //   case "left":
-    //     myHead.x = myHead.x - 1
-    //     break
-    //   default: // case "right":
-    //     myHead.x = myHead.x + 1
-    //     break
-    // }
-    //logCoord(myHead, "new position")
+    
+    //logCoord(getCoordAfterMove(myHead, chosenMove), "new position")
 
     // if (coordsEqual(myHead, myTail)) {
     //   console.log("new position (%d,%d) is the same as the old tail position!", myHead.x, myHead.y)

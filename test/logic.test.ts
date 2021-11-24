@@ -89,3 +89,9 @@ describe('BattleSnake can chase tail', () => {
     }
   })
 })
+
+// TODO: tail chaser, but if the snake has just eaten
+// TODO: Board2d validator
+// TODO: Wall tester
+// TODO: Self body move tester
+// TODO: Other snake body move tester
