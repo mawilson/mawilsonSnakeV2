@@ -83,14 +83,13 @@ export interface GameState {
 }
 
 export interface SnakeCell {
-  id: string;
+  snake: Battlesnake;
   isHead: boolean;
   isTail: boolean;
 }
 
 export interface IBoardCell {
-  you?: SnakeCell;
-  otherSnakes: SnakeCell[];
+  snakeCell?: SnakeCell;
   food: boolean;
   hazard: boolean;
 }
