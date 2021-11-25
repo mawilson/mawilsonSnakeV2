@@ -46,7 +46,7 @@ export interface Game {
   source: string;
 }
 
-export interface Coord {
+export interface ICoord {
   x: number;
   y: number;
 }
@@ -55,9 +55,9 @@ export interface Battlesnake {
   id: string;
   name: string;
   health: number;
-  body: Coord[];
+  body: ICoord[];
   latency: string;
-  head: Coord;
+  head: ICoord;
   length: number;
 
   // Used in non-standard game modes
@@ -68,11 +68,11 @@ export interface Battlesnake {
 export interface Board {
   height: number;
   width: number;
-  food: Coord[];
+  food: ICoord[];
   snakes: Battlesnake[];
 
   // Used in non-standard game modes
-  hazards: Coord[];
+  hazards: ICoord[];
 }
 
 export interface GameState {
@@ -92,6 +92,7 @@ export interface IBoardCell {
   snakeCell?: SnakeCell;
   food: boolean;
   hazard: boolean;
+  coord: ICoord
 }
 
 // export interface IBoard2d {

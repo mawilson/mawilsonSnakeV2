@@ -1,14 +1,45 @@
-import { InfoResponse, GameState, MoveResponse, Game, Coord, Battlesnake, Board, IBoardCell, SnakeCell } from "./types"
+import { InfoResponse, GameState, MoveResponse, Game, ICoord, Battlesnake, Board, IBoardCell, SnakeCell } from "./types"
+
+import { writeFile, createWriteStream } from 'fs';
+let consoleWriteStream = createWriteStream("consoleLogs.txt", {
+  encoding: "utf8"
+})
+
+function logToFile(str: string) {
+  console.log(str)
+  consoleWriteStream.write(`${str}
+  `)
+  // writeFile('message.txt', str, (err) => {
+  //   if (err) throw err;
+  //   console.log('The file has been saved!');
+  // });
+}
+
+class Coord implements ICoord {
+  x: number
+  y: number
+
+  constructor(x: number, y: number) {
+    this.x = x
+    this.y = y
+  }
+}
 
 class BoardCell implements IBoardCell {
   snakeCell?: SnakeCell;
   food: boolean;
   hazard: boolean;
+  coord: Coord;
 
-  constructor(_food: boolean, _hazard: boolean, _snakeCell?: SnakeCell) {
+  constructor(_coord: Coord, _food: boolean, _hazard: boolean, _snakeCell?: SnakeCell) {
     this.snakeCell = _snakeCell;
     this.food = _food;
     this.hazard = _hazard;
+    this.coord = _coord;
+  }
+
+  logSelf(str? : string) : void {
+    logToFile(`${str}; BoardCell at (${this.coord.x},${this.coord.y}) has snake: ${!!this.snakeCell}; has food: ${this.food}; has hazard: ${this.hazard}`);
   }
 }
 
@@ -28,22 +59,23 @@ class Board2d {
     let y = coord.y;
     let idx = y * this.width + x;
     if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
-      this.cells[idx] = new BoardCell(false, false);
+      this.cells[idx] = new BoardCell(new Coord(x, y), false, false);
     }
     return this.cells[idx];
   }
 
   logCell(coord: Coord) : void {
     let cell = this.getCell(coord);
-    console.log(`board2d at (${coord.x},${coord.y}) food: ${cell.food}`);
-    console.log(`board2d at (${coord.x},${coord.y}) hazard: ${cell.hazard}`);
-    console.log(`board2d at (${coord.x},${coord.y}) has snake: ${cell.snakeCell !== undefined}`);
+    cell.logSelf();
+    // console.log(`board2d at (${coord.x},${coord.y}) food: ${cell.food}`);
+    // console.log(`board2d at (${coord.x},${coord.y}) hazard: ${cell.hazard}`);
+    // console.log(`board2d at (${coord.x},${coord.y}) has snake: ${cell.snakeCell !== undefined}`);
   }
 
   logBoard() : void {
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
-        let tempCoord = {x: i, y: j} as Coord;
+        let tempCoord = new Coord(i, j);
         this.logCell(tempCoord);
       }
     }
@@ -67,11 +99,30 @@ class Moves {
     this.right = right;
     this.left = left;
   }
+
+  validMoves() : string[] {
+    let moves : string[] = [];
+    if (this.up) {
+      moves.push("up");
+    }
+    if (this.down) {
+      moves.push("down");
+    }
+    if (this.left) {
+      moves.push("left");
+    }
+    if (this.right) {
+      moves.push("right");
+    }
+    return moves;
+  }
 }
 
-// returns true if snake length does not match body length, indicating it ate this turn
+// returns true if snake health is max, indicating it ate this turn
 function snakeHasEaten(snake: Battlesnake) {
-  return snake.length !== snake.body.length
+  //logToFile(`snakeHasEaten: snake at (${snake.head.x},${snake.head.y}) length: ${snake.length}; body length: ${snake.body.length}; snake health: ${snake.health}`)
+  //return snake.length !== snake.body.length
+  return snake.health === 100
 }
 
 function getRandomInt(min: number, max: number) : number {
@@ -105,13 +156,15 @@ export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
 }
 
+// TODO: adjust food search depth based on food priority
+// calculate food priority based on size of self & other snakes
+// calculate food priority based on turn
+// turn off center focus early in game, back on later
+// move towards kisses of death if you are the projected winner
 export function move(gameState: GameState): MoveResponse {
-    let possibleMoves: { [key: string]: boolean } = {
-        up: true,
-        down: true,
-        left: true,
-        right: true
-    }
+    //logToFile(`turn: ${gameState.turn}`)    
+    
+    let possibleMoves : Moves = new Moves(true, true, true, true)
 
     const myHead: Coord = gameState.you.head
     const myNeck: Coord = gameState.you.body[1]
@@ -162,7 +215,7 @@ export function move(gameState: GameState): MoveResponse {
 
     const board2d = buildBoard2d(gameState.board, gameState.you)
 
-    //let tempCell = {x: 0, y: 0} as Coord
+    //let tempCell = new Coord(0, 0)
     // console.log(`Turn: ${gameState.turn}`)
     // board2d.logBoard()
 
@@ -198,31 +251,31 @@ export function move(gameState: GameState): MoveResponse {
     //console.log("myHead x: %d, y: %d", myHead.x, myHead.y)
 
     // Step 0: Don't let your Battlesnake move back on its own neck
-    if (myNeck.x < myHead.x) {
-        possibleMoves.left = false
-    } else if (myNeck.x > myHead.x) {
-        possibleMoves.right = false
-    } else if (myNeck.y < myHead.y) {
-        possibleMoves.down = false
-    } else if (myNeck.y > myHead.y) {
-        possibleMoves.up = false
-    }
+    // if (myNeck.x < myHead.x) {
+    //     possibleMoves.left = false
+    // } else if (myNeck.x > myHead.x) {
+    //     possibleMoves.right = false
+    // } else if (myNeck.y < myHead.y) {
+    //     possibleMoves.down = false
+    // } else if (myNeck.y > myHead.y) {
+    //     possibleMoves.up = false
+    // }
 
     // TODO: Step 1 - Don't hit walls.
     // Use information in gameState to prevent your Battlesnake from moving beyond the boundaries of the board.
     
-    if (myHead.x === 0) {
-      possibleMoves.left = false
-    }
-    if (myHead.x === (boardWidth - 1)) {
-      possibleMoves.right = false
-    }
-    if (myHead.y === 0) {
-      possibleMoves.down = false
-    }
-    if (myHead.y === (boardHeight - 1)) {
-      possibleMoves.up = false
-    }
+    // if (myHead.x === 0) {
+    //   possibleMoves.left = false
+    // }
+    // if (myHead.x === (boardWidth - 1)) {
+    //   possibleMoves.right = false
+    // }
+    // if (myHead.y === 0) {
+    //   possibleMoves.down = false
+    // }
+    // if (myHead.y === (boardHeight - 1)) {
+    //   possibleMoves.up = false
+    // }
 
     // TODO: Step 2 - Don't hit yourself.
     // Use information in gameState to prevent your Battlesnake from colliding with itself.
@@ -247,20 +300,20 @@ export function move(gameState: GameState): MoveResponse {
       return (c1.y === c2.y && c2.x - c1.x === 1)
     }
 
-    function partChecker(part: Coord): void {
-      if (isAbove(part, myHead)) {
-        possibleMoves.up = false
-      }
-      if (isBelow(part, myHead)) {
-        possibleMoves.down = false
-      }
-      if (isRight(part, myHead)) {
-        possibleMoves.right = false
-      }
-      if (isLeft(part, myHead)) {
-        possibleMoves.left = false
-      }
-    }
+    // function partChecker(part: Coord): void {
+    //   if (isAbove(part, myHead)) {
+    //     possibleMoves.up = false
+    //   }
+    //   if (isBelow(part, myHead)) {
+    //     possibleMoves.down = false
+    //   }
+    //   if (isRight(part, myHead)) {
+    //     possibleMoves.right = false
+    //   }
+    //   if (isLeft(part, myHead)) {
+    //     possibleMoves.left = false
+    //   }
+    // }
 
     function getBodyWithoutTail(body: Coord[]): Coord[] {
       return body.slice(0, -1)
@@ -282,7 +335,7 @@ export function move(gameState: GameState): MoveResponse {
     // // Use information in gameState to prevent your Battlesnake from colliding with others.
     // otherSnakes.forEach(enemySnake => getBodyWithoutTail(enemySnake.body).forEach(partChecker))
 
-    function checkForSnakesAndWalls(me: Battlesnake, board: Board2d) {
+    function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: Moves) {
       function checkCell(x: number, y: number) : boolean {
         if (x < 0) { // indicates a move into the left wall
           return false
@@ -293,11 +346,12 @@ export function move(gameState: GameState): MoveResponse {
         } else if (y >= board.height) { // indicates a move into the top wall
           return false
         }
-        let newCoord = {x, y} as Coord
+        let newCoord = new Coord(x, y)
         let newCell = board.getCell(newCoord)
         if (newCell.snakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
           let snakeCell = newCell.snakeCell as SnakeCell // if we've reached here, we know it's not undefined
-          if (snakeCell.isTail && !snakeHasEaten(me)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
+          //logToFile(`snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake)}`)
+          if (snakeCell.isTail && !snakeHasEaten(snakeCell.snake)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
             return true
           } else { // cannot move into any other body part
             return false
@@ -310,20 +364,107 @@ export function move(gameState: GameState): MoveResponse {
       let myCoords : Coord = me.head
 
       if (!checkCell(myCoords.x - 1, myCoords.y)) {
-        possibleMoves.left = false
+        moves.left = false
       }
       if (!checkCell(myCoords.x, myCoords.y - 1)) {
-        possibleMoves.down = false
+        moves.down = false
       }
       if (!checkCell(myCoords.x + 1, myCoords.y)) {
-        possibleMoves.right = false
+        moves.right = false
       }
       if (!checkCell(myCoords.x, myCoords.y + 1)) {
-        possibleMoves.up = false
+        moves.up = false
       }
     }
 
-    checkForSnakesAndWalls(gameState.you, board2d)
+    checkForSnakesAndWalls(gameState.you, board2d, possibleMoves)
+
+    function findKissCells(me: Battlesnake, board2d: Board2d, moves: Moves) : void {
+      function getSurroundingCells(coord : Coord, directionFrom: string) : BoardCell[] {
+        let surroundingCells : BoardCell[] = []
+        if (coord.x - 1 >= 0 && directionFrom !== "left") {
+          surroundingCells.push(board2d.getCell(new Coord(coord.x - 1, coord.y)))
+        }
+        if (coord.x + 1 < board2d.width && directionFrom !== "right") {
+          surroundingCells.push(board2d.getCell(new Coord(coord.x + 1, coord.y)))
+        }
+        if (coord.y - 1 >= 0 && directionFrom !== "down") {
+          surroundingCells.push(board2d.getCell(new Coord(coord.x, coord.y - 1)))
+        }
+        if (coord.y + 1 < board2d.height && directionFrom !== "up") {
+          surroundingCells.push(board2d.getCell(new Coord(coord.x, coord.y + 1)))
+        }
+
+        //logToFile(`cells surrounding (${coord.x},${coord.y}) for ${me.id}`)
+        //surroundingCells.forEach(cell => cell.logSelf(me.id))
+
+        return surroundingCells
+      }
+      
+      let myLength = me.length
+      let myHead = me.head
+      if (moves.up) {
+        let amInDanger : boolean = false
+        let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
+        let neighborCells = getSurroundingCells(newCoord, "down")
+        neighborCells.forEach(function checkIfInDanger(cell) {
+          if (cell.snakeCell && cell.snakeCell.isHead && (cell.snakeCell.snake.length >= myLength)) {
+            //logToFile(`snake ${me.id} at (${myHead.x},${myHead.y}) thinks (${newCoord.x},${newCoord.y}) is dangerous due to neighbor snake at (${cell.coord.x},${cell.coord.y})`)
+            amInDanger = true
+          }
+        })
+        if (amInDanger && (moves.left || moves.right || moves.down)) { // moving here would likely result in at least one bad kiss
+          moves.up = false
+        }
+      }
+
+      if (moves.down) {
+        let amInDanger : boolean = false
+        let newCoord : Coord = new Coord(myHead.x, myHead.y - 1)
+        let neighborCells = getSurroundingCells(newCoord, "up")
+        neighborCells.forEach(function checkIfInDanger(cell) {
+          if (cell.snakeCell && cell.snakeCell.isHead && (cell.snakeCell.snake.length >= myLength)) {
+            //logToFile(`snake ${me.id} at (${myHead.x},${myHead.y}) thinks (${newCoord.x},${newCoord.y}) is dangerous due to neighbor snake at (${cell.coord.x},${cell.coord.y})`)
+            amInDanger = true
+          }
+        })
+        if (amInDanger && (moves.left || moves.right || moves.up)) { // moving here would likely result in at least one bad kiss
+          moves.down = false
+        }
+      }
+
+      if (moves.right) {
+        let amInDanger : boolean = false
+        let newCoord : Coord = new Coord(myHead.x + 1, myHead.y)
+        let neighborCells = getSurroundingCells(newCoord, "left")
+        neighborCells.forEach(function checkIfInDanger(cell) {
+          if (cell.snakeCell && cell.snakeCell.isHead && (cell.snakeCell.snake.length >= myLength)) {
+            //logToFile(`snake ${me.id} at (${myHead.x},${myHead.y}) thinks (${newCoord.x},${newCoord.y}) is dangerous due to neighbor snake at (${cell.coord.x},${cell.coord.y})`)
+            amInDanger = true
+          }
+        })
+        if (amInDanger && (moves.left || moves.up || moves.down)) { // moving here would likely result in at least one bad kiss
+          moves.right = false
+        }
+      }
+
+      if (moves.left) {
+        let amInDanger : boolean = false
+        let newCoord : Coord = new Coord(myHead.x - 1, myHead.y)
+        let neighborCells = getSurroundingCells(newCoord, "right")
+        neighborCells.forEach(function checkIfInDanger(cell) {
+          if (cell.snakeCell && cell.snakeCell.isHead && (cell.snakeCell.snake.length >= myLength)) {
+            //logToFile(`snake ${me.id} at (${myHead.x},${myHead.y}) thinks (${newCoord.x},${newCoord.y}) is dangerous due to neighbor snake at (${cell.coord.x},${cell.coord.y})`)
+            amInDanger = true
+          }
+        })
+        if (amInDanger && (moves.right || moves.up || moves.down)) { // moving here would likely result in at least one bad kiss
+          moves.left = false
+        }
+      }
+    }
+
+    findKissCells(gameState.you, board2d, possibleMoves)
 
     // TODO: Step 4 - Find food.
     // Use information in gameState to seek out and find food.
@@ -358,39 +499,39 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     // navigate snakeHead towards newCoord by disallowing directions that move away from it - so long as that doesn't immediately kill us
-    function navigateTowards(snakeHead : Coord, newCoord: Coord) {
+    function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves) {
       if (snakeHead.x > newCoord.x) { // snake is right of newCoord, no right
         // don't disallow the only remaining valid route
-        if (possibleMoves.left || possibleMoves.up || possibleMoves.down) {
-          possibleMoves.right = false
+        if (moves.left || moves.up || moves.down) {
+          moves.right = false
         }
       } else if (snakeHead.x < newCoord.x) { // snake is left of newCoord, no left
       // don't disallow the only remaining valid route
-        if (possibleMoves.right || possibleMoves.up || possibleMoves.down) {
-          possibleMoves.left = false
+        if (moves.right || moves.up || moves.down) {
+          moves.left = false
         }
       } else { // snake is in same column as newCoord, don't move left or right
         // don't disallow the only remaining valid routes
-        if (possibleMoves.up || possibleMoves.down) {
-          possibleMoves.right = false
-          possibleMoves.left = false
+        if (moves.up || moves.down) {
+          moves.right = false
+          moves.left = false
         }
       }
       if (snakeHead.y > newCoord.y) { // snake is above newCoord, no up
       // don't disallow the only remaining valid route
-        if (possibleMoves.right || possibleMoves.left || possibleMoves.down) {
-          possibleMoves.up = false
+        if (moves.right || moves.left || moves.down) {
+          moves.up = false
         }
       } else if (snakeHead.y < newCoord.y) { // snake is below newCoord, no down
       // don't disallow the only remaining valid route
-        if (possibleMoves.right || possibleMoves.up || possibleMoves.left) {
-          possibleMoves.down = false
+        if (moves.right || moves.up || moves.left) {
+          moves.down = false
         }
       } else { // snake is in same row as newCoord, don't move up or down
         // don't disallow the only remaining valid routes
-        if (possibleMoves.left || possibleMoves.right) {
-          possibleMoves.up = false
-          possibleMoves.down = false
+        if (moves.left || moves.right) {
+          moves.up = false
+          moves.down = false
         }
       }
     }
@@ -408,15 +549,15 @@ export function move(gameState: GameState): MoveResponse {
 
     if (foodToHunt && foodToHunt.length > 0) { // if we've found food nearby, navigate towards one at random
       //console.log("food found within %d of head, navigating towards (%d,%d)", foodSearchDepth, foodToHunt.x, foodToHunt.y)
-      navigateTowards(myHead, foodToHunt[getRandomInt(0, foodToHunt.length)])
+      navigateTowards(myHead, foodToHunt[getRandomInt(0, foodToHunt.length)], possibleMoves)
     }
 
     // Finally, choose a move from the available safe moves.
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
-    const safeMoves = Object.keys(possibleMoves).filter(key => possibleMoves[key])
+    const safeMoves = possibleMoves.validMoves()
     
     function getCoordAfterMove(coord: Coord, move: string) : Coord {
-      let newPosition : Coord = {x: coord.x, y: coord.y} as Coord
+      let newPosition : Coord = new Coord(coord.x, coord.y)
       switch (move) {
         case "up":
           newPosition.y = newPosition.y + 1
@@ -440,7 +581,7 @@ export function move(gameState: GameState): MoveResponse {
           shortestDist: number,
           midX = board.width / 2,
           midY = board.height / 2,
-          midCoord = {x: midX, y: midY} as Coord
+          midCoord = new Coord(midX, midY)
 
       moves.forEach(function checkDistanceFromMiddle(move) {
         let newCoord = getCoordAfterMove(coord, move)
@@ -474,6 +615,8 @@ export function move(gameState: GameState): MoveResponse {
     // }
 
     //checkTime()
+
+    //snakeHasEaten(gameState.you)
 
     //console.log(`${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
     return response
