@@ -142,8 +142,8 @@ export function info(): InfoResponse {
         apiversion: "1",
         author: "waryferryman",
         color: "#ff00ff",
-        head: "shades",
-        tail: "skinny"
+        head: "bendr",
+        tail: "freckled"
     }
     return response
 }
@@ -159,6 +159,7 @@ export function end(gameState: GameState): void {
 // TODO: adjust food search depth based on food priority
 // calculate food priority based on size of self & other snakes
 // calculate food priority based on turn
+// calculate food priority based on current health
 // turn off center focus early in game, back on later
 // move towards kisses of death if you are the projected winner
 export function move(gameState: GameState): MoveResponse {
@@ -166,11 +167,12 @@ export function move(gameState: GameState): MoveResponse {
     
     let possibleMoves : Moves = new Moves(true, true, true, true)
 
-    const myHead: Coord = gameState.you.head
-    const myNeck: Coord = gameState.you.body[1]
+    const myself = gameState.you
+    const myHead: Coord = myself.head
+    const myNeck: Coord = myself.body[1]
     const boardWidth: number = gameState.board.width
     const boardHeight: number = gameState.board.height
-    const myBody: Coord[] = gameState.you.body
+    const myBody: Coord[] = myself.body
     const otherSnakes: Battlesnake[] = gameState.board.snakes
     const myTail: Coord = myBody[myBody.length - 1]
     const snakeBites = gameState.board.food
@@ -213,7 +215,7 @@ export function move(gameState: GameState): MoveResponse {
       return board2d
     }
 
-    const board2d = buildBoard2d(gameState.board, gameState.you)
+    const board2d = buildBoard2d(gameState.board, myself)
 
     //let tempCell = new Coord(0, 0)
     // console.log(`Turn: ${gameState.turn}`)
@@ -228,7 +230,7 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     const timeout = gameState.game.timeout
-    const myLatency = gameState.you.latency
+    const myLatency = myself.latency
     const turn = gameState.turn
     
     const timeBeginning = Date.now()
@@ -377,7 +379,7 @@ export function move(gameState: GameState): MoveResponse {
       }
     }
 
-    checkForSnakesAndWalls(gameState.you, board2d, possibleMoves)
+    checkForSnakesAndWalls(myself, board2d, possibleMoves)
 
     function findKissCells(me: Battlesnake, board2d: Board2d, moves: Moves) : void {
       function getSurroundingCells(coord : Coord, directionFrom: string) : BoardCell[] {
@@ -464,7 +466,7 @@ export function move(gameState: GameState): MoveResponse {
       }
     }
 
-    findKissCells(gameState.you, board2d, possibleMoves)
+    findKissCells(myself, board2d, possibleMoves)
 
     // TODO: Step 4 - Find food.
     // Use information in gameState to seek out and find food.
@@ -536,7 +538,38 @@ export function move(gameState: GameState): MoveResponse {
       }
     }
 
-    const foodSearchDepth = 2
+    function calculateFoodSearchDepth(me: Battlesnake, board2d: Board2d) : number {
+      let depth : number = 2
+      if (me.health < 10) { // search for food from farther away if health is lower
+        depth = 8
+      } else if (me.health < 20) {
+        depth = 5
+      } else if (me.health < 30) {
+        depth = 4
+      } else if (me.health < 40) {
+        depth = 3
+      } else if (me.health < 50) {
+        depth = 2
+      }
+
+      if (gameState.turn < 20) { // prioritize food slightly more earlier in game
+        depth = depth > 4 ? depth : 4
+      }
+
+      let kingOfTheSnakes = true
+      gameState.board.snakes.forEach(function isSnakeBigger(snake) {
+        if (me.length - snake.length < 2) { // if any snake is within 2 lengths of me, I am not fat enough to deprioritize food
+          kingOfTheSnakes = false
+        }
+      })
+      if (kingOfTheSnakes) {
+        depth = 0 // I don't need it
+      }
+
+      return depth
+    }
+
+    const foodSearchDepth = calculateFoodSearchDepth(myself, board2d)
     const nearbyFood = findFood(foodSearchDepth, snakeBites, myHead)
     let foodToHunt : Coord[] = []
 
@@ -551,6 +584,7 @@ export function move(gameState: GameState): MoveResponse {
       //console.log("food found within %d of head, navigating towards (%d,%d)", foodSearchDepth, foodToHunt.x, foodToHunt.y)
       navigateTowards(myHead, foodToHunt[getRandomInt(0, foodToHunt.length)], possibleMoves)
     }
+
 
     // Finally, choose a move from the available safe moves.
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
@@ -602,10 +636,24 @@ export function move(gameState: GameState): MoveResponse {
       return randomMove
     }
     
-    let chosenMove : string = safeMoves.length < 1 ? "up" : safeMoves.length === 1 ? safeMoves[0] : moveTowardsCenter(myHead, gameState.board, safeMoves)
+    function decideMove(moves: string[]) : string {
+      if (moves.length < 1) {
+        return "up"
+      }
+      if (moves.length === 1) {
+        return moves[0]
+      }
+      if (myself.length < 15) { // shorter snakes can afford to skirt the edges better
+        return getRandomMove(moves)
+      } else {
+        return moveTowardsCenter(myHead, gameState.board, moves)
+      }
+    }
+
+    let chosenMove : string = decideMove(safeMoves)
     const response: MoveResponse = { // if no valid moves, go up by default
         move: chosenMove
-        //move: safeMoves.length > 0 ? safeMoves[Math.floor(Math.random() * safeMoves.length)] : "up"
+        //move: safeMoves.length > 0 ? getRandomMove(safeMoves) : "up"
     }
     
     //logCoord(getCoordAfterMove(myHead, chosenMove), "new position")
@@ -616,7 +664,7 @@ export function move(gameState: GameState): MoveResponse {
 
     //checkTime()
 
-    //snakeHasEaten(gameState.you)
+    //snakeHasEaten(myself)
 
     //console.log(`${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
     return response
