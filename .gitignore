@@ -6,4 +6,4 @@
 node_modules
 build
 
-consoleLogs.txt
+*.txt

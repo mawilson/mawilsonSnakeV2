@@ -1,5 +1,6 @@
 import { info, move, buildBoard2d } from '../src/logic'
-import { Battlesnake, ICoord, GameState, MoveResponse, RulesetSettings } from '../src/types';
+import { GameState, MoveResponse, RulesetSettings } from '../src/types';
+import { Battlesnake, Coord } from '../src/classes'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
 // x f z
@@ -43,20 +44,6 @@ function createGameState(me: Battlesnake, turn: number): GameState {
     }
 }
 
-function createBattlesnake(id: string, body: ICoord[], health: number): Battlesnake {
-    return {
-        id: id,
-        name: id,
-        health: health,
-        body: body,
-        latency: "",
-        head: body[0],
-        length: body.length,
-        shout: "",
-        squad: ""
-    }
-}
-
 describe('Battlesnake API Version', () => {
     it('should be api version 1', () => {
         const result = info()
@@ -69,7 +56,7 @@ describe('Battlesnake Moves', () => {
       // x x x
       // s s x
       // h t x
-      const me = createBattlesnake("me", [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }], 100)
+      const me = new Battlesnake("me", "me", 100, [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }], "100", "", "")
       const gameState = createGameState(me, 0)
 
       // Act 1,000x (this isn't a great way to test, but it's okay for starting out)
@@ -87,7 +74,8 @@ describe('BattleSnake can chase tail', () => {
     // x x x
     // s s x
     // h t x
-    const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], 50) // 50 health means it hasn't just eaten
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], "100", "", "") // 50 health means it hasn't just eaten
+    //const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], 50) // 50 health means it hasn't just eaten
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
@@ -102,7 +90,7 @@ describe('BattleSnake will not chase tail after eating', () => {
     // x x x
     // t x x
     // h x x
-    const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 0, y: 1}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 0}, {x: 0, y: 1}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
@@ -114,10 +102,10 @@ describe('BattleSnake will not chase tail after eating', () => {
 
 describe('Board2d accurately maps game state', () => {
   it('should know where snakes, food, and hazards are', () => {
+    // x f z
     // t f z
-    // s f z
     // h x z
-    const snek = createBattlesnake("snek", [{x: 0, y: 0}, {x: 0, y: 1}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 0}, {x: 0, y: 1}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
     const gameBoard = gameState.board
 
@@ -153,7 +141,7 @@ describe('BattleSnake will not eat a left wall', () => {
     // x x x
     // h s t
     // x x x
-    const snek = createBattlesnake("snek", [{x: 0, y: 1}, {x: 1, y: 1}, {x: 2, y: 1}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 2, y: 1}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
@@ -168,7 +156,7 @@ describe('BattleSnake will not eat a right wall', () => {
     // x x x
     // t s h
     // x x x
-    const snek = createBattlesnake("snek", [{x: 10, y: 1}, {x: 9, y: 1}, {x: 8, y: 1}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 10, y: 1}, {x: 9, y: 1}, {x: 8, y: 1}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
@@ -183,7 +171,7 @@ describe('BattleSnake will not eat an up wall', () => {
     // x h x
     // x s x
     // x t x
-    const snek = createBattlesnake("snek", [{x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 8}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 8}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
@@ -198,7 +186,7 @@ describe('BattleSnake will not eat a down wall', () => {
     // x t x
     // x s x
     // x h x
-    const snek = createBattlesnake("snek", [{x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
@@ -213,7 +201,7 @@ describe('Battlesnake will not eat its own body', () => {
     // x s s
     // x s h
     // x t x
-    const snek = createBattlesnake("snek", [{x: 2, y: 1}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 1, y: 0}], 100) // 100 health means it just ate
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 1}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 1, y: 0}], "100", "", "")
     const gameState = createGameState(snek, 30) // arbitrary turn 30
 
     for (let i = 0; i < 50; i++) {
