@@ -15,14 +15,14 @@ export interface MoveResponse {
 }
 
 export interface RoyaleSettings {
-  shrinkEveryNTurns: number
+  shrinkEveryNTurns: number;
 }
 
 export interface SquadSettings {
   allowBodyCollisions: boolean;
   sharedElimination: boolean;
   sharedHealth: boolean;
-  sharedLength: boolean
+  sharedLength: boolean;
 }
 
 export interface RulesetSettings {
@@ -51,7 +51,7 @@ export interface ICoord {
   y: number;
 }
 
-export interface Battlesnake {
+export interface IBattlesnake {
   id: string;
   name: string;
   health: number;
@@ -80,19 +80,6 @@ export interface GameState {
   turn: number;
   board: Board;
   you: Battlesnake;
-}
-
-export interface SnakeCell {
-  snake: Battlesnake;
-  isHead: boolean;
-  isTail: boolean;
-}
-
-export interface IBoardCell {
-  snakeCell?: SnakeCell;
-  food: boolean;
-  hazard: boolean;
-  coord: ICoord
 }
 
 // export interface IBoard2d {
