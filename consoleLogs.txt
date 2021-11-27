@@ -1,0 +1,1201 @@
+snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move right
+  totally-unique-game-id MOVE 0: right
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: false and has eaten: false
+  of available moves up,right, choosing random move up
+  totally-unique-game-id MOVE 0: up
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,0) is a tail: true and has eaten: false
+  snakeCell at (0,1) is a tail: false and has eaten: false
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (0,1) is a tail: true and has eaten: true
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (9,1) is a tail: false and has eaten: true
+  of available moves up,down, choosing random move up
+  totally-unique-game-id MOVE 30: up
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,9) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  of available moves left,right, choosing random move left
+  totally-unique-game-id MOVE 30: left
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move down
+  totally-unique-game-id MOVE 30: down
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  snakeCell at (1,1) is a tail: false and has eaten: true
+  snakeCell at (2,2) is a tail: false and has eaten: true
+  of available moves down,right, choosing random move right
+  totally-unique-game-id MOVE 30: right
+  

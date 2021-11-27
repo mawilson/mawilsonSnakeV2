@@ -15,14 +15,14 @@ export interface MoveResponse {
 }
 
 export interface RoyaleSettings {
-  shrinkEveryNTurns: number
+  shrinkEveryNTurns: number;
 }
 
 export interface SquadSettings {
   allowBodyCollisions: boolean;
   sharedElimination: boolean;
   sharedHealth: boolean;
-  sharedLength: boolean
+  sharedLength: boolean;
 }
 
 export interface RulesetSettings {
@@ -92,7 +92,7 @@ export interface IBoardCell {
   snakeCell?: SnakeCell;
   food: boolean;
   hazard: boolean;
-  coord: ICoord
+  coord: ICoord;
 }
 
 // export interface IBoard2d {

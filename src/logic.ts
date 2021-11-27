@@ -9,10 +9,6 @@ function logToFile(str: string) {
   console.log(str)
   consoleWriteStream.write(`${str}
   `)
-  // writeFile('message.txt', str, (err) => {
-  //   if (err) throw err;
-  //   console.log('The file has been saved!');
-  // });
 }
 
 class Coord implements ICoord {
@@ -119,10 +115,10 @@ class Moves {
 }
 
 // returns true if snake health is max, indicating it ate this turn
-function snakeHasEaten(snake: Battlesnake) {
+function snakeHasEaten(snake: Battlesnake, gameState: GameState) {
   //logToFile(`snakeHasEaten: snake at (${snake.head.x},${snake.head.y}) length: ${snake.length}; body length: ${snake.body.length}; snake health: ${snake.health}`)
   //return snake.length !== snake.body.length
-  return snake.health === 100
+  return (snake.health === 100 && gameState.turn !== 0)
 }
 
 function getRandomInt(min: number, max: number) : number {
@@ -134,6 +130,10 @@ function getRandomInt(min: number, max: number) : number {
 
 function logCoord(c: Coord, descriptor: string) : void {
   console.log(descriptor + " x: %d, y: %d", c.x, c.y)
+}
+
+function coordsEqual(c1: Coord, c2: Coord): boolean {
+  return (c1.x === c2.x && c1.y === c2.y)
 }
 
 export function info(): InfoResponse {
@@ -156,6 +156,40 @@ export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
 }
 
+export function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
+    // const board2d : Board2d = {
+    //   cells: Array.from(Array(board.width), () => new Array(board.height))
+    // }
+    const board2d = new Board2d(board.width, board.height)
+
+    function processSnake(inputSnake : Battlesnake) : void {
+      inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
+        let newSnakeCell : SnakeCell = {
+          snake: inputSnake,
+          isHead: coordsEqual(part, inputSnake.head),
+          isTail: coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])
+        },
+            board2dCell = board2d.getCell(part)
+        board2dCell.snakeCell = newSnakeCell
+      })
+    }
+
+    processSnake(you)
+    board.snakes.forEach(processSnake)
+
+    board.food.forEach(function addFood(coord : Coord) : void {
+      let board2dCell = board2d.getCell(coord)
+      board2dCell.food = true
+    })
+
+    board.hazards.forEach(function addHazard(coord: Coord) : void {
+      let board2dCell = board2d.getCell(coord)
+      board2dCell.hazard = true
+    })
+
+    return board2d
+  }
+
 // TODO: adjust food search depth based on food priority
 // calculate food priority based on size of self & other snakes
 // calculate food priority based on turn
@@ -176,44 +210,6 @@ export function move(gameState: GameState): MoveResponse {
     const otherSnakes: Battlesnake[] = gameState.board.snakes
     const myTail: Coord = myBody[myBody.length - 1]
     const snakeBites = gameState.board.food
-
-    function coordsEqual(c1: Coord, c2: Coord): boolean {
-      return (c1.x === c2.x && c1.y === c2.y)
-    }
-
-    function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
-      // const board2d : Board2d = {
-      //   cells: Array.from(Array(board.width), () => new Array(board.height))
-      // }
-      const board2d = new Board2d(board.width, board.height)
-
-      function processSnake(inputSnake : Battlesnake) : void {
-        inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
-          let newSnakeCell : SnakeCell = {
-            snake: inputSnake,
-            isHead: coordsEqual(part, inputSnake.head),
-            isTail: coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])
-          },
-              board2dCell = board2d.getCell(part)
-          board2dCell.snakeCell = newSnakeCell
-        })
-      }
-
-      processSnake(you)
-      board.snakes.forEach(processSnake)
-
-      board.food.forEach(function addFood(coord : Coord) : void {
-        let board2dCell = board2d.getCell(coord)
-        board2dCell.food = true
-      })
-
-      board.hazards.forEach(function addHazard(coord: Coord) : void {
-        let board2dCell = board2d.getCell(coord)
-        board2dCell.hazard = true
-      })
-
-      return board2d
-    }
 
     const board2d = buildBoard2d(gameState.board, myself)
 
@@ -352,8 +348,8 @@ export function move(gameState: GameState): MoveResponse {
         let newCell = board.getCell(newCoord)
         if (newCell.snakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
           let snakeCell = newCell.snakeCell as SnakeCell // if we've reached here, we know it's not undefined
-          //logToFile(`snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake)}`)
-          if (snakeCell.isTail && !snakeHasEaten(snakeCell.snake)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
+          logToFile(`snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake, gameState)}`)
+          if (snakeCell.isTail && !snakeHasEaten(snakeCell.snake, gameState)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
             return true
           } else { // cannot move into any other body part
             return false
@@ -488,7 +484,7 @@ export function move(gameState: GameState): MoveResponse {
       food.forEach(function addFood(foodUnit) {
         let dist = getDistance(snakeHead, foodUnit)
       
-        //console.log("findFood dist: %d for foodUnit (%d,%d)", dist, foodUnit.x, foodUnit.y)
+        logToFile(`findFood dist: ${dist} for foodUnit (${foodUnit.x},${foodUnit.y})`)
         if (dist <= depth) {
           if (!foundFood[dist]) {
             foundFood[dist] = []
@@ -581,8 +577,9 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     if (foodToHunt && foodToHunt.length > 0) { // if we've found food nearby, navigate towards one at random
-      //console.log("food found within %d of head, navigating towards (%d,%d)", foodSearchDepth, foodToHunt.x, foodToHunt.y)
-      navigateTowards(myHead, foodToHunt[getRandomInt(0, foodToHunt.length)], possibleMoves)
+      let foodIndex = getRandomInt(0, foodToHunt.length)
+      logToFile(`food found within ${foodSearchDepth} of head, navigating towards (${foodToHunt[foodIndex].x},${foodToHunt[foodIndex].y})`)
+      navigateTowards(myHead, foodToHunt[foodIndex], possibleMoves)
     }
 
 
@@ -632,10 +629,11 @@ export function move(gameState: GameState): MoveResponse {
 
     function getRandomMove(moves: string[]) : string {
       let randomMove : string = moves[getRandomInt(0, moves.length)]
-      //console.log("of available moves %s, choosing random move %s", moves.toString(), randomMove)
+      logToFile(`of available moves ${moves.toString()}, choosing random move ${randomMove}`)
       return randomMove
     }
     
+    // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
     function decideMove(moves: string[]) : string {
       if (moves.length < 1) {
         return "up"
@@ -664,8 +662,8 @@ export function move(gameState: GameState): MoveResponse {
 
     //checkTime()
 
-    //snakeHasEaten(myself)
+    //snakeHasEaten(myself, gameState)
 
-    //console.log(`${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
+    logToFile(`${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
     return response
 }
