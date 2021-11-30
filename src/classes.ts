@@ -83,10 +83,13 @@ export class Board2d {
     this.cells = new Array(_width * _height);
   }
 
-  getCell(coord: Coord) : BoardCell {
+  getCell(coord: Coord) : BoardCell | undefined {
     let x = coord.x;
     let y = coord.y;
     let idx = y * this.width + x;
+    if (coord.x < 0 || coord.x >= this.width || coord.y < 0 || coord.y >= this.height) {
+      return undefined;
+    }
     if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
       this.cells[idx] = new BoardCell(new Coord(x, y), false, false);
     }
@@ -95,7 +98,9 @@ export class Board2d {
 
   logCell(coord: Coord) : void {
     let cell = this.getCell(coord);
-    cell.logSelf();
+    if (cell) {
+      cell.logSelf();
+    }
     // console.log(`board2d at (${coord.x},${coord.y}) food: ${cell.food}`);
     // console.log(`board2d at (${coord.x},${coord.y}) hazard: ${cell.hazard}`);
     // console.log(`board2d at (${coord.x},${coord.y}) has snake: ${cell.snakeCell !== undefined}`);
@@ -112,7 +117,11 @@ export class Board2d {
 
   hasSnake(coord: Coord, inputSnake: Battlesnake) : boolean {
     let cell = this.getCell(coord);
-    return cell.snakeCell ? cell.snakeCell.snake.id === inputSnake.id : false;
+    if (cell) {
+      return cell.snakeCell ? cell.snakeCell.snake.id === inputSnake.id : false;
+    } else {
+      return false;
+    }
   }
 }
 
@@ -141,6 +150,23 @@ export class Moves {
       moves.push("left");
     }
     if (this.right) {
+      moves.push("right");
+    }
+    return moves;
+  }
+
+  invalidMoves() : string[] {
+    let moves : string[] = [];
+    if (!this.up) {
+      moves.push("up");
+    }
+    if (!this.down) {
+      moves.push("down");
+    }
+    if (!this.left) {
+      moves.push("left");
+    }
+    if (!this.right) {
       moves.push("right");
     }
     return moves;

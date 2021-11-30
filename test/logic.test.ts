@@ -1,6 +1,6 @@
 import { info, move, buildBoard2d } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord } from '../src/classes'
+import { Battlesnake, Coord, BoardCell } from '../src/classes'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
 // x f z
@@ -116,22 +116,31 @@ describe('Board2d accurately maps game state', () => {
 
     snek.body.forEach(function checkBodyPart(part, index, arr) {
       let boardCell = board2d.getCell(part)
-      let checkSnek = boardCell.snakeCell
-      if (checkSnek) {
-        expect(snek.id).toBe(checkSnek.snake.id)
-        expect(checkSnek.isHead).toBe(index === 0) // index 0 of the snake body is the head
-        expect(checkSnek.isTail).toBe(index === (arr.length - 1)) // the last index of the snake body is the tail
+      if (boardCell) {
+        boardCell = boardCell as BoardCell
+        let checkSnek = boardCell.snakeCell
+        if (checkSnek) {
+          expect(snek.id).toBe(checkSnek.snake.id)
+          expect(checkSnek.isHead).toBe(index === 0) // index 0 of the snake body is the head
+          expect(checkSnek.isTail).toBe(index === (arr.length - 1)) // the last index of the snake body is the tail
+        }
       }
     })
 
     gameBoard.food.forEach(function checkFood(coord) {
       let boardCell = board2d.getCell(coord)
-      expect(boardCell.food).toBe(true)
+      if (boardCell) {
+        boardCell = boardCell as BoardCell
+        expect(boardCell.food).toBe(true)
+      }
     })
 
     gameBoard.hazards.forEach(function checkHazard(coord) {
       let boardCell = board2d.getCell(coord)
-      expect(boardCell.hazard).toBe(true)
+      if (boardCell) {
+        boardCell = boardCell as BoardCell
+        expect(boardCell.hazard).toBe(true)
+      }
     })
   })
 })
@@ -212,3 +221,4 @@ describe('Battlesnake will not eat its own body', () => {
 })
 
 // TODO: Other snake body move tester
+// snake kiss avoider and snake kiss seeker
