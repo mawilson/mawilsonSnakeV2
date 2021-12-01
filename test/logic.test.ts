@@ -1,6 +1,7 @@
 import { info, move, buildBoard2d } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, BoardCell } from '../src/classes'
+import { isKingOfTheSnakes, getLongestSnake } from '../src/util'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
 // x f z
@@ -25,23 +26,23 @@ function createRulesetSettings() : RulesetSettings {
 }
 
 function createGameState(me: Battlesnake, turn: number): GameState {
-    return {
-        game: {
-            id: "totally-unique-game-id",
-            ruleset: { name: "standard", version: "v1.2.3", settings: createRulesetSettings() },
-            timeout: 500,
-            source: "testing"
-        },
-        turn: turn,
-        board: {
-            height: 11,
-            width: 11,
-            food: [],
-            snakes: [me],
-            hazards: []
-        },
-        you: me
-    }
+  return {
+      game: {
+          id: "totally-unique-game-id",
+          ruleset: { name: "standard", version: "v1.2.3", settings: createRulesetSettings() },
+          timeout: 500,
+          source: "testing"
+      },
+      turn: turn,
+      board: {
+          height: 11,
+          width: 11,
+          food: [],
+          snakes: [me],
+          hazards: []
+      },
+      you: me
+  }
 }
 
 describe('Battlesnake API Version', () => {
@@ -217,6 +218,34 @@ describe('Battlesnake will not eat its own body', () => {
       let moveResponse: MoveResponse = move(gameState)
       expect(["down", "right"]).toContain(moveResponse.move)
     }
+  })
+})
+
+describe('Battlesnake knows if it is king snake', () => {
+  it('should know if it is at least two longer than any other snake', () => {
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 0, y: 2}, {x: 1, y: 2}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const kingOfSnakes = isKingOfTheSnakes(snek, gameState.board)
+    expect(kingOfSnakes).toBe(true)
+  })
+})
+
+describe('Longest snake function tester', () => {
+  it('should return the longest, closest snake other than itself', () => {
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 0, y: 2}, {x: 1, y: 2}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 2}, {x: 5, y: 2}], "100", "", "")
+
+    const longestSnake = getLongestSnake(snek, gameState.board.snakes)
+    expect(longestSnake.id).toBe("otherSnek") // otherSnek is closer to snek, both otherSnek and otherSnek2 are length 2
   })
 })
 

@@ -1,4 +1,4 @@
-import { WriteStream } from 'fs';
+import { createWriteStream, WriteStream } from 'fs';
 import { Board } from "./types"
 import { Coord, Battlesnake, BoardCell, Board2d, Moves } from "./classes"
 
@@ -7,6 +7,10 @@ export function logToFile(file: WriteStream, str: string) {
   file.write(`${str}
   `)
 }
+
+let consoleWriteStream = createWriteStream("consoleLogs_util.txt", {
+  encoding: "utf8"
+})
 
 export function getRandomInt(min: number, max: number) : number {
   min = Math.ceil(min);
@@ -85,13 +89,13 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
   return surroundingCells
 }
 
-export function isKingOfTheSnakes(me: Battlesnake, board: Board) {
+export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
   let kingOfTheSnakes = true
-  if (board.snakes.length === 0) { // what is a king without a kingdom?
+  if (board.snakes.length === 1) { // what is a king without a kingdom?
     return false
   } else {
     board.snakes.forEach(function isSnakeBigger(snake) {
-      if (me.length - snake.length < 2) { // if any snake is within 2 lengths of me, I am not fat enough to deprioritize food
+      if ((me.id !== snake.id) && me.length - snake.length < 2) { // if any snake is within 2 lengths of me
         kingOfTheSnakes = false
       }
     })
@@ -99,26 +103,34 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) {
   return kingOfTheSnakes
 }
 
-// finds the longest snake on the board and, in the event of a tie, returns hte one closest to me
-export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battlesnake | undefined {
-  let longestSnake : Battlesnake | undefined = undefined
+// finds the longest snake on the board and, in the event of a tie, returns the one closest to me. Returns self if only snake on board
+export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battlesnake {
+  let longestSnakeIndex : number = 0
   let len : number = 0
   let distToMe : number = 0
 
-  snakes.forEach(function findLongestSnake(snake) {
-    if (snake.length > len) {
-      len = snake.length
-      longestSnake = snake
-      distToMe = getDistance(me.head, snake.head)
-    } else if (snake.length === len) {
-      let newDistToMe = getDistance(me.head, snake.head)
-      if (newDistToMe < distToMe) { // if it's a tie & this one is closer
-        longestSnake = snake
-        distToMe = newDistToMe
+  //logToFile(consoleWriteStream, `getLongestSnake logic for snake at (${me.head.x},${me.head.y})`)
+  if (snakes.length === 1) {
+    return snakes[0]
+  }
+  snakes.forEach(function findLongestSnake(snake, idx) {
+    if (snake.id !== me.id) { // don't check myself
+      //logToFile(consoleWriteStream, `snake len: ${len}, distToMe: ${distToMe}`)
+      if (snake.length > len) {
+        len = snake.length
+        longestSnakeIndex = idx
+        distToMe = getDistance(me.head, snake.head)
+      } else if (snake.length === len) {
+        let newDistToMe = getDistance(me.head, snake.head)
+        if (newDistToMe < distToMe) { // if it's a tie & this one is closer
+          longestSnakeIndex = idx
+          distToMe = newDistToMe
+        }
       }
     }
   })
-  return longestSnake
+  //logToFile(consoleWriteStream, `final snake len: ${len}, distToMe: ${distToMe}, coords of head: (${snakes[longestSnakeIndex].head.x},${snakes[longestSnakeIndex].head.y})`)
+  return snakes[longestSnakeIndex]
 }
 
 export function moveDisabler(moves: Moves, moveToDisable: string) {

@@ -43,7 +43,7 @@ export function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
       })
     }
 
-    processSnake(you)
+    //processSnake(you) // not necessary as board.snakes contains self
     board.snakes.forEach(processSnake)
 
     board.food.forEach(function addFood(coord : Coord) : void {
@@ -63,15 +63,14 @@ export function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
     return board2d
   }
 
-// move towards kisses of death if you are the projected winner
-// moves towards other snakes if currently king of the snakes
 // avoid walls or corners
 // start looking ahead!
 // adjust prioritization logic based on results
 // replace random movement entirely
 // flesh out priorities more
 // hazard support
-// fix kiss of death logic so if we have a choice between multiple kiss of deaths or no kiss of death, goes towards no kiss of death
+// fix king snake & aggressive kissing snake logic to be smarter
+
 export function move(gameState: GameState): MoveResponse {
     //logToFile(consoleWriteStream, `turn: ${gameState.turn}`)    
     
@@ -273,24 +272,34 @@ export function move(gameState: GameState): MoveResponse {
     // killMoves that lead us into possibly eating another snake,
     // and moves, which is our actual move decision array
     function kissDecider(deathMoves : string[], killMoves : string[], moves: Moves) {
-      switch(kissOfDeathMoves.length) {
+      // first look through dangerous moves
+      switch(deathMoves.length) {
         case 1: // if one move results in a kissOfDeath, eliminate that
-          if (moves.hasOtherMoves(kissOfDeathMoves[0])) {
-            logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${kissOfDeathMoves[0]} due to threat of kiss of death`)
-            moveDisabler(moves, kissOfDeathMoves[0])
+        //logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), deathMoves: ${deathMoves.toString()}`)
+          if (moves.hasOtherMoves(deathMoves[0])) {
+            logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${deathMoves[0]} due to threat of kiss of death`)
+            moveDisabler(moves, deathMoves[0])
           }
           break
         case 2: // if two moves result in a kiss of death, eliminate them if a third move is still valid, otherwise, don't eliminate either
           if (moves.validMoves().length === 3) {
-            logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling moves ${kissOfDeathMoves[0]}, ${kissOfDeathMoves[1]} due to threat of kiss of death & viable alternative`)
-            moveDisabler(moves, kissOfDeathMoves[0])
-            moveDisabler(moves, kissOfDeathMoves[1])
+            logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling moves ${deathMoves[0]}, ${deathMoves[1]} due to threat of kiss of death & viable alternative`)
+            moveDisabler(moves, deathMoves[0])
+            moveDisabler(moves, deathMoves[1])
           }
           break
         case 3: // if all three moves are available, don't eliminate any
           break
         default: // case 0
           break
+      }
+
+      // second priority is looking for chances to eliminate another snake
+      if (killMoves.length > 0) {
+        logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), killMoves: ${killMoves.toString()}`)
+        let idx = getRandomInt(0, killMoves.length) // TODO: choose the smartest kill index
+        logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), moving towards ${killMoves[idx]} to try to take a snake`)
+        moves.disableOtherMoves(killMoves[idx])
       }
     }
 
@@ -324,12 +333,12 @@ export function move(gameState: GameState): MoveResponse {
     function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves) {
       if (snakeHead.x > newCoord.x) { // snake is right of newCoord, no right
         // don't disallow the only remaining valid route
-        if (moves.left || moves.up || moves.down) {
+        if (moves.hasOtherMoves("right")) {
           moves.right = false
         }
       } else if (snakeHead.x < newCoord.x) { // snake is left of newCoord, no left
       // don't disallow the only remaining valid route
-        if (moves.right || moves.up || moves.down) {
+        if (moves.hasOtherMoves("left")) {
           moves.left = false
         }
       } else { // snake is in same column as newCoord, don't move left or right
@@ -341,12 +350,12 @@ export function move(gameState: GameState): MoveResponse {
       }
       if (snakeHead.y > newCoord.y) { // snake is above newCoord, no up
       // don't disallow the only remaining valid route
-        if (moves.right || moves.left || moves.down) {
+        if (moves.hasOtherMoves("up")) {
           moves.up = false
         }
       } else if (snakeHead.y < newCoord.y) { // snake is below newCoord, no down
       // don't disallow the only remaining valid route
-        if (moves.right || moves.up || moves.left) {
+        if (moves.hasOtherMoves("down")) {
           moves.down = false
         }
       } else { // snake is in same row as newCoord, don't move up or down
@@ -402,8 +411,9 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     if (kingOfTheSnakes) {
+      //logToFile(consoleWriteStream, `king snake at (${myHead.x},${myHead.y}), looking for other snakes`)
       let longestSnake = getLongestSnake(myself, otherSnakes)
-      if (longestSnake instanceof Battlesnake) {
+      if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
         logToFile(consoleWriteStream, `king snake at (${myHead.x},${myHead.y}) navigating toward snake at (${longestSnake.head.x},${longestSnake.head.y})`)
         // is it better to go towards the head here, or some other body part?
         navigateTowards(myHead, longestSnake.head, possibleMoves)
