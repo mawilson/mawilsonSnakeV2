@@ -222,3 +222,5 @@ describe('Battlesnake will not eat its own body', () => {
 
 // TODO: Other snake body move tester
 // snake kiss avoider and snake kiss seeker
+// snake kiss avoider for three valid directions, two with kisses
+// king snake seeker of next longest snake

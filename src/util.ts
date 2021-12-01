@@ -1,6 +1,6 @@
 import { WriteStream } from 'fs';
-//import { GameState } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d } from "./classes"
+import { Board } from "./types"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves } from "./classes"
 
 export function logToFile(file: WriteStream, str: string) {
   console.log(str)
@@ -83,4 +83,59 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
   //surroundingCells.forEach(cell => cell.logSelf(me.id))
 
   return surroundingCells
+}
+
+export function isKingOfTheSnakes(me: Battlesnake, board: Board) {
+  let kingOfTheSnakes = true
+  if (board.snakes.length === 0) { // what is a king without a kingdom?
+    return false
+  } else {
+    board.snakes.forEach(function isSnakeBigger(snake) {
+      if (me.length - snake.length < 2) { // if any snake is within 2 lengths of me, I am not fat enough to deprioritize food
+        kingOfTheSnakes = false
+      }
+    })
+  }
+  return kingOfTheSnakes
+}
+
+// finds the longest snake on the board and, in the event of a tie, returns hte one closest to me
+export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battlesnake | undefined {
+  let longestSnake : Battlesnake | undefined = undefined
+  let len : number = 0
+  let distToMe : number = 0
+
+  snakes.forEach(function findLongestSnake(snake) {
+    if (snake.length > len) {
+      len = snake.length
+      longestSnake = snake
+      distToMe = getDistance(me.head, snake.head)
+    } else if (snake.length === len) {
+      let newDistToMe = getDistance(me.head, snake.head)
+      if (newDistToMe < distToMe) { // if it's a tie & this one is closer
+        longestSnake = snake
+        distToMe = newDistToMe
+      }
+    }
+  })
+  return longestSnake
+}
+
+export function moveDisabler(moves: Moves, moveToDisable: string) {
+  switch (moveToDisable) {
+    case "":
+      break
+    case "up":
+      moves.up = false
+      break
+    case "down":
+      moves.down = false
+      break
+    case "left":
+      moves.left = false
+      break
+    default: //case "right":
+      moves.right = false
+      break
+  }
 }

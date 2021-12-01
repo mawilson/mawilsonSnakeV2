@@ -171,4 +171,140 @@ export class Moves {
     }
     return moves;
   }
+
+  hasOtherMoves(move: string) : boolean {
+    switch (move) {
+      case "up":
+        return (this.down || this.left || this.right);
+      case "down":
+        return (this.up || this.left || this.right);
+      case "left":
+        return (this.up || this.down || this.right);
+      default: //case "right":
+        return (this.up || this.down || this.left);
+    }
+  }
+}
+
+export class MoveNeighbors {
+  upNeighbors: BoardCell[] = [];
+  downNeighbors: BoardCell[] = [];
+  leftNeighbors: BoardCell[] = [];
+  rightNeighbors: BoardCell[] = [];
+
+  constructor(upNeighbors?: BoardCell[], downNeighbors?: BoardCell[], leftNeighbors?: BoardCell[], rightNeighbors?: BoardCell[]) {
+    if (typeof upNeighbors !== "undefined") {
+      this.upNeighbors = upNeighbors;
+    }
+    if (typeof downNeighbors !== "undefined") {
+      this.downNeighbors = downNeighbors;
+    }
+    if (typeof leftNeighbors !== "undefined") {
+      this.leftNeighbors = leftNeighbors;
+    }
+    if (typeof rightNeighbors !== "undefined") {
+      this.rightNeighbors = rightNeighbors;
+    }
+  }
+
+  // returns true if some upNeighbor snake exists of equal or longer length than me
+  huntedAtUp(len: number) : boolean {
+    let biggerSnake : boolean = false;
+    this.upNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= len) {
+        biggerSnake = true;
+      }
+    });
+    return biggerSnake;
+  }
+  
+
+  // returns true if upNeighbors exist, but no upNeighbor snake exists of equal or longer length than me
+  huntingAtUp(len: number) : boolean {
+    if (this.upNeighbors.length === 0) {
+      return false;
+    }
+    let biggerSnake : boolean = true;
+    this.upNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= len) {
+        biggerSnake = false;
+      }
+    });
+    return biggerSnake;
+  }
+
+  // returns true if some downNeighbor snake exists of equal or longer length than me
+  huntedAtDown(len: number) : boolean {
+    let biggerSnake : boolean = false;
+    this.downNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= len) {
+        biggerSnake = true;
+      }
+    });
+    return biggerSnake;
+  }
+  
+  // returns true if downNeighbors exist, but no downNeighbor snake exists of equal or longer length than me
+  huntingAtDown(len: number) : boolean {
+    if (this.downNeighbors.length === 0) {
+      return false;
+    }
+    let biggerSnake : boolean = true;
+    this.downNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= len) {
+        biggerSnake = false;
+      }
+    });
+    return biggerSnake;
+  }
+
+  // returns true if some leftNeighbor snake exists of equal or longer length than me
+  huntedAtLeft(len: number) : boolean {
+    let biggerSnake : boolean = false;
+    this.leftNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead &&cell.snakeCell.snake.length >= len) {
+        biggerSnake = true;
+      }
+    });
+    return biggerSnake;
+  }
+  
+  // returns true if leftNeighbors exist, but no leftNeighbor snake exists of equal or longer length than me
+  huntingAtLeft(len: number) : boolean {
+    if (this.leftNeighbors.length === 0) {
+      return false;
+    }
+    let biggerSnake : boolean = true;
+    this.leftNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= len) {
+        biggerSnake = false;
+      }
+    });
+    return biggerSnake;
+  }
+
+  // returns true if some rightNeighbor snake exists of equal or longer length than me
+  huntedAtRight(len: number) : boolean {
+    let biggerSnake : boolean = false;
+    this.rightNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= len) {
+        biggerSnake = true;
+      }
+    });
+    return biggerSnake;
+  }
+  
+  // returns true if rightNeighbors exist, but no rightNeighbor snake exists of equal or longer length than me
+  huntingAtRight(len: number) : boolean {
+    if (this.rightNeighbors.length === 0) {
+      return false;
+    }
+    let biggerSnake : boolean = true;
+    this.rightNeighbors.forEach(function checkNeighbors(cell) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead &&  cell.snakeCell.snake.length >= len) {
+        biggerSnake = false;
+      }
+    });
+    return biggerSnake;
+  }
 }
