@@ -272,7 +272,122 @@ describe('Snake should go towards uncertain doom versus certain doom', () => {
   })
 })
 
-// TODO: Other snake body move tester
-// snake kiss avoider and snake kiss seeker
-// snake kiss avoider for three valid directions, two with kisses
-// king snake seeker of next longest snake
+describe('Snake should avoid two kisses of death for one not', () => {
+  it('should navigate away from kiss of death cells towards freedom', () => {
+    // x  x  x x x x  x
+    // s1 s1 x x x s2 s2
+    // s1 h1 x h x h2 s2
+    // t1 x  t s x x  t2
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 3, y: 3}, {x: 3, y: 2}, {x: 2, y: 2}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 3}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}], "100", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving only up
+    }
+  })
+})
+
+describe('Snake should avoid a kiss of death', () => {
+  it('should navigate elsewhere, even an otherwise worse tile', () => {
+    // x x h1 s1 s1
+    // x h s  x  s1
+    // x x s  t  t1
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 4, y: 0}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // left & bottom shove me in a corner, but don't result in a kiss of death
+    }
+  })
+})
+
+describe('Snake should avoid a tie kiss of death', () => {
+  it('should navigate elsewhere, even an otherwise worse tile', () => {
+    // x x h1 s1 s1
+    // x h s  x  t1
+    // x x s  t  x
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
+    }
+  })
+})
+
+describe('Snake should not walk into another snake body', () => {
+  it('should go somewhere that does not have a snake body', () => {
+    // x x  x
+    // s h  x
+    // s s1 h1
+    // t s1 t1
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 2}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down")
+    }
+  })
+})
+
+// this one might get commented out later when eval functions exist
+describe('Snake should seek out a kiss of murder', () => {
+  it('should attempt to eat another snake given the opportunity', () => {
+    // t  s  s
+    // t1 x  h
+    // s1 h1 x
+    // x  x  x
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 0, y: 3}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(["down", "left"]).toContain(moveResponse.move) // should try to murder the snake by going either left or down
+    }
+  })
+})
+
+describe('King snake should seek out next longest snake', () => {
+  it('should attempt to eat another snake given the opportunity', () => {
+    // x  x  x x t2 s2 
+    // x  x  x x x  h2
+    // x  x  h s x  x
+    // x  x  x s s  s
+    // t1 h1 x x x  x
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
+    const gameState = createGameState(snek, 30)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 0}, {x: 0, y: 0}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}], "100", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // otherSnek is closer, but otherSnek2 is longer, & so we chase it by going up
+    }
+  })
+})
