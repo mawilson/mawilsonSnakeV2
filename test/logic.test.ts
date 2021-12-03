@@ -243,9 +243,32 @@ describe('Longest snake function tester', () => {
     gameState.board.snakes.push(otherSnek)
 
     const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 2}, {x: 5, y: 2}], "100", "", "")
+    gameState.board.snakes.push(otherSnek2)
 
     const longestSnake = getLongestSnake(snek, gameState.board.snakes)
     expect(longestSnake.id).toBe("otherSnek") // otherSnek is closer to snek, both otherSnek and otherSnek2 are length 2
+  })
+})
+
+describe('Snake should go towards uncertain doom versus certain doom', () => {
+  it('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
+    // s1 t1 x h2 s2 s2 s2 t2
+    // s1 x  h s  x  x  x  x
+    // s1 h1 x s  x  x  x  x
+    // x  x  x t  x  x  x  x
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "100", "", "")
+    const gameState = createGameState(snek, 8)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}], "100", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 3, y: 5}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "100", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // up is certain death to otherSnek2, but left or down are 50% death to otherSnek
+    }
   })
 })
 
