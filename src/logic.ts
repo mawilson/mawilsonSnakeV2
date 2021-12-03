@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, logCoord, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, moveDisabler } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, logCoord, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake } from "./util"
 
 import { createWriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
@@ -70,7 +70,7 @@ export function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
 // flesh out priorities more
 // hazard support
 // fix king snake & aggressive kissing snake logic to be smarter
-
+// adjust food depth to prioritize food when king snake when health is very low
 export function move(gameState: GameState): MoveResponse {
     //logToFile(consoleWriteStream, `turn: ${gameState.turn}`)    
     
@@ -120,26 +120,6 @@ export function move(gameState: GameState): MoveResponse {
     //logCoord(myTail, consoleWriteStream, "myTail")
 
     //logCoord(myHead, consoleWriteStream, "myHead")
-
-    // returns true if c1 is directly above c2
-    function isAbove(c1: Coord, c2: Coord): boolean {
-      return (c1.x === c2.x && c1.y - c2.y === 1)
-    }
-
-    // returns true if c1 is directly below c2
-    function isBelow(c1: Coord, c2: Coord): boolean {
-      return (c1.x === c2.x && c2.y - c1.y === 1)
-    }
-
-    // returns true if c1 is directly right of c2
-    function isRight(c1: Coord, c2: Coord): boolean {
-      return (c1.y === c2.y && c1.x - c2.x === 1)
-    }
-
-    // returns true if c1 is directly left of c2
-    function isLeft(c1: Coord, c2: Coord): boolean {
-      return (c1.y === c2.y && c2.x - c1.x === 1)
-    }
 
     function getBodyWithoutTail(body: Coord[]): Coord[] {
       return body.slice(0, -1)
@@ -204,7 +184,7 @@ export function move(gameState: GameState): MoveResponse {
 
     function findMoveNeighbors(me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
       let myHead = me.head
-      let kissMoves : MoveNeighbors = new MoveNeighbors()
+      let kissMoves : MoveNeighbors = new MoveNeighbors(me)
       if (moves.up) {
         let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
         kissMoves.upNeighbors = getSurroundingCells(newCoord, board2d, "down")    
@@ -231,16 +211,16 @@ export function move(gameState: GameState): MoveResponse {
     function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
       let myLength = me.length
       let murderMoves : string[] = []
-      if (kissMoves.huntingAtUp(me.length)) {
+      if (kissMoves.huntingAtUp()) {
         murderMoves.push("up")
       }
-      if (kissMoves.huntingAtDown(me.length)) {
+      if (kissMoves.huntingAtDown()) {
         murderMoves.push("down")
       }
-      if (kissMoves.huntingAtLeft(me.length)) {
+      if (kissMoves.huntingAtLeft()) {
         murderMoves.push("left")
       }
-      if (kissMoves.huntingAtRight(me.length)) {
+      if (kissMoves.huntingAtRight()) {
         murderMoves.push("right")
       }
       return murderMoves
@@ -249,16 +229,16 @@ export function move(gameState: GameState): MoveResponse {
     function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
       let myLength = me.length
       let deathMoves : string[] = []
-      if (kissMoves.huntedAtUp(me.length)) {
+      if (kissMoves.huntedAtUp()) {
         deathMoves.push("up")
       }
-      if (kissMoves.huntedAtDown(me.length)) {
+      if (kissMoves.huntedAtDown()) {
         deathMoves.push("down")
       }
-      if (kissMoves.huntedAtLeft(me.length)) {
+      if (kissMoves.huntedAtLeft()) {
         deathMoves.push("left")
       }
-      if (kissMoves.huntedAtRight(me.length)) {
+      if (kissMoves.huntedAtRight()) {
         deathMoves.push("right")
       }
       return deathMoves
@@ -267,7 +247,9 @@ export function move(gameState: GameState): MoveResponse {
     let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
     let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
     let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-    
+    //logToFile(consoleWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
+    //logToFile(consoleWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
+
     // given a set of deathMoves that lead us into possibly being eaten,
     // killMoves that lead us into possibly eating another snake,
     // and moves, which is our actual move decision array
@@ -278,17 +260,25 @@ export function move(gameState: GameState): MoveResponse {
         //logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), deathMoves: ${deathMoves.toString()}`)
           if (moves.hasOtherMoves(deathMoves[0])) {
             logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${deathMoves[0]} due to threat of kiss of death`)
-            moveDisabler(moves, deathMoves[0])
+            moves.disableMove(deathMoves[0])
           }
           break
         case 2: // if two moves result in a kiss of death, eliminate them if a third move is still valid, otherwise, don't eliminate either
           if (moves.validMoves().length === 3) {
             logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling moves ${deathMoves[0]}, ${deathMoves[1]} due to threat of kiss of death & viable alternative`)
-            moveDisabler(moves, deathMoves[0])
-            moveDisabler(moves, deathMoves[1])
+            moves.disableMove(deathMoves[0])
+            moves.disableMove(deathMoves[1])
           }
           break
-        case 3: // if all three moves are available, don't eliminate any
+        case 3: // if all three moves may cause my demise, try to choose which one is least deadly
+          // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
+          let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
+          let huntedDirections = huntingChanceDirections.invalidMoves()
+          if (huntedDirections.length !== 3) { // don't bother disabling anything if they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
+            huntedDirections.forEach(function disableDir(dir) {
+              moves.disableMove(dir)
+            })
+          }
           break
         default: // case 0
           break
@@ -368,24 +358,24 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     function calculateFoodSearchDepth(me: Battlesnake, board2d: Board2d, snakeKing: boolean) : number {
-      let depth : number = 2
+      let depth : number = 3
       if (me.health < 10) { // search for food from farther away if health is lower
         depth = 8
       } else if (me.health < 20) {
-        depth = 5
+        depth = 6
       } else if (me.health < 30) {
-        depth = 4
+        depth = 5
       } else if (me.health < 40) {
-        depth = 3
+        depth = 4
       } else if (me.health < 50) {
-        depth = 2
+        depth = 3
       }
 
       if (gameState.turn < 20) { // prioritize food slightly more earlier in game
         depth = depth > 4 ? depth : 4
       }
 
-      if (snakeKing) {
+      if (snakeKing&& me.health > 10) {
         depth = 0 // I don't need it
       }
 

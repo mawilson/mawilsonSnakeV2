@@ -133,21 +133,35 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   return snakes[longestSnakeIndex]
 }
 
-export function moveDisabler(moves: Moves, moveToDisable: string) {
-  switch (moveToDisable) {
-    case "":
-      break
-    case "up":
-      moves.up = false
-      break
-    case "down":
-      moves.down = false
-      break
-    case "left":
-      moves.left = false
-      break
-    default: //case "right":
-      moves.right = false
-      break
-  }
+// returns true if c1 is directly above c2
+function isAbove(c1: Coord, c2: Coord): boolean {
+  return (c1.x === c2.x && c1.y - c2.y === 1)
+}
+
+// returns true if c1 is directly below c2
+function isBelow(c1: Coord, c2: Coord): boolean {
+  return (c1.x === c2.x && c2.y - c1.y === 1)
+}
+
+// returns true if c1 is directly right of c2
+function isRight(c1: Coord, c2: Coord): boolean {
+  return (c1.y === c2.y && c1.x - c2.x === 1)
+}
+
+// returns true if c1 is directly left of c2
+function isLeft(c1: Coord, c2: Coord): boolean {
+  return (c1.y === c2.y && c2.x - c1.x === 1)
+}
+
+// returns up, down, left, or right if c1 is directly up, down, left, or right, respectively, of c2. Undefined if not exactly 1 away in any one direction.
+export function getRelativeDirection(c1: Coord, c2: Coord): string | undefined {
+  if (isAbove(c1, c2)) {
+    return "up"
+  } else if (isBelow(c1, c2)) {
+    return "down"
+  } else if (isLeft(c1, c2)) {
+    return "left"
+  } else if (isRight(c1, c2)) {
+    return "right"
+  } else return undefined
 }
