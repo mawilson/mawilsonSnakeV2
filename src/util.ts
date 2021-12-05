@@ -1,5 +1,5 @@
 import { createWriteStream, WriteStream } from 'fs';
-import { Board } from "./types"
+import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
 import { Coord, Battlesnake, BoardCell, Board2d, Moves } from "./classes"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -110,7 +110,9 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   let distToMe : number = 0
 
   //logToFile(consoleWriteStream, `getLongestSnake logic for snake at (${me.head.x},${me.head.y})`)
-  if (snakes.length === 1) {
+  if (snakes.length === 0) {
+    return me
+  } else if (snakes.length === 1) {
     return snakes[0]
   }
   snakes.forEach(function findLongestSnake(snake, idx) {
@@ -129,6 +131,7 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
       }
     }
   })
+  //logToFile(consoleWriteStream, `longestSnakeIndex: ${longestSnakeIndex}, snakes length: ${snakes.length}`)
   //logToFile(consoleWriteStream, `final snake len: ${len}, distToMe: ${distToMe}, coords of head: (${snakes[longestSnakeIndex].head.x},${snakes[longestSnakeIndex].head.y})`)
   return snakes[longestSnakeIndex]
 }
@@ -164,4 +167,108 @@ export function getRelativeDirection(c1: Coord, c2: Coord): string | undefined {
   } else if (isRight(c1, c2)) {
     return "right"
   } else return undefined
+}
+
+export function coordToString(coord: Coord) : string {
+  return `(${coord.x},${coord.y})`
+}
+
+export function snakeToString(snake: Battlesnake) : string {
+  let bodyString : string = ""
+  snake.body.forEach(function concatBodyPart(coord: Coord) {
+    bodyString = bodyString ? `${bodyString},${coordToString(coord)}` : `${coordToString(coord)}` 
+  })
+  return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
+}
+
+// function for duplicating a game state, with no references to original
+export function cloneGameState(gameState: GameState) : GameState {
+  // create new RoyaleSettings
+  let cloneRoyaleSettings : RoyaleSettings = {
+    shrinkEveryNTurns: gameState.game.ruleset.settings.royale.shrinkEveryNTurns
+  }
+  // create new SquadSettings
+  let cloneSquadSettings : SquadSettings = {
+    allowBodyCollisions: gameState.game.ruleset.settings.squad.allowBodyCollisions,
+    sharedElimination: gameState.game.ruleset.settings.squad.sharedElimination,
+    sharedHealth: gameState.game.ruleset.settings.squad.sharedHealth,
+    sharedLength: gameState.game.ruleset.settings.squad.sharedLength
+  }
+  // create new RulesetSettings
+  let cloneRulesetSettings : RulesetSettings = {
+    foodSpawnChance: gameState.game.ruleset.settings.foodSpawnChance,
+    minimumFood: gameState.game.ruleset.settings.minimumFood,
+    hazardDamagePerTurn: gameState.game.ruleset.settings.hazardDamagePerTurn,
+    royale: cloneRoyaleSettings,
+    squad: cloneSquadSettings
+  }
+  // create new Ruleset
+  let cloneRuleset : Ruleset = {
+    name: gameState.game.ruleset.name,
+    version: gameState.game.ruleset.version,
+    settings: cloneRulesetSettings
+  }
+  // create new Game
+  let cloneGame : Game = {
+    id: gameState.game.id,
+    ruleset: cloneRuleset,
+    timeout: gameState.game.timeout,
+    source: gameState.game.source
+  }
+
+  // create new Food array
+  let cloneFood : ICoord[] = []
+  gameState.board.food.forEach(function addFood(coord) {
+    cloneFood.push({x: coord.x, y: coord.y})
+  })
+
+  let cloneSnakes : Battlesnake[] = [] // note that this is of type Battlesnake, not IBattlesnake, meaning our clone diverges from the original here. But our class is better, so maybe that's okay.
+  gameState.board.snakes.forEach(function addSnake(snake) {
+    let newBody : Coord[] = []
+    snake.body.forEach(function addPart(coord: Coord) {
+      newBody.push({x: coord.x, y: coord.y})
+    })
+    cloneSnakes.push(new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad))
+  })
+
+  let cloneHazards : ICoord[] = []
+  gameState.board.hazards.forEach(function addHazard(coord) {
+    cloneHazards.push({x: coord.x, y: coord.y})
+  })
+
+  // create new Board
+  let cloneBoard : Board = {
+    height: gameState.board.height,
+    width: gameState.board.width,
+    food: cloneFood,
+    snakes: cloneSnakes,
+    hazards: cloneHazards
+  }
+
+  let cloneYouProbably : Battlesnake | undefined = cloneBoard.snakes.find(function findSnake(snake) {
+    return snake.id === gameState.you.id
+  })
+  let cloneYou : Battlesnake = cloneYouProbably instanceof Battlesnake ? cloneYouProbably : cloneSnakes[0] // it shouldn't ever need to assign cloneSnakes[0], but typescript wants this in case the find returns undefined
+
+  let cloneGameState : GameState = {
+    game: cloneGame,
+    turn: gameState.turn,
+    board: cloneBoard,
+    you: cloneYou
+  }
+
+  return cloneGameState
+}
+
+// doesn't need return statement because all changes will affect object snake
+export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : void {
+  let newCoord = getCoordAfterMove(snake.head, move)
+  let newCell = board2d.getCell(newCoord)
+  if (newCell instanceof BoardCell) { // if it's a valid cell to move to
+    if (newCell.hazard) {
+      snake.health = snake.health - gameState.game.ruleset.settings.hazardDamagePerTurn
+    } else {
+      snake.health = snake.health - 1
+    }
+  }
 }

@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, logCoord, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, moveSnake } from "./util"
 
 import { createWriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
@@ -27,10 +27,7 @@ export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
 }
 
-export function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
-    // const board2d : Board2d = {
-    //   cells: Array.from(Array(board.width), () => new Array(board.height))
-    // }
+export function buildBoard2d(board : Board) : Board2d {
     const board2d = new Board2d(board.width, board.height)
 
     function processSnake(inputSnake : Battlesnake) : void {
@@ -70,7 +67,8 @@ export function buildBoard2d(board : Board, you : Battlesnake) : Board2d {
 // flesh out priorities more
 // hazard support
 // fix king snake & aggressive kissing snake logic to be smarter
-// adjust food depth to prioritize food when king snake when health is very low
+// replace all lets with consts where appropriate
+// change tsconfig to noImplicitAny: true
 export function move(gameState: GameState): MoveResponse {
     //logToFile(consoleWriteStream, `turn: ${gameState.turn}`)    
     
@@ -82,11 +80,11 @@ export function move(gameState: GameState): MoveResponse {
     const boardWidth: number = gameState.board.width
     const boardHeight: number = gameState.board.height
     const myBody: Coord[] = myself.body
-    const otherSnakes: Battlesnake[] = gameState.board.snakes
+    const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { snake.id !== myself.id})
     const myTail: Coord = myBody[myBody.length - 1]
     const snakeBites = gameState.board.food
 
-    const board2d = buildBoard2d(gameState.board, myself)
+    const board2d = buildBoard2d(gameState.board)
 
     //let tempCell = new Coord(0, 0)
     // console.log(`Turn: ${gameState.turn}`)
@@ -117,9 +115,8 @@ export function move(gameState: GameState): MoveResponse {
       return timeLeft > 50
     }
 
-    //logCoord(myTail, consoleWriteStream, "myTail")
-
-    //logCoord(myHead, consoleWriteStream, "myHead")
+    //logToFile(consoleWriteStream, `myTail: ${coordToString(myTail)}`)
+    //logToFile(consoleWriteStream, `myHead: ${coordToString(myHead)}`)
 
     function getBodyWithoutTail(body: Coord[]): Coord[] {
       return body.slice(0, -1)
@@ -441,6 +438,16 @@ export function move(gameState: GameState): MoveResponse {
       //logToFile(consoleWriteStream, `of available moves ${moves.toString()}, choosing random move ${randomMove}`)
       return randomMove
     }
+
+    // the big one. This function evaluates the state of the board & spits out a number indicating how good it is, higher numbers being better
+    // 1000: last snake alive, best possible state
+    // 0: snake is dead, worst possible state
+    function evaluate(gameState: GameState, board2d: Board2d) : number {
+      const myself = gameState.you
+      const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { snake.id !== myself.id})
+      
+      return 1000
+    }
     
     // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
     function decideMove(moves: string[]) : string {
@@ -461,7 +468,7 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     let chosenMove : string = decideMove(safeMoves)
-    const response: MoveResponse = { // if no valid moves, go up by default
+    const response: MoveResponse = {
         move: chosenMove
     }
     
@@ -469,6 +476,8 @@ export function move(gameState: GameState): MoveResponse {
 
     //checkTime()
 
-    //logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
+    logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
+
+    logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
     return response
 }
