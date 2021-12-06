@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream } from 'fs';
-import { Board } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d, Moves } from "./classes"
+import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell } from "./classes"
 
 export function logToFile(file: WriteStream, str: string) {
   console.log(str)
@@ -19,11 +19,7 @@ export function getRandomInt(min: number, max: number) : number {
 }
 
 export function coordsEqual(c1: Coord, c2: Coord): boolean {
-    return (c1.x === c2.x && c1.y === c2.y)
-  }
-
-export function logCoord(coord: Coord, file: WriteStream, descriptor: string) : void {
-  logToFile(file, `${descriptor}: (${coord.x},${coord.y})`)
+  return (c1.x === c2.x && c1.y === c2.y)
 }
 
 // returns true if snake health is max, indicating it ate this turn
@@ -95,7 +91,7 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
     return false
   } else {
     board.snakes.forEach(function isSnakeBigger(snake) {
-      if ((me.id !== snake.id) && me.length - snake.length < 2) { // if any snake is within 2 lengths of me
+      if ((me.id !== snake.id) && ((effectiveSnakeLength(me) - effectiveSnakeLength(snake)) < 2)) { // if any snake is within 2 lengths of me
         kingOfTheSnakes = false
       }
     })
@@ -110,17 +106,20 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   let distToMe : number = 0
 
   //logToFile(consoleWriteStream, `getLongestSnake logic for snake at (${me.head.x},${me.head.y})`)
-  if (snakes.length === 1) {
+  if (snakes.length === 0) {
+    return me
+  } else if (snakes.length === 1) {
     return snakes[0]
   }
   snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
       //logToFile(consoleWriteStream, `snake len: ${len}, distToMe: ${distToMe}`)
-      if (snake.length > len) {
-        len = snake.length
+      let effectiveLength = effectiveSnakeLength(snake)
+      if (effectiveLength > len) {
+        len = effectiveLength
         longestSnakeIndex = idx
         distToMe = getDistance(me.head, snake.head)
-      } else if (snake.length === len) {
+      } else if (effectiveLength === len) {
         let newDistToMe = getDistance(me.head, snake.head)
         if (newDistToMe < distToMe) { // if it's a tie & this one is closer
           longestSnakeIndex = idx
@@ -129,6 +128,7 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
       }
     }
   })
+  //logToFile(consoleWriteStream, `longestSnakeIndex: ${longestSnakeIndex}, snakes length: ${snakes.length}`)
   //logToFile(consoleWriteStream, `final snake len: ${len}, distToMe: ${distToMe}, coords of head: (${snakes[longestSnakeIndex].head.x},${snakes[longestSnakeIndex].head.y})`)
   return snakes[longestSnakeIndex]
 }
@@ -164,4 +164,186 @@ export function getRelativeDirection(c1: Coord, c2: Coord): string | undefined {
   } else if (isRight(c1, c2)) {
     return "right"
   } else return undefined
+}
+
+export function coordToString(coord: Coord) : string {
+  return `(${coord.x},${coord.y})`
+}
+
+export function snakeToString(snake: Battlesnake) : string {
+  let bodyString : string = ""
+  snake.body.forEach(function concatBodyPart(coord: Coord) {
+    bodyString = bodyString ? `${bodyString},${coordToString(coord)}` : `${coordToString(coord)}` 
+  })
+  return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
+}
+
+// if a snake has just eaten, its length is effectively one more than that reported by its length & body array size
+export function effectiveSnakeLength(snake: Battlesnake) : number {
+  return snakeHasEaten(snake) ? snake.length + 1 : snake.length
+}
+
+// function for duplicating a game state, with no references to original
+export function cloneGameState(gameState: GameState) : GameState {
+  // create new RoyaleSettings
+  let cloneRoyaleSettings : RoyaleSettings = {
+    shrinkEveryNTurns: gameState.game.ruleset.settings.royale.shrinkEveryNTurns
+  }
+  // create new SquadSettings
+  let cloneSquadSettings : SquadSettings = {
+    allowBodyCollisions: gameState.game.ruleset.settings.squad.allowBodyCollisions,
+    sharedElimination: gameState.game.ruleset.settings.squad.sharedElimination,
+    sharedHealth: gameState.game.ruleset.settings.squad.sharedHealth,
+    sharedLength: gameState.game.ruleset.settings.squad.sharedLength
+  }
+  // create new RulesetSettings
+  let cloneRulesetSettings : RulesetSettings = {
+    foodSpawnChance: gameState.game.ruleset.settings.foodSpawnChance,
+    minimumFood: gameState.game.ruleset.settings.minimumFood,
+    hazardDamagePerTurn: gameState.game.ruleset.settings.hazardDamagePerTurn,
+    royale: cloneRoyaleSettings,
+    squad: cloneSquadSettings
+  }
+  // create new Ruleset
+  let cloneRuleset : Ruleset = {
+    name: gameState.game.ruleset.name,
+    version: gameState.game.ruleset.version,
+    settings: cloneRulesetSettings
+  }
+  // create new Game
+  let cloneGame : Game = {
+    id: gameState.game.id,
+    ruleset: cloneRuleset,
+    timeout: gameState.game.timeout,
+    source: gameState.game.source
+  }
+
+  // create new Food array
+  let cloneFood : ICoord[] = []
+  gameState.board.food.forEach(function addFood(coord) {
+    cloneFood.push({x: coord.x, y: coord.y})
+  })
+
+  let cloneSnakes : Battlesnake[] = [] // note that this is of type Battlesnake, not IBattlesnake, meaning our clone diverges from the original here. But our class is better, so maybe that's okay.
+  gameState.board.snakes.forEach(function addSnake(snake) {
+    let newBody : Coord[] = []
+    snake.body.forEach(function addPart(coord: Coord) {
+      newBody.push({x: coord.x, y: coord.y})
+    })
+    cloneSnakes.push(new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad))
+  })
+
+  let cloneHazards : ICoord[] = []
+  gameState.board.hazards.forEach(function addHazard(coord) {
+    cloneHazards.push({x: coord.x, y: coord.y})
+  })
+
+  // create new Board
+  let cloneBoard : Board = {
+    height: gameState.board.height,
+    width: gameState.board.width,
+    food: cloneFood,
+    snakes: cloneSnakes,
+    hazards: cloneHazards
+  }
+
+  let cloneYouProbably : Battlesnake | undefined = cloneBoard.snakes.find(function findSnake(snake) {
+    return snake.id === gameState.you.id
+  })
+  let cloneYou : Battlesnake = cloneYouProbably instanceof Battlesnake ? cloneYouProbably : cloneSnakes[0] // it shouldn't ever need to assign cloneSnakes[0], but typescript wants this in case the find returns undefined
+
+  let cloneGameState : GameState = {
+    game: cloneGame,
+    turn: gameState.turn,
+    board: cloneBoard,
+    you: cloneYou
+  }
+
+  return cloneGameState
+}
+
+// returns true if it was able to move the snake, else false
+export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : boolean {
+  let newCoord = getCoordAfterMove(snake.head, move)
+  let newCell = board2d.getCell(newCoord)
+  if (newCell instanceof BoardCell) { // if it's a valid cell to move to
+    if (!snakeHasEaten(snake)) { // if snake hadn't eaten this turn, its tail will shrink off after moving
+      snake.body = snake.body.slice(0, -1) // remove last element of body
+    }
+    
+    if (newCell.food) {
+      snake.health = 100
+    } else if (newCell.hazard) {
+      snake.health = snake.health - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn
+    } else {
+      snake.health = snake.health - 1
+    }
+      
+    snake.body.unshift(newCoord) // add new coordinate to front of body
+    snake.head = snake.body[0]
+    snake.length = snake.body.length // note this doesn't account for whether food was eaten this round - this is how Battlesnake does it too, length is just a reference to the snake body array length
+    return true
+  } else {
+    return false
+  }
+}
+
+function getOppositeMove(move: string) : string {
+  switch (move) {
+    case "up":
+      return "down"
+    case "down":
+      return "up"
+    case "left":
+      return "right"
+    case "right":
+      return "left"
+    default:
+      throw `getOppositeMove input of ${move} was not a valid move` // should not reach here
+  }
+}
+
+export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: Moves) {
+  function checkCell(x: number, y: number) : boolean {
+    if (x < 0) { // indicates a move into the left wall
+      return false
+    } else if (y < 0) { // indicates a move into the bottom wall
+      return false
+    } else if (x >= board.width) { // indicates a move into the right wall
+      return false
+    } else if (y >= board.height) { // indicates a move into the top wall
+      return false
+    }
+    let newCoord = new Coord(x, y)
+    let newCell = board.getCell(newCoord)
+    if (newCell instanceof BoardCell) {
+      if (newCell.snakeCell instanceof SnakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
+        //logToFile(consoleWriteStream, `snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake)}`)
+        if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
+          return true
+        } else { // cannot move into any other body part
+          return false
+        }
+      } else {
+        return true
+      }
+    } else {
+      return false
+    }
+  }
+  
+  let myCoords : Coord = me.head
+
+  if (!checkCell(myCoords.x - 1, myCoords.y)) {
+    moves.left = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y - 1)) {
+    moves.down = false
+  }
+  if (!checkCell(myCoords.x + 1, myCoords.y)) {
+    moves.right = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y + 1)) {
+    moves.up = false
+  }
 }
