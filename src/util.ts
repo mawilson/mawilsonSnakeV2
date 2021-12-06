@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d, Moves } from "./classes"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell } from "./classes"
 
 export function logToFile(file: WriteStream, str: string) {
   console.log(str)
@@ -19,11 +19,7 @@ export function getRandomInt(min: number, max: number) : number {
 }
 
 export function coordsEqual(c1: Coord, c2: Coord): boolean {
-    return (c1.x === c2.x && c1.y === c2.y)
-  }
-
-export function logCoord(coord: Coord, file: WriteStream, descriptor: string) : void {
-  logToFile(file, `${descriptor}: (${coord.x},${coord.y})`)
+  return (c1.x === c2.x && c1.y === c2.y)
 }
 
 // returns true if snake health is max, indicating it ate this turn
@@ -260,15 +256,88 @@ export function cloneGameState(gameState: GameState) : GameState {
   return cloneGameState
 }
 
-// doesn't need return statement because all changes will affect object snake
-export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : void {
+// returns true if it was able to move the snake, else false
+export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : boolean {
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
-    if (newCell.hazard) {
-      snake.health = snake.health - gameState.game.ruleset.settings.hazardDamagePerTurn
+    if (snake.health !== 100) { // if 100, snake ate this turn, meaning its tail won't shrink after moving
+      snake.body = snake.body.slice(0, -1) // remove last element of body
+    }
+    
+    if (newCell.food) {
+      snake.health = 100
+    } else if (newCell.hazard) {
+      snake.health = snake.health - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn
     } else {
       snake.health = snake.health - 1
     }
+      
+    snake.body.unshift(newCoord) // add new coordinate to front of body
+    snake.head = snake.body[0]
+    snake.length = snake.body.length
+    return true
+  } else {
+    return false
+  }
+}
+
+function getOppositeMove(move: string) : string {
+  switch (move) {
+    case "up":
+      return "down"
+    case "down":
+      return "up"
+    case "left":
+      return "right"
+    case "right":
+      return "left"
+    default:
+      throw `getOppositeMove input of ${move} was not a valid move` // should not reach here
+  }
+}
+
+export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: Moves) {
+  function checkCell(x: number, y: number) : boolean {
+    if (x < 0) { // indicates a move into the left wall
+      return false
+    } else if (y < 0) { // indicates a move into the bottom wall
+      return false
+    } else if (x >= board.width) { // indicates a move into the right wall
+      return false
+    } else if (y >= board.height) { // indicates a move into the top wall
+      return false
+    }
+    let newCoord = new Coord(x, y)
+    let newCell = board.getCell(newCoord)
+    if (newCell instanceof BoardCell) {
+      if (newCell.snakeCell instanceof SnakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
+        //logToFile(consoleWriteStream, `snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake)}`)
+        if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
+          return true
+        } else { // cannot move into any other body part
+          return false
+        }
+      } else {
+        return true
+      }
+    } else {
+      return false
+    }
+  }
+  
+  let myCoords : Coord = me.head
+
+  if (!checkCell(myCoords.x - 1, myCoords.y)) {
+    moves.left = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y - 1)) {
+    moves.down = false
+  }
+  if (!checkCell(myCoords.x + 1, myCoords.y)) {
+    moves.right = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y + 1)) {
+    moves.up = false
   }
 }

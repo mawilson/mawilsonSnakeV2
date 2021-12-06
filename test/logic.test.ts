@@ -1,6 +1,6 @@
-import { info, move, buildBoard2d } from '../src/logic'
+import { info, move, evaluate } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, BoardCell } from '../src/classes'
+import { Battlesnake, Coord, BoardCell, Board2d } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake } from '../src/util'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
@@ -25,7 +25,7 @@ function createRulesetSettings() : RulesetSettings {
   }
 }
 
-function createGameState(me: Battlesnake): GameState {
+export function createGameState(me: Battlesnake): GameState {
   return {
       game: {
           id: "totally-unique-game-id",
@@ -113,7 +113,7 @@ describe('Board2d accurately maps game state', () => {
     gameBoard.food = [{x: 1, y: 1}, {x: 1, y: 2}]
     gameBoard.hazards = [{x: 2, y: 0}, {x: 2, y: 1}, {x: 2, y: 2}]
 
-    let board2d = buildBoard2d(gameBoard)
+    let board2d = new Board2d(gameBoard)
 
     snek.body.forEach(function checkBodyPart(part, index, arr) {
       let boardCell = board2d.getCell(part)
@@ -576,17 +576,20 @@ describe('Cloned game state should be identical to source game state', () => {
 
 describe('Moving a snake results in changes to body, head, health', () => {
   it('should have correct body and health after moving', () => {
-    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
 
     gameState.board.hazards = [{x:0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    moveSnake(gameState, snek, "up")
+    const board2d = new Board2d(gameState.board)
+
+    const moveResult = moveSnake(gameState, snek, board2d, "up")
+    expect(moveResult).toBe(true)
 
     expect(snek.length).toBe(5) // length shouldn't have changed
-    expect(snek.health).toBe(99) // health should be one less
+    expect(snek.health).toBe(79) // health should be one less
     expect(snek.head.x).toBe(2)
     expect(snek.head.y).toBe(3)
     expect(snek.body[0].x).toBe(snek.head.x)
@@ -604,17 +607,20 @@ describe('Moving a snake results in changes to body, head, health', () => {
 
 describe('Moving a snake into hazard results in changes to body, head, health', () => {
   it('should have correct body and health after moving into hazard', () => {
-    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
 
     gameState.board.hazards = [{x: 2, y: 0}, {x: 2, y: 1}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 2, y: 7}, {x: 2, y: 8}, {x: 2, y: 9}, {x: 2, y: 10}]
 
-    moveSnake(gameState, snek, "up")
+    const board2d = new Board2d(gameState.board)
+
+    const moveResult = moveSnake(gameState, snek, board2d, "up")
+    expect(moveResult).toBe(true)
 
     expect(snek.length).toBe(5) // length shouldn't have changed
-    expect(snek.health).toBe(100 - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn) // health should be one less, and also hazardDamagePerTurn less
+    expect(snek.health).toBe(80 - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn) // health should be one less, and also hazardDamagePerTurn less
     expect(snek.head.x).toBe(2)
     expect(snek.head.y).toBe(3)
     expect(snek.body[0].x).toBe(snek.head.x)
@@ -632,17 +638,53 @@ describe('Moving a snake into hazard results in changes to body, head, health', 
 
 describe('Moving a snake into food results in changes to body, head, health', () => {
   it('should have correct body and health after moving into food', () => {
-    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 2, y: 3}, {x: 6, y: 6}]
 
     gameState.board.hazards = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    moveSnake(gameState, snek, "up")
+    const board2d = new Board2d(gameState.board)
 
-    expect(snek.length).toBe(6) // length shouldn't have changed
+    const moveResult = moveSnake(gameState, snek, board2d, "up")
+    expect(moveResult).toBe(true)
+
+    expect(snek.length).toBe(5) // length shouldn't have changed
     expect(snek.health).toBe(100) // health should be maximum of 100
+    expect(snek.head.x).toBe(2)
+    expect(snek.head.y).toBe(3)
+    expect(snek.body[0].x).toBe(snek.head.x)
+    expect(snek.body[0].y).toBe(snek.head.y)
+    expect(snek.body[1].x).toBe(2)
+    expect(snek.body[1].y).toBe(2)
+    expect(snek.body[2].x).toBe(3)
+    expect(snek.body[2].y).toBe(2)
+    expect(snek.body[3].x).toBe(3)
+    expect(snek.body[3].y).toBe(1)
+    expect(snek.body[4].x).toBe(4)
+    expect(snek.body[4].y).toBe(1)
+    // expect(snek.body[5].x).toBe(5) // tail doesn't grow until next turn
+    // expect(snek.body[5].y).toBe(1)
+  })
+})
+
+describe('Moving a snake from food results in changes to body, head, health', () => {
+  it('should have correct body and health after moving from food', () => {
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "100", "", "")
+    const gameState = createGameState(snek)
+
+    gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
+
+    gameState.board.hazards = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
+
+    const board2d = new Board2d(gameState.board)
+
+    const moveResult = moveSnake(gameState, snek, board2d, "up")
+    expect(moveResult).toBe(true)
+
+    expect(snek.length).toBe(6) // length should grow since it ate food last turn
+    expect(snek.health).toBe(99)
     expect(snek.head.x).toBe(2)
     expect(snek.head.y).toBe(3)
     expect(snek.body[0].x).toBe(snek.head.x)
@@ -659,3 +701,27 @@ describe('Moving a snake into food results in changes to body, head, health', ()
     expect(snek.body[5].y).toBe(1)
   })
 })
+
+//// evaluate tests ////////
+
+describe('Evaluate a doomed snake and an undoomed snake', () => {
+    it('should rank the undoomed move higher', () => {
+        const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "100", "", "")
+        
+        const gameState = createGameState(snek)
+
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 0, y: 0}], "100", "", "")
+        gameState.board.snakes.push(otherSnek)
+        
+        let evalSnek = evaluate(gameState, snek)
+        let evalOtherSnek = evaluate(gameState, otherSnek)
+
+        expect(evalSnek).toBeGreaterThan(evalOtherSnek)
+    })
+})
+
+///// end evaluate tests ///////
+
+
+// test cases for evaluation function - can include basic stuff as well as more convoluted test cases, can even include specific board configurations from games lost where I picked out a better move
+// test cases for Move output in specific board configurations where I have a preferred move - can even include specific board configurations from games lost where I picked out a better move

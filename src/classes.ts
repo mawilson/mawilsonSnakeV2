@@ -1,6 +1,6 @@
 
-import { ICoord, IBattlesnake } from "./types"
-import { logToFile, getRelativeDirection } from "./util"
+import { ICoord, IBattlesnake, Board } from "./types"
+import { logToFile, getRelativeDirection, coordsEqual } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -82,10 +82,38 @@ export class Board2d {
   width: number;
   height: number;
 
-  constructor(_width: number, _height: number) {
-    this.width = _width;
-    this.height = _height;
-    this.cells = new Array(_width * _height);
+  constructor(board: Board) {
+    this.width = board.width;
+    this.height = board.height;
+    this.cells = new Array(this.width * this.height);
+    let self : Board2d = this
+
+    function processSnake(inputSnake : Battlesnake) : void {
+      inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
+        let newSnakeCell = new SnakeCell(inputSnake, coordsEqual(part, inputSnake.head), coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])),
+            board2dCell = self.getCell(part)
+        if (board2dCell) {
+          board2dCell.snakeCell = newSnakeCell
+        }
+      })
+    }
+
+    //processSnake(you) // not necessary as board.snakes contains self
+    board.snakes.forEach(processSnake)
+
+    board.food.forEach(function addFood(coord : Coord) : void {
+      let board2dCell = self.getCell(coord)
+      if (board2dCell instanceof BoardCell) {
+        board2dCell.food = true
+      }
+    })
+
+    board.hazards.forEach(function addHazard(coord: Coord) : void {
+      let board2dCell = self.getCell(coord)
+      if (board2dCell instanceof BoardCell) {
+        board2dCell.hazard = true
+      }
+    })
   }
 
   getCell(coord: Coord) : BoardCell | undefined {

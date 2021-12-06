@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, moveSnake } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesAndWalls } from "./util"
 
 import { createWriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
@@ -12,9 +12,9 @@ export function info(): InfoResponse {
     const response: InfoResponse = {
         apiversion: "1",
         author: "waryferryman",
-        color: "#ff00ff",
-        head: "bendr",
-        tail: "freckled"
+        color: "#a0cc10", // "ff00ff"
+        head: "tiger-king", //"bendr",
+        tail: "mystic-moon" //"freckled"
     }
     return response
 }
@@ -27,38 +27,75 @@ export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
 }
 
-export function buildBoard2d(board : Board) : Board2d {
-    const board2d = new Board2d(board.width, board.height)
-
-    function processSnake(inputSnake : Battlesnake) : void {
-      inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
-        let newSnakeCell = new SnakeCell(inputSnake, coordsEqual(part, inputSnake.head), coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])),
-            board2dCell = board2d.getCell(part)
-        if (board2dCell) {
-          board2dCell.snakeCell = newSnakeCell
-        }
-      })
-    }
-
-    //processSnake(you) // not necessary as board.snakes contains self
-    board.snakes.forEach(processSnake)
-
-    board.food.forEach(function addFood(coord : Coord) : void {
-      let board2dCell = board2d.getCell(coord)
-      if (board2dCell instanceof BoardCell) {
-        board2dCell.food = true
-      }
-    })
-
-    board.hazards.forEach(function addHazard(coord: Coord) : void {
-      let board2dCell = board2d.getCell(coord)
-      if (board2dCell instanceof BoardCell) {
-        board2dCell.hazard = true
-      }
-    })
-
-    return board2d
+// the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
+// 1000: last snake alive, best possible state
+// 0: snake is dead, worst possible state
+export function evaluate(gameState: GameState, meSnake: Battlesnake) : number {
+  const myself = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
+  let evaluation = 500
+  if (!(myself instanceof Battlesnake)) {
+    return 0 // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
+  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
+  if (otherSnakes.length === 0) {
+    evaluation = evaluation + 1000 // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
+  }
+  const board2d = new Board2d(gameState.board)
+
+  // give walls a penalty, & corners a double penalty
+  if (myself.head.x === 0) {
+    evaluation = evaluation - 100
+  } else if (myself.head.x === (gameState.board.width - 1)) {
+    evaluation = evaluation - 100
+  }
+  if (myself.head.y === 0) {
+    evaluation = evaluation - 100
+  } else if (myself.head.y === (gameState.board.height - 1)) {
+    evaluation = evaluation - 100
+  }
+
+  // in addition to wall/corner penalty, give a bonus to being closer to center
+  const centerX = gameState.board.width / 2
+  const centerY = gameState.board.height / 2
+
+  const xDiff = Math.abs(myself.head.x - centerX)
+  const yDiff = Math.abs(myself.head.y - centerY)
+  if (xDiff < 2) {
+    evaluation = evaluation + 5
+  } else if (xDiff < 6) {
+    evaluation = evaluation + 2
+  }
+  if (yDiff < 4) {
+    evaluation = evaluation + 5
+  } else if (yDiff < 6) {
+    evaluation = evaluation + 2
+  }
+  
+  // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
+  const possibleMoves = new Moves(true, true, true, true)
+  checkForSnakesAndWalls(myself, board2d, possibleMoves)
+
+  switch(possibleMoves.validMoves().length) {
+    case 0:
+      evaluation = 1 // with no valid moves left, this state is just a notch above death
+      break
+    case 1:
+      evaluation = evaluation - 50 // with only one valid move, this is a bad, but not unsalvageable, state
+      break
+    case 2:
+      evaluation = evaluation + 30 // two valid moves is pretty good
+      break
+    case 3:
+      evaluation = evaluation + 200 // three valid moves is great
+      break
+    default: // case 4, should only be possible on turn 1 when length is 1
+      evaluation = evaluation + 500
+      break
+  }
+
+  logToFile(consoleWriteStream, `eval for ${meSnake.name} at ${meSnake.head}: ${evaluation}`)
+  return evaluation
+}
 
 // avoid walls or corners
 // start looking ahead!
@@ -80,11 +117,11 @@ export function move(gameState: GameState): MoveResponse {
     const boardWidth: number = gameState.board.width
     const boardHeight: number = gameState.board.height
     const myBody: Coord[] = myself.body
-    const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { snake.id !== myself.id})
+    const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== myself.id})
     const myTail: Coord = myBody[myBody.length - 1]
     const snakeBites = gameState.board.food
 
-    const board2d = buildBoard2d(gameState.board)
+    const board2d = new Board2d(gameState.board)
 
     //let tempCell = new Coord(0, 0)
     // console.log(`Turn: ${gameState.turn}`)
@@ -129,51 +166,6 @@ export function move(gameState: GameState): MoveResponse {
         return cell.food
       } else {
         return false
-      }
-    }
-
-    function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: Moves) {
-      function checkCell(x: number, y: number) : boolean {
-        if (x < 0) { // indicates a move into the left wall
-          return false
-        } else if (y < 0) { // indicates a move into the bottom wall
-          return false
-        } else if (x >= board.width) { // indicates a move into the right wall
-          return false
-        } else if (y >= board.height) { // indicates a move into the top wall
-          return false
-        }
-        let newCoord = new Coord(x, y)
-        let newCell = board.getCell(newCoord)
-        if (newCell instanceof BoardCell) {
-          if (newCell.snakeCell instanceof SnakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
-            //logToFile(consoleWriteStream, `snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake)}`)
-            if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
-              return true
-            } else { // cannot move into any other body part
-              return false
-            }
-          } else {
-            return true
-          }
-        } else {
-          return false
-        }
-      }
-      
-      let myCoords : Coord = me.head
-
-      if (!checkCell(myCoords.x - 1, myCoords.y)) {
-        moves.left = false
-      }
-      if (!checkCell(myCoords.x, myCoords.y - 1)) {
-        moves.down = false
-      }
-      if (!checkCell(myCoords.x + 1, myCoords.y)) {
-        moves.right = false
-      }
-      if (!checkCell(myCoords.x, myCoords.y + 1)) {
-        moves.up = false
       }
     }
 
@@ -369,7 +361,7 @@ export function move(gameState: GameState): MoveResponse {
       }
 
       if (gameState.turn < 20) { // prioritize food slightly more earlier in game
-        depth = depth > 4 ? depth : 4
+        depth = depth > 6 ? depth : 6
       }
 
       if (snakeKing&& me.health > 10) {
@@ -410,7 +402,6 @@ export function move(gameState: GameState): MoveResponse {
 
     // Finally, choose a move from the available safe moves.
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
-    const safeMoves = possibleMoves.validMoves()
 
     // alternative to random movement, will return move that brings it closer to the midpoint of the map
     function moveTowardsCenter(coord: Coord, board: Board, moves: string[]) : string {
@@ -438,27 +429,43 @@ export function move(gameState: GameState): MoveResponse {
       //logToFile(consoleWriteStream, `of available moves ${moves.toString()}, choosing random move ${randomMove}`)
       return randomMove
     }
-
-    // the big one. This function evaluates the state of the board & spits out a number indicating how good it is, higher numbers being better
-    // 1000: last snake alive, best possible state
-    // 0: snake is dead, worst possible state
-    function evaluate(gameState: GameState, board2d: Board2d) : number {
-      const myself = gameState.you
-      const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { snake.id !== myself.id})
-      
-      return 1000
-    }
     
     // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
-    function decideMove(moves: string[]) : string {
+    function decideMove(gameState: GameState, moves: string[]) : string {
       if (moves.length < 1) {
         return "up"
       }
       if (moves.length === 1) {
         return moves[0]
       }
-      return moveTowardsCenter(myHead, gameState.board, moves)
+      //return moveTowardsCenter(myHead, gameState.board, moves)
 
+
+      // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
+      let bestMove : string = ""
+      let bestMoveEval : number = -1
+
+      moves.forEach(function evaluateMove(move) {
+        let newGameState = cloneGameState(gameState)
+        let newBoard2d = new Board2d(newGameState.board)
+        let evalState = 0
+
+        let moveResult = moveSnake(newGameState, newGameState.you, newBoard2d, move)
+        if (moveResult) {
+          evalState = evaluate(newGameState, newGameState.you)
+          if (evalState > bestMoveEval) {
+            bestMove = move
+            bestMoveEval = evalState
+          } else if ((evalState === bestMoveEval) && getRandomInt(0, 1)) { // in the event of tied evaluations, choose between them at random
+            bestMove = move
+            bestMoveEval = evalState
+          }
+        } else {
+          evalState = 0 // !moveResult indicates we couldn't move there. This indicates a bad place to try to move.
+        }
+      })
+
+      return bestMove
 
       // if (myself.length < 15) { // shorter snakes can afford to skirt the edges better
       //   return getRandomMove(moves)
@@ -467,7 +474,8 @@ export function move(gameState: GameState): MoveResponse {
       // }
     }
 
-    let chosenMove : string = decideMove(safeMoves)
+    const safeMoves = possibleMoves.validMoves()
+    const chosenMove : string = decideMove(gameState, safeMoves)
     const response: MoveResponse = {
         move: chosenMove
     }
@@ -476,8 +484,8 @@ export function move(gameState: GameState): MoveResponse {
 
     //checkTime()
 
-    logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}`)
+    logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}, newCoord: ${newCoord}`)
 
-    logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
+    //logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
     return response
 }
