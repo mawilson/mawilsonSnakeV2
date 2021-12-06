@@ -12,7 +12,7 @@ export function info(): InfoResponse {
     const response: InfoResponse = {
         apiversion: "1",
         author: "waryferryman",
-        color: "#a0cc10", // "ff00ff"
+        color: "#ff9900", // "ff00ff"
         head: "tiger-king", //"bendr",
         tail: "mystic-moon" //"freckled"
     }
@@ -93,7 +93,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake) : number {
       break
   }
 
-  logToFile(consoleWriteStream, `eval for ${meSnake.name} at ${meSnake.head}: ${evaluation}`)
+  logToFile(consoleWriteStream, `eval for ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y}): ${evaluation}`)
   return evaluation
 }
 
@@ -198,7 +198,6 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
-      let myLength = me.length
       let murderMoves : string[] = []
       if (kissMoves.huntingAtUp()) {
         murderMoves.push("up")
@@ -216,7 +215,6 @@ export function move(gameState: GameState): MoveResponse {
     }
 
     function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
-      let myLength = me.length
       let deathMoves : string[] = []
       if (kissMoves.huntedAtUp()) {
         deathMoves.push("up")

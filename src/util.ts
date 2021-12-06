@@ -91,7 +91,7 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
     return false
   } else {
     board.snakes.forEach(function isSnakeBigger(snake) {
-      if ((me.id !== snake.id) && me.length - snake.length < 2) { // if any snake is within 2 lengths of me
+      if ((me.id !== snake.id) && ((effectiveSnakeLength(me) - effectiveSnakeLength(snake)) < 2)) { // if any snake is within 2 lengths of me
         kingOfTheSnakes = false
       }
     })
@@ -114,11 +114,12 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
       //logToFile(consoleWriteStream, `snake len: ${len}, distToMe: ${distToMe}`)
-      if (snake.length > len) {
-        len = snake.length
+      let effectiveLength = effectiveSnakeLength(snake)
+      if (effectiveLength > len) {
+        len = effectiveLength
         longestSnakeIndex = idx
         distToMe = getDistance(me.head, snake.head)
-      } else if (snake.length === len) {
+      } else if (effectiveLength === len) {
         let newDistToMe = getDistance(me.head, snake.head)
         if (newDistToMe < distToMe) { // if it's a tie & this one is closer
           longestSnakeIndex = idx
@@ -175,6 +176,11 @@ export function snakeToString(snake: Battlesnake) : string {
     bodyString = bodyString ? `${bodyString},${coordToString(coord)}` : `${coordToString(coord)}` 
   })
   return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
+}
+
+// if a snake has just eaten, its length is effectively one more than that reported by its length & body array size
+export function effectiveSnakeLength(snake: Battlesnake) : number {
+  return snakeHasEaten(snake) ? snake.length + 1 : snake.length
 }
 
 // function for duplicating a game state, with no references to original
@@ -261,7 +267,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
-    if (snake.health !== 100) { // if 100, snake ate this turn, meaning its tail won't shrink after moving
+    if (!snakeHasEaten(snake)) { // if snake hadn't eaten this turn, its tail will shrink off after moving
       snake.body = snake.body.slice(0, -1) // remove last element of body
     }
     
@@ -275,7 +281,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
       
     snake.body.unshift(newCoord) // add new coordinate to front of body
     snake.head = snake.body[0]
-    snake.length = snake.body.length
+    snake.length = snake.body.length // note this doesn't account for whether food was eaten this round - this is how Battlesnake does it too, length is just a reference to the snake body array length
     return true
   } else {
     return false
