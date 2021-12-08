@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesAndWalls } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesAndWalls, checkTime } from "./util"
 
 import { createWriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
@@ -27,31 +27,79 @@ export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
 }
 
+let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
+  encoding: "utf8"
+})
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
 export function evaluate(gameState: GameState, meSnake: Battlesnake) : number {
+  // values to tweak
+  const evalBase: number = 500
+  const evalNoSnakes: number = 5
+  const evalNoMe: number = 0
+  const evalSolo: number = 1000
+  const evalWallPenalty: number = -50
+  const evalCenterMax = 5
+  const evalCenterMaxDist = 2
+  const evalCenterMin = 2
+  const evalCenterMinDist = 4
+  const eval0Move = 1
+  const eval1Move = 20 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
+  const eval2Moves = 30
+  const eval3Moves = 70
+  const eval4Moves = 100
+  const evalHasEaten = 80
+  const evalHealth7 = 42
+  const evalHealth6 = 36
+  const evalHealth5 = 30
+  const evalHealth4 = 24
+  const evalHealth3 = 18
+  const evalHealth2 = 12
+  const evalHealth1 = 6
+  const evalHealth0 = 0
+
+  
+  let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
+  function buildLogString(str : string) : void {
+    if (logString === "") {
+      logString = str
+    } else {
+      logString = logString + "\n" + str
+    }
+  }
+
+  if (gameState.board.snakes.length === 0) {
+    buildLogString(`no snakes, return ${evalNoSnakes}`)
+    return evalNoSnakes // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
+  }
   const myself = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
-  let evaluation = 500
+  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
+  let evaluation = evalBase
   if (!(myself instanceof Battlesnake)) {
+    buildLogString(`no myself snake, return ${evalNoMe}`)
     return 0 // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
-  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   if (otherSnakes.length === 0) {
-    evaluation = evaluation + 1000 // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
+    buildLogString(`no other snakes, add ${evalSolo}`)
+    evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
   }
   const board2d = new Board2d(gameState.board)
 
   // give walls a penalty, & corners a double penalty
   if (myself.head.x === 0) {
-    evaluation = evaluation - 100
+    buildLogString(`self head x at 0, add ${evalWallPenalty}`)
+    evaluation = evaluation + evalWallPenalty
   } else if (myself.head.x === (gameState.board.width - 1)) {
-    evaluation = evaluation - 100
+    buildLogString(`self head x at width ${myself.head.x}, add ${evalWallPenalty}`)
+    evaluation = evaluation + evalWallPenalty
   }
   if (myself.head.y === 0) {
-    evaluation = evaluation - 100
+    buildLogString(`self head y at 0, add ${evalWallPenalty}`)
+    evaluation = evaluation + evalWallPenalty
   } else if (myself.head.y === (gameState.board.height - 1)) {
-    evaluation = evaluation - 100
+    buildLogString(`self head y at height ${myself.head.y}, add ${evalWallPenalty}`)
+    evaluation = evaluation + evalWallPenalty
   }
 
   // in addition to wall/corner penalty, give a bonus to being closer to center
@@ -60,15 +108,19 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake) : number {
 
   const xDiff = Math.abs(myself.head.x - centerX)
   const yDiff = Math.abs(myself.head.y - centerY)
-  if (xDiff < 2) {
-    evaluation = evaluation + 5
-  } else if (xDiff < 6) {
-    evaluation = evaluation + 2
+  if (xDiff < evalCenterMaxDist) {
+    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
+    evaluation = evaluation + evalCenterMax
+  } else if (xDiff < evalCenterMinDist) {
+    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMin}`)
+    evaluation = evaluation + evalCenterMin
   }
-  if (yDiff < 4) {
-    evaluation = evaluation + 5
-  } else if (yDiff < 6) {
-    evaluation = evaluation + 2
+  if (yDiff < evalCenterMaxDist) {
+    buildLogString(`yDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
+    evaluation = evaluation + evalCenterMax
+  } else if (yDiff < evalCenterMinDist) {
+    buildLogString(`yDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
+    evaluation = evaluation + evalCenterMin
   }
   
   // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
@@ -77,31 +129,71 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake) : number {
 
   switch(possibleMoves.validMoves().length) {
     case 0:
-      evaluation = 1 // with no valid moves left, this state is just a notch above death
+      buildLogString(`possibleMoves 0, return ${eval0Move}`)
+      evaluation = eval0Move // with no valid moves left, this state is just a notch above death
       break
     case 1:
-      evaluation = evaluation - 50 // with only one valid move, this is a bad, but not unsalvageable, state
+      buildLogString(`possibleMoves 1, add ${eval1Move}`)
+      evaluation = evaluation + eval1Move // with only one valid move, this is a bad, but not unsalvageable, state
       break
     case 2:
-      evaluation = evaluation + 30 // two valid moves is pretty good
+      buildLogString(`possibleMoves 2, add ${eval2Moves}`)
+      evaluation = evaluation + eval2Moves // two valid moves is pretty good
       break
     case 3:
-      evaluation = evaluation + 200 // three valid moves is great
+      buildLogString(`possibleMoves 3, add ${eval3Moves}`)
+      evaluation = evaluation + eval3Moves // three valid moves is great
       break
     default: // case 4, should only be possible on turn 1 when length is 1
-      evaluation = evaluation + 500
+      buildLogString(`possibleMoves 4, add ${eval4Moves}`)
+      evaluation = evaluation + eval4Moves
       break
   }
 
+  // health considerations, which are effectively hazard considerations
+  if (myself.health === 100) {
+    buildLogString(`got food, add ${evalHasEaten}`)
+    evaluation = evaluation + evalHasEaten
+  } else {
+    let hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+    let validHazardTurns = myself.health / hazardDamage
+    if (validHazardTurns > 6) {
+      buildLogString(`Health7, adding ${evalHealth7}`)
+      evaluation = evaluation + evalHealth7
+    } else if (validHazardTurns > 5) {
+      buildLogString(`Health6, adding ${evalHealth6}`)
+      evaluation = evaluation + evalHealth6
+    } else if (validHazardTurns > 4) {
+      buildLogString(`Health5, adding ${evalHealth5}`)
+      evaluation = evaluation + evalHealth5
+    } else if (validHazardTurns > 3) {
+      buildLogString(`Health4, adding ${evalHealth4}`)
+      evaluation = evaluation + evalHealth4
+    } else if (validHazardTurns > 2) {
+      buildLogString(`Health3, adding ${evalHealth3}`)
+      evaluation = evaluation + evalHealth3     
+    } else if (validHazardTurns > 1) {
+      buildLogString(`Health2, adding ${evalHealth2}`)
+      evaluation = evaluation + evalHealth2 
+    } else if (validHazardTurns > 0) {
+      buildLogString(`Health1, adding ${evalHealth1}`)
+      evaluation = evaluation + evalHealth1
+    } else {
+      buildLogString(`Health0, adding ${evalHealth0}`)
+      evaluation = evaluation + evalHealth0
+    }
+  }
+
+  buildLogString(`final evaluation: ${evaluation}`)
+  logToFile(evalWriteStream, `eval log: ${logString}
+  `)
   logToFile(consoleWriteStream, `eval for ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y}): ${evaluation}`)
   return evaluation
 }
 
-// avoid walls or corners
 // start looking ahead!
 // adjust prioritization logic based on results
 // replace random movement entirely
-// flesh out priorities more
 // hazard support
 // fix king snake & aggressive kissing snake logic to be smarter
 // replace all lets with consts where appropriate
@@ -123,7 +215,6 @@ export function move(gameState: GameState): MoveResponse {
 
     const board2d = new Board2d(gameState.board)
 
-    //let tempCell = new Coord(0, 0)
     // console.log(`Turn: ${gameState.turn}`)
     // board2d.logBoard()
 
@@ -134,30 +225,11 @@ export function move(gameState: GameState): MoveResponse {
       coolPatterns: 3, // chasing tail
       health: 4
     }
-
-    const timeout = gameState.game.timeout
-    const myLatency = myself.latency
-    const turn = gameState.turn
     
     const timeBeginning = Date.now()
 
-    // checks how much time has elapsed since beginning of move function,
-    // returns true if more than 50ms exists after latency
-    function checkTime() : boolean {
-      let timeCurrent : number = Date.now(),
-          timeElapsed : number = timeCurrent - timeBeginning,
-          _myLatency : number = myLatency ? parseInt(myLatency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
-          timeLeft = timeout - timeElapsed - _myLatency
-      console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", turn, timeElapsed, _myLatency, timeLeft)
-      return timeLeft > 50
-    }
-
     //logToFile(consoleWriteStream, `myTail: ${coordToString(myTail)}`)
     //logToFile(consoleWriteStream, `myHead: ${coordToString(myHead)}`)
-
-    function getBodyWithoutTail(body: Coord[]): Coord[] {
-      return body.slice(0, -1)
-    }
 
     // return true if board has food at the provided coordinate
     function hasFood(coord: Coord, board2d: Board2d) : boolean {
@@ -397,11 +469,9 @@ export function move(gameState: GameState): MoveResponse {
       }
     }
 
-
     // Finally, choose a move from the available safe moves.
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
 
-    // alternative to random movement, will return move that brings it closer to the midpoint of the map
     function moveTowardsCenter(coord: Coord, board: Board, moves: string[]) : string {
       let shortestMove : string = "up",
           shortestDist: number,
@@ -420,12 +490,6 @@ export function move(gameState: GameState): MoveResponse {
         }
       })
       return shortestMove
-    }
-
-    function getRandomMove(moves: string[]) : string {
-      let randomMove : string = moves[getRandomInt(0, moves.length)]
-      //logToFile(consoleWriteStream, `of available moves ${moves.toString()}, choosing random move ${randomMove}`)
-      return randomMove
     }
     
     // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
@@ -464,12 +528,6 @@ export function move(gameState: GameState): MoveResponse {
       })
 
       return bestMove
-
-      // if (myself.length < 15) { // shorter snakes can afford to skirt the edges better
-      //   return getRandomMove(moves)
-      // } else {
-      //   return moveTowardsCenter(myHead, gameState.board, moves)
-      // }
     }
 
     const safeMoves = possibleMoves.validMoves()
@@ -484,6 +542,6 @@ export function move(gameState: GameState): MoveResponse {
 
     logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}, newCoord: ${newCoord}`)
 
-    //logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
+    logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
     return response
 }

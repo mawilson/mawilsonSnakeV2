@@ -18,6 +18,12 @@ export function getRandomInt(min: number, max: number) : number {
   return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
 }
 
+export function getRandomMove(moves: string[]) : string {
+  let randomMove : string = moves[getRandomInt(0, moves.length)]
+  //logToFile(consoleWriteStream, `of available moves ${moves.toString()}, choosing random move ${randomMove}`)
+  return randomMove
+}
+
 export function coordsEqual(c1: Coord, c2: Coord): boolean {
   return (c1.x === c2.x && c1.y === c2.y)
 }
@@ -91,7 +97,7 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
     return false
   } else {
     board.snakes.forEach(function isSnakeBigger(snake) {
-      if ((me.id !== snake.id) && ((effectiveSnakeLength(me) - effectiveSnakeLength(snake)) < 2)) { // if any snake is within 2 lengths of me
+      if ((me.id !== snake.id) && ((me.length - snake.length) < 2)) { // if any snake is within 2 lengths of me
         kingOfTheSnakes = false
       }
     })
@@ -114,12 +120,11 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
       //logToFile(consoleWriteStream, `snake len: ${len}, distToMe: ${distToMe}`)
-      let effectiveLength = effectiveSnakeLength(snake)
-      if (effectiveLength > len) {
-        len = effectiveLength
+      if (snake.length > len) {
+        len = snake.length
         longestSnakeIndex = idx
         distToMe = getDistance(me.head, snake.head)
-      } else if (effectiveLength === len) {
+      } else if (snake.length === len) {
         let newDistToMe = getDistance(me.head, snake.head)
         if (newDistToMe < distToMe) { // if it's a tie & this one is closer
           longestSnakeIndex = idx
@@ -175,12 +180,7 @@ export function snakeToString(snake: Battlesnake) : string {
   snake.body.forEach(function concatBodyPart(coord: Coord) {
     bodyString = bodyString ? `${bodyString},${coordToString(coord)}` : `${coordToString(coord)}` 
   })
-  return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
-}
-
-// if a snake has just eaten, its length is effectively one more than that reported by its length & body array size
-export function effectiveSnakeLength(snake: Battlesnake) : number {
-  return snakeHasEaten(snake) ? snake.length + 1 : snake.length
+  return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; length: ${snake.length}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
 }
 
 // function for duplicating a game state, with no references to original
@@ -267,10 +267,9 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
-    if (!snakeHasEaten(snake)) { // if snake hadn't eaten this turn, its tail will shrink off after moving
-      snake.body = snake.body.slice(0, -1) // remove last element of body
-    }
-    
+    // even if snake has eaten this turn, its tail cell will be duplicated, so we will still want to slice off the last element
+    snake.body = snake.body.slice(0, -1) // remove last element of body
+
     if (newCell.food) {
       snake.health = 100
     } else if (newCell.hazard) {
@@ -285,21 +284,6 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     return true
   } else {
     return false
-  }
-}
-
-function getOppositeMove(move: string) : string {
-  switch (move) {
-    case "up":
-      return "down"
-    case "down":
-      return "up"
-    case "left":
-      return "right"
-    case "right":
-      return "left"
-    default:
-      throw `getOppositeMove input of ${move} was not a valid move` // should not reach here
   }
 }
 
@@ -346,4 +330,15 @@ export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: M
   if (!checkCell(myCoords.x, myCoords.y + 1)) {
     moves.up = false
   }
+}
+
+// checks how much time has elapsed since beginning of move function,
+// returns true if more than 50ms exists after latency
+export function checkTime(timeBeginning: number, gameState: GameState) : boolean {
+  let timeCurrent : number = Date.now(),
+      timeElapsed : number = timeCurrent - timeBeginning,
+      myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
+      timeLeft = gameState.game.timeout - timeElapsed - myLatency
+  console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", gameState.turn, timeElapsed, myLatency, timeLeft)
+  return timeLeft > 50
 }
