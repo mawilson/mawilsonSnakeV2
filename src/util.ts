@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell } from "./classes"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors } from "./classes"
 
 export function logToFile(file: WriteStream, str: string) {
   console.log(str)
@@ -341,4 +341,116 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
       timeLeft = gameState.game.timeout - timeElapsed - myLatency
   console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", gameState.turn, timeElapsed, myLatency, timeLeft)
   return timeLeft > 50
+}
+
+export function findMoveNeighbors(me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
+  let myHead = me.head
+  let kissMoves : MoveNeighbors = new MoveNeighbors(me)
+  if (moves.up) {
+    let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
+    kissMoves.upNeighbors = getSurroundingCells(newCoord, board2d, "down")    
+  }
+
+  if (moves.down) {
+    let newCoord : Coord = new Coord(myHead.x, myHead.y - 1)
+    kissMoves.downNeighbors = getSurroundingCells(newCoord, board2d, "up")
+  }
+
+  if (moves.right) {
+    let newCoord : Coord = new Coord(myHead.x + 1, myHead.y)
+    kissMoves.rightNeighbors = getSurroundingCells(newCoord, board2d, "left")
+  }
+
+  if (moves.left) {
+    let newCoord : Coord = new Coord(myHead.x - 1, myHead.y)
+    kissMoves.leftNeighbors = getSurroundingCells(newCoord, board2d, "right")
+  }
+  //logToFile(evalWriteStream, `findMoveNeighbors for snake at (${me.head.x},${me.head.y}): upLength, downLength, leftLength, rightLength: ${kissMoves.upNeighbors.length}, ${kissMoves.downNeighbors.length}, ${kissMoves.leftNeighbors.length}, ${kissMoves.rightNeighbors.length}`)
+  return kissMoves
+}
+
+export function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
+  let murderMoves : string[] = []
+  if (kissMoves.huntingAtUp()) {
+    murderMoves.push("up")
+  }
+  if (kissMoves.huntingAtDown()) {
+    murderMoves.push("down")
+  }
+  if (kissMoves.huntingAtLeft()) {
+    murderMoves.push("left")
+  }
+  if (kissMoves.huntingAtRight()) {
+    murderMoves.push("right")
+  }
+  return murderMoves
+}
+
+export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
+  let deathMoves : string[] = []
+  if (kissMoves.huntedAtUp()) {
+    deathMoves.push("up")
+  }
+  if (kissMoves.huntedAtDown()) {
+    deathMoves.push("down")
+  }
+  if (kissMoves.huntedAtLeft()) {
+    deathMoves.push("left")
+  }
+  if (kissMoves.huntedAtRight()) {
+    deathMoves.push("right")
+  }
+  return deathMoves
+}
+
+export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMoves: string[], possibleMoves: Moves) {
+  let validMoves : string[] = possibleMoves.validMoves()
+  let kissOfDeathState = "kissOfDeathNo"
+  switch (kissOfDeathMoves.length) {
+    case 3: // all three available moves may result in my demise
+      // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
+      let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
+      let huntedDirections = huntingChanceDirections.invalidMoves()
+      if (huntedDirections.length !== 3) { // two of the directions offer us a chance
+        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
+        kissOfDeathState = "kissOfDeathMaybe"
+        huntedDirections.forEach(function disableDir(dir) {
+          possibleMoves.disableMove(dir)
+        })
+      } else { // they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
+        //buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
+        kissOfDeathState = "kissOfDeathCertainty"
+      }
+      break
+    case 2:
+      if (validMoves.length === 3) { // in this case, two moves give us a 50/50 kiss of death, but the third is fine. This isn't ideal, but isn't a terrible evaluation
+        //buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
+        kissOfDeathState = "kissOfDeath3To1Avoidance"
+        possibleMoves.disableMove(kissOfDeathMoves[0])
+        possibleMoves.disableMove(kissOfDeathMoves[1])
+      } else { // this means a 50/50
+        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
+        kissOfDeathState = "kissOfDeathMaybe"
+      }
+      break
+    case 1:
+      if (possibleMoves.hasOtherMoves(kissOfDeathMoves[0])) {
+        if (validMoves.length === 3) {
+          //buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
+          kissOfDeathState = "kissOfDeath3To2Avoidance"
+          possibleMoves.disableMove(kissOfDeathMoves[0])
+        } else { // we know validMoves can't be of length 1, else that would be a kiss cell
+          //buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
+          kissOfDeathState = "kissOfDeath2To1Avoidance"
+        }
+      } else {
+        kissOfDeathState = "kissOfDeathCertainty"
+      }
+      break
+    default: // no kissOfDeathMoves nearby, this is good
+      //buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
+      kissOfDeathState = "kissOfDeathNo"
+      break
+  }
+  return kissOfDeathState
 }

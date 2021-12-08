@@ -1,7 +1,8 @@
-import { info, move, evaluate } from '../src/logic'
+import { info, move } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, BoardCell, Board2d } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake } from '../src/util'
+import { evaluate } from '../src/eval'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
 // for multi-snake diagrams, a - b - c are body, u - v - w are tail, i - j - k are head
@@ -815,8 +816,8 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}], "101", "", "")
         gameState.board.snakes.push(otherSnek)
         
-        let evalSnek = evaluate(gameState, snek)
-        let evalOtherSnek = evaluate(gameState, otherSnek)
+        let evalSnek = evaluate(gameState, snek, "kissOfDeathNo", "kissOfMurderNo")
+        let evalOtherSnek = evaluate(gameState, otherSnek, "kissOfDeathNo", "kissOfMurderNo")
 
         expect(evalSnek).toBeGreaterThan(evalOtherSnek)
     })
@@ -829,3 +830,4 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
 // test cases for Move output in specific board configurations where I have a preferred move - can even include specific board configurations from games lost where I picked out a better move
 // hazard testing
 // food seekout testing
+// kiss of death selector - chooses kiss of death cell with higher evaluation score

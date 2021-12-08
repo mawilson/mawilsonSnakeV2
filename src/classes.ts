@@ -441,7 +441,6 @@ export class MoveNeighbors {
     return rightNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
-  // given a populated 
   huntingChanceDirections() : Moves {
     let availableMoves = new Moves(true, true, true, true);
     for (const [id, moves] of Object.entries(this.huntingSnakes)) {

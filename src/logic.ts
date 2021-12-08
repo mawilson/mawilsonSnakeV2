@@ -1,8 +1,9 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesAndWalls, checkTime } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesAndWalls, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState } from "./util"
+import { evaluate } from "./eval"
 
-import { createWriteStream } from 'fs';
+import { createWriteStream } from 'fs'
 let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
@@ -27,168 +28,70 @@ export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
 }
 
-let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
-  encoding: "utf8"
-})
-// the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-// 1000: last snake alive, best possible state
-// 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake) : number {
-  // values to tweak
-  const evalBase: number = 500
-  const evalNoSnakes: number = 5
-  const evalNoMe: number = 0
-  const evalSolo: number = 1000
-  const evalWallPenalty: number = -50
-  const evalCenterMax = 5
-  const evalCenterMaxDist = 2
-  const evalCenterMin = 2
-  const evalCenterMinDist = 4
-  const eval0Move = 1
-  const eval1Move = 20 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 30
-  const eval3Moves = 70
-  const eval4Moves = 100
-  const evalHasEaten = 80
-  const evalHealth7 = 42
-  const evalHealth6 = 36
-  const evalHealth5 = 30
-  const evalHealth4 = 24
-  const evalHealth3 = 18
-  const evalHealth2 = 12
-  const evalHealth1 = 6
-  const evalHealth0 = 0
-
-  
-  let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
-  function buildLogString(str : string) : void {
-    if (logString === "") {
-      logString = str
-    } else {
-      logString = logString + "\n" + str
-    }
-  }
-
-  if (gameState.board.snakes.length === 0) {
-    buildLogString(`no snakes, return ${evalNoSnakes}`)
-    return evalNoSnakes // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
-  }
-  const myself = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
-  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
-  let evaluation = evalBase
-  if (!(myself instanceof Battlesnake)) {
-    buildLogString(`no myself snake, return ${evalNoMe}`)
-    return 0 // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
-  }
-  if (otherSnakes.length === 0) {
-    buildLogString(`no other snakes, add ${evalSolo}`)
-    evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
-  }
-  const board2d = new Board2d(gameState.board)
-
-  // give walls a penalty, & corners a double penalty
-  if (myself.head.x === 0) {
-    buildLogString(`self head x at 0, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  } else if (myself.head.x === (gameState.board.width - 1)) {
-    buildLogString(`self head x at width ${myself.head.x}, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  }
-  if (myself.head.y === 0) {
-    buildLogString(`self head y at 0, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  } else if (myself.head.y === (gameState.board.height - 1)) {
-    buildLogString(`self head y at height ${myself.head.y}, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  }
-
-  // in addition to wall/corner penalty, give a bonus to being closer to center
-  const centerX = gameState.board.width / 2
-  const centerY = gameState.board.height / 2
-
-  const xDiff = Math.abs(myself.head.x - centerX)
-  const yDiff = Math.abs(myself.head.y - centerY)
-  if (xDiff < evalCenterMaxDist) {
-    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
-    evaluation = evaluation + evalCenterMax
-  } else if (xDiff < evalCenterMinDist) {
-    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMin}`)
-    evaluation = evaluation + evalCenterMin
-  }
-  if (yDiff < evalCenterMaxDist) {
-    buildLogString(`yDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
-    evaluation = evaluation + evalCenterMax
-  } else if (yDiff < evalCenterMinDist) {
-    buildLogString(`yDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
-    evaluation = evaluation + evalCenterMin
-  }
-  
-  // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
-  const possibleMoves = new Moves(true, true, true, true)
-  checkForSnakesAndWalls(myself, board2d, possibleMoves)
-
-  switch(possibleMoves.validMoves().length) {
-    case 0:
-      buildLogString(`possibleMoves 0, return ${eval0Move}`)
-      evaluation = eval0Move // with no valid moves left, this state is just a notch above death
+// given a set of deathMoves that lead us into possibly being eaten,
+// killMoves that lead us into possibly eating another snake,
+// and moves, which is our actual move decision array
+function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves) : {kissOfDeathState: string, kissOfMurderState: string} {
+  let validMoves = moves.validMoves()
+  let states = {kissOfDeathState: "kissOfDeathNo", kissOfMurderState: "kissOfMurderNo"}
+  // first look through dangerous moves
+  switch(deathMoves.length) {
+    case 1: // if one move results in a kissOfDeath, eliminate that
+    //logToFile(evalWriteStream, `for snake at (${myself.head.x},${myself.head.y}), deathMoves: ${deathMoves.toString()}`)
+      if (moves.hasOtherMoves(deathMoves[0])) {
+        if (validMoves.length === 3) {
+          states.kissOfDeathState = "kissOfDeath3To2Avoidance"
+          logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${deathMoves[0]} due to threat of kiss of death`)
+          moves.disableMove(deathMoves[0])
+        } else { // we know validMoves can't be of length 1, else that would be a kiss cell
+          states.kissOfDeathState = "kissOfDeath2To1Avoidance"
+        }
+      } else {
+        states.kissOfDeathState = "kissOfDeathCertainty"
+      }
       break
-    case 1:
-      buildLogString(`possibleMoves 1, add ${eval1Move}`)
-      evaluation = evaluation + eval1Move // with only one valid move, this is a bad, but not unsalvageable, state
+    case 2: // if two moves result in a kiss of death, eliminate them if a third move is still valid, otherwise, don't eliminate either
+      if (validMoves.length === 3) { // in this case, two moves give us a 50/50 kiss of death, but the third is fine. This isn't ideal, but isn't a terrible evaluation
+        //buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
+        states.kissOfDeathState = "kissOfDeath3To1Avoidance"
+        logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling moves ${deathMoves[0]}, ${deathMoves[1]} due to threat of kiss of death & viable alternative`)
+        moves.disableMove(deathMoves[0])
+        moves.disableMove(deathMoves[1])
+      } else { // this means a 50/50
+        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
+        states.kissOfDeathState = "kissOfDeathMaybe"
+      }
       break
-    case 2:
-      buildLogString(`possibleMoves 2, add ${eval2Moves}`)
-      evaluation = evaluation + eval2Moves // two valid moves is pretty good
+    case 3: // if all three moves may cause my demise, try to choose which one is least deadly
+      // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
+      let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
+      let huntedDirections = huntingChanceDirections.invalidMoves()
+      if (huntedDirections.length !== 3) { // two of the directions offer us a chance
+        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
+        states.kissOfDeathState = "kissOfDeathMaybe"
+        huntedDirections.forEach(function disableDir(dir) {
+          logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${dir} due to threat of kiss of death & viable alternative`)
+          moves.disableMove(dir)
+        })
+      } else { // they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
+        //buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
+        states.kissOfDeathState = "kissOfDeathCertainty"
+      }
       break
-    case 3:
-      buildLogString(`possibleMoves 3, add ${eval3Moves}`)
-      evaluation = evaluation + eval3Moves // three valid moves is great
-      break
-    default: // case 4, should only be possible on turn 1 when length is 1
-      buildLogString(`possibleMoves 4, add ${eval4Moves}`)
-      evaluation = evaluation + eval4Moves
+    default: // case 0
+      states.kissOfDeathState = "kissOfDeathNo"
       break
   }
 
-  // health considerations, which are effectively hazard considerations
-  if (myself.health === 100) {
-    buildLogString(`got food, add ${evalHasEaten}`)
-    evaluation = evaluation + evalHasEaten
-  } else {
-    let hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
-    let validHazardTurns = myself.health / hazardDamage
-    if (validHazardTurns > 6) {
-      buildLogString(`Health7, adding ${evalHealth7}`)
-      evaluation = evaluation + evalHealth7
-    } else if (validHazardTurns > 5) {
-      buildLogString(`Health6, adding ${evalHealth6}`)
-      evaluation = evaluation + evalHealth6
-    } else if (validHazardTurns > 4) {
-      buildLogString(`Health5, adding ${evalHealth5}`)
-      evaluation = evaluation + evalHealth5
-    } else if (validHazardTurns > 3) {
-      buildLogString(`Health4, adding ${evalHealth4}`)
-      evaluation = evaluation + evalHealth4
-    } else if (validHazardTurns > 2) {
-      buildLogString(`Health3, adding ${evalHealth3}`)
-      evaluation = evaluation + evalHealth3     
-    } else if (validHazardTurns > 1) {
-      buildLogString(`Health2, adding ${evalHealth2}`)
-      evaluation = evaluation + evalHealth2 
-    } else if (validHazardTurns > 0) {
-      buildLogString(`Health1, adding ${evalHealth1}`)
-      evaluation = evaluation + evalHealth1
-    } else {
-      buildLogString(`Health0, adding ${evalHealth0}`)
-      evaluation = evaluation + evalHealth0
-    }
+  // second priority is looking for chances to eliminate another snake
+  if (killMoves.length > 0) {
+    logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), killMoves: ${killMoves.toString()}`)
+    let idx = getRandomInt(0, killMoves.length) // TODO: choose the smartest kill index
+    logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), moving towards ${killMoves[idx]} to try to take a snake`)
+    moves.disableOtherMoves(killMoves[idx])
   }
 
-  buildLogString(`final evaluation: ${evaluation}`)
-  logToFile(evalWriteStream, `eval log: ${logString}
-  `)
-  logToFile(consoleWriteStream, `eval for ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y}): ${evaluation}`)
-  return evaluation
+  return states
 }
 
 // start looking ahead!
@@ -231,128 +134,18 @@ export function move(gameState: GameState): MoveResponse {
     //logToFile(consoleWriteStream, `myTail: ${coordToString(myTail)}`)
     //logToFile(consoleWriteStream, `myHead: ${coordToString(myHead)}`)
 
-    // return true if board has food at the provided coordinate
-    function hasFood(coord: Coord, board2d: Board2d) : boolean {
-      let cell = board2d.getCell(coord)
-      if (cell instanceof BoardCell) {
-        return cell.food
-      } else {
-        return false
-      }
-    }
-
     checkForSnakesAndWalls(myself, board2d, possibleMoves)
 
-    function findMoveNeighbors(me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
-      let myHead = me.head
-      let kissMoves : MoveNeighbors = new MoveNeighbors(me)
-      if (moves.up) {
-        let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
-        kissMoves.upNeighbors = getSurroundingCells(newCoord, board2d, "down")    
-      }
-
-      if (moves.down) {
-        let newCoord : Coord = new Coord(myHead.x, myHead.y - 1)
-        kissMoves.downNeighbors = getSurroundingCells(newCoord, board2d, "up")
-      }
-
-      if (moves.right) {
-        let newCoord : Coord = new Coord(myHead.x + 1, myHead.y)
-        kissMoves.rightNeighbors = getSurroundingCells(newCoord, board2d, "left")
-      }
-
-      if (moves.left) {
-        let newCoord : Coord = new Coord(myHead.x - 1, myHead.y)
-        kissMoves.leftNeighbors = getSurroundingCells(newCoord, board2d, "right")
-      }
-      //logToFile(consoleWriteStream, `findMoveNeighbors for snake at (${me.head.x},${me.head.y}): upLength, downLength, leftLength, rightLength: ${kissMoves.upNeighbors.length}, ${kissMoves.downNeighbors.length}, ${kissMoves.leftNeighbors.length}, ${kissMoves.rightNeighbors.length}`)
-      return kissMoves
-    }
-
-    function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
-      let murderMoves : string[] = []
-      if (kissMoves.huntingAtUp()) {
-        murderMoves.push("up")
-      }
-      if (kissMoves.huntingAtDown()) {
-        murderMoves.push("down")
-      }
-      if (kissMoves.huntingAtLeft()) {
-        murderMoves.push("left")
-      }
-      if (kissMoves.huntingAtRight()) {
-        murderMoves.push("right")
-      }
-      return murderMoves
-    }
-
-    function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
-      let deathMoves : string[] = []
-      if (kissMoves.huntedAtUp()) {
-        deathMoves.push("up")
-      }
-      if (kissMoves.huntedAtDown()) {
-        deathMoves.push("down")
-      }
-      if (kissMoves.huntedAtLeft()) {
-        deathMoves.push("left")
-      }
-      if (kissMoves.huntedAtRight()) {
-        deathMoves.push("right")
-      }
-      return deathMoves
-    }
-    
     let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
     let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
     let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-    //logToFile(consoleWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
-    //logToFile(consoleWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
+    //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
+    //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
-    // given a set of deathMoves that lead us into possibly being eaten,
-    // killMoves that lead us into possibly eating another snake,
-    // and moves, which is our actual move decision array
-    function kissDecider(deathMoves : string[], killMoves : string[], moves: Moves) {
-      // first look through dangerous moves
-      switch(deathMoves.length) {
-        case 1: // if one move results in a kissOfDeath, eliminate that
-        //logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), deathMoves: ${deathMoves.toString()}`)
-          if (moves.hasOtherMoves(deathMoves[0])) {
-            logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${deathMoves[0]} due to threat of kiss of death`)
-            moves.disableMove(deathMoves[0])
-          }
-          break
-        case 2: // if two moves result in a kiss of death, eliminate them if a third move is still valid, otherwise, don't eliminate either
-          if (moves.validMoves().length === 3) {
-            logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling moves ${deathMoves[0]}, ${deathMoves[1]} due to threat of kiss of death & viable alternative`)
-            moves.disableMove(deathMoves[0])
-            moves.disableMove(deathMoves[1])
-          }
-          break
-        case 3: // if all three moves may cause my demise, try to choose which one is least deadly
-          // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
-          let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
-          let huntedDirections = huntingChanceDirections.invalidMoves()
-          if (huntedDirections.length !== 3) { // don't bother disabling anything if they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
-            huntedDirections.forEach(function disableDir(dir) {
-              moves.disableMove(dir)
-            })
-          }
-          break
-        default: // case 0
-          break
-      }
+     let kissStates = kissDecider(myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves)
 
-      // second priority is looking for chances to eliminate another snake
-      if (killMoves.length > 0) {
-        logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), killMoves: ${killMoves.toString()}`)
-        let idx = getRandomInt(0, killMoves.length) // TODO: choose the smartest kill index
-        logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), moving towards ${killMoves[idx]} to try to take a snake`)
-        moves.disableOtherMoves(killMoves[idx])
-      }
-    }
-
-    kissDecider(kissOfDeathMoves, kissOfMurderMoves, possibleMoves)
+    // let kissOfDeathState : string = getKissOfDeathState(moveNeighbors, kissOfDeathMoves, possibleMoves)
+    // let kissOfMurderState : string = "kissOfMurderNo"
 
     // looks for food within depth moves away from snakeHead
     // returns an object whose keys are distances away, & whose values are food
@@ -514,7 +307,9 @@ export function move(gameState: GameState): MoveResponse {
 
         let moveResult = moveSnake(newGameState, newGameState.you, newBoard2d, move)
         if (moveResult) {
-          evalState = evaluate(newGameState, newGameState.you)
+          // TODO: evaluate needs to be ran on a new game state in which opposing snakes have also moved, not just me - & that means it needs to be ran multiple times for multiple different realities
+          evalState = evaluate(newGameState, newGameState.you, kissStates.kissOfDeathState, kissStates.kissOfMurderState)
+          //logToFile(consoleWriteStream, `eval for ${newGameState.you.name} at (${newGameState.you.head.x},${newGameState.you.head.y}): ${evalState}`)
           if (evalState > bestMoveEval) {
             bestMove = move
             bestMoveEval = evalState
@@ -540,8 +335,8 @@ export function move(gameState: GameState): MoveResponse {
 
     //checkTime()
 
-    logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}, newCoord: ${newCoord}`)
+    //logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}, newCoord: ${newCoord}`)
 
-    logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
+    //logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
     return response
 }
