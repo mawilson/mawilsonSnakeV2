@@ -41,11 +41,11 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
       if (moves.hasOtherMoves(deathMoves[0])) {
         if (validMoves.length === 3) {
           states.kissOfDeathState = "kissOfDeath3To2Avoidance"
-          logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${deathMoves[0]} due to threat of kiss of death`)
-          moves.disableMove(deathMoves[0])
         } else { // we know validMoves can't be of length 1, else that would be a kiss cell
           states.kissOfDeathState = "kissOfDeath2To1Avoidance"
         }
+        logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), disabling move ${deathMoves[0]} due to threat of kiss of death`)
+        moves.disableMove(deathMoves[0])
       } else {
         states.kissOfDeathState = "kissOfDeathCertainty"
       }
