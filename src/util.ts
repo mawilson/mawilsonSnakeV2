@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell } from "./classes"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors } from "./classes"
 
 export function logToFile(file: WriteStream, str: string) {
   console.log(str)
@@ -16,6 +16,12 @@ export function getRandomInt(min: number, max: number) : number {
   min = Math.ceil(min);
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+}
+
+export function getRandomMove(moves: string[]) : string {
+  let randomMove : string = moves[getRandomInt(0, moves.length)]
+  //logToFile(consoleWriteStream, `of available moves ${moves.toString()}, choosing random move ${randomMove}`)
+  return randomMove
 }
 
 export function coordsEqual(c1: Coord, c2: Coord): boolean {
@@ -91,7 +97,7 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
     return false
   } else {
     board.snakes.forEach(function isSnakeBigger(snake) {
-      if ((me.id !== snake.id) && ((effectiveSnakeLength(me) - effectiveSnakeLength(snake)) < 2)) { // if any snake is within 2 lengths of me
+      if ((me.id !== snake.id) && ((me.length - snake.length) < 2)) { // if any snake is within 2 lengths of me
         kingOfTheSnakes = false
       }
     })
@@ -114,12 +120,11 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
       //logToFile(consoleWriteStream, `snake len: ${len}, distToMe: ${distToMe}`)
-      let effectiveLength = effectiveSnakeLength(snake)
-      if (effectiveLength > len) {
-        len = effectiveLength
+      if (snake.length > len) {
+        len = snake.length
         longestSnakeIndex = idx
         distToMe = getDistance(me.head, snake.head)
-      } else if (effectiveLength === len) {
+      } else if (snake.length === len) {
         let newDistToMe = getDistance(me.head, snake.head)
         if (newDistToMe < distToMe) { // if it's a tie & this one is closer
           longestSnakeIndex = idx
@@ -175,12 +180,7 @@ export function snakeToString(snake: Battlesnake) : string {
   snake.body.forEach(function concatBodyPart(coord: Coord) {
     bodyString = bodyString ? `${bodyString},${coordToString(coord)}` : `${coordToString(coord)}` 
   })
-  return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
-}
-
-// if a snake has just eaten, its length is effectively one more than that reported by its length & body array size
-export function effectiveSnakeLength(snake: Battlesnake) : number {
-  return snakeHasEaten(snake) ? snake.length + 1 : snake.length
+  return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; length: ${snake.length}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
 }
 
 // function for duplicating a game state, with no references to original
@@ -267,10 +267,9 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
-    if (!snakeHasEaten(snake)) { // if snake hadn't eaten this turn, its tail will shrink off after moving
-      snake.body = snake.body.slice(0, -1) // remove last element of body
-    }
-    
+    // even if snake has eaten this turn, its tail cell will be duplicated, so we will still want to slice off the last element
+    snake.body = snake.body.slice(0, -1) // remove last element of body
+
     if (newCell.food) {
       snake.health = 100
     } else if (newCell.hazard) {
@@ -285,21 +284,6 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     return true
   } else {
     return false
-  }
-}
-
-function getOppositeMove(move: string) : string {
-  switch (move) {
-    case "up":
-      return "down"
-    case "down":
-      return "up"
-    case "left":
-      return "right"
-    case "right":
-      return "left"
-    default:
-      throw `getOppositeMove input of ${move} was not a valid move` // should not reach here
   }
 }
 
@@ -346,4 +330,127 @@ export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: M
   if (!checkCell(myCoords.x, myCoords.y + 1)) {
     moves.up = false
   }
+}
+
+// checks how much time has elapsed since beginning of move function,
+// returns true if more than 50ms exists after latency
+export function checkTime(timeBeginning: number, gameState: GameState) : boolean {
+  let timeCurrent : number = Date.now(),
+      timeElapsed : number = timeCurrent - timeBeginning,
+      myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
+      timeLeft = gameState.game.timeout - timeElapsed - myLatency
+  console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", gameState.turn, timeElapsed, myLatency, timeLeft)
+  return timeLeft > 50
+}
+
+export function findMoveNeighbors(me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
+  let myHead = me.head
+  let kissMoves : MoveNeighbors = new MoveNeighbors(me)
+  if (moves.up) {
+    let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
+    kissMoves.upNeighbors = getSurroundingCells(newCoord, board2d, "down")    
+  }
+
+  if (moves.down) {
+    let newCoord : Coord = new Coord(myHead.x, myHead.y - 1)
+    kissMoves.downNeighbors = getSurroundingCells(newCoord, board2d, "up")
+  }
+
+  if (moves.right) {
+    let newCoord : Coord = new Coord(myHead.x + 1, myHead.y)
+    kissMoves.rightNeighbors = getSurroundingCells(newCoord, board2d, "left")
+  }
+
+  if (moves.left) {
+    let newCoord : Coord = new Coord(myHead.x - 1, myHead.y)
+    kissMoves.leftNeighbors = getSurroundingCells(newCoord, board2d, "right")
+  }
+  //logToFile(evalWriteStream, `findMoveNeighbors for snake at (${me.head.x},${me.head.y}): upLength, downLength, leftLength, rightLength: ${kissMoves.upNeighbors.length}, ${kissMoves.downNeighbors.length}, ${kissMoves.leftNeighbors.length}, ${kissMoves.rightNeighbors.length}`)
+  return kissMoves
+}
+
+export function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
+  let murderMoves : string[] = []
+  if (kissMoves.huntingAtUp()) {
+    murderMoves.push("up")
+  }
+  if (kissMoves.huntingAtDown()) {
+    murderMoves.push("down")
+  }
+  if (kissMoves.huntingAtLeft()) {
+    murderMoves.push("left")
+  }
+  if (kissMoves.huntingAtRight()) {
+    murderMoves.push("right")
+  }
+  return murderMoves
+}
+
+export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : string[] {
+  let deathMoves : string[] = []
+  if (kissMoves.huntedAtUp()) {
+    deathMoves.push("up")
+  }
+  if (kissMoves.huntedAtDown()) {
+    deathMoves.push("down")
+  }
+  if (kissMoves.huntedAtLeft()) {
+    deathMoves.push("left")
+  }
+  if (kissMoves.huntedAtRight()) {
+    deathMoves.push("right")
+  }
+  return deathMoves
+}
+
+export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMoves: string[], possibleMoves: Moves) {
+  let validMoves : string[] = possibleMoves.validMoves()
+  let kissOfDeathState = "kissOfDeathNo"
+  switch (kissOfDeathMoves.length) {
+    case 3: // all three available moves may result in my demise
+      // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
+      let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
+      let huntedDirections = huntingChanceDirections.invalidMoves()
+      if (huntedDirections.length !== 3) { // two of the directions offer us a chance
+        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
+        kissOfDeathState = "kissOfDeathMaybe"
+        huntedDirections.forEach(function disableDir(dir) {
+          possibleMoves.disableMove(dir)
+        })
+      } else { // they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
+        //buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
+        kissOfDeathState = "kissOfDeathCertainty"
+      }
+      break
+    case 2:
+      if (validMoves.length === 3) { // in this case, two moves give us a 50/50 kiss of death, but the third is fine. This isn't ideal, but isn't a terrible evaluation
+        //buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
+        kissOfDeathState = "kissOfDeath3To1Avoidance"
+        possibleMoves.disableMove(kissOfDeathMoves[0])
+        possibleMoves.disableMove(kissOfDeathMoves[1])
+      } else { // this means a 50/50
+        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
+        kissOfDeathState = "kissOfDeathMaybe"
+      }
+      break
+    case 1:
+      if (possibleMoves.hasOtherMoves(kissOfDeathMoves[0])) {
+        if (validMoves.length === 3) {
+          //buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
+          kissOfDeathState = "kissOfDeath3To2Avoidance"
+          possibleMoves.disableMove(kissOfDeathMoves[0])
+        } else { // we know validMoves can't be of length 1, else that would be a kiss cell
+          //buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
+          kissOfDeathState = "kissOfDeath2To1Avoidance"
+        }
+      } else {
+        kissOfDeathState = "kissOfDeathCertainty"
+      }
+      break
+    default: // no kissOfDeathMoves nearby, this is good
+      //buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
+      kissOfDeathState = "kissOfDeathNo"
+      break
+  }
+  return kissOfDeathState
 }

@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board } from "./types"
-import { logToFile, getRelativeDirection, coordsEqual, effectiveSnakeLength } from "./util"
+import { logToFile, getRelativeDirection, coordsEqual } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -309,9 +309,8 @@ export class MoveNeighbors {
   huntedAtUp() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.upNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && effectiveSnakeLength(cell.snakeCell.snake) >= myEffectiveLength) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].up = true;
@@ -329,12 +328,10 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let upNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.upNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         upNeighborSnakes = upNeighborSnakes + 1;
-        let snakeEffectiveLength = effectiveSnakeLength(cell.snakeCell.snake)
-        if (snakeEffectiveLength >= myEffectiveLength) {
+        if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
         }
       }
@@ -347,9 +344,8 @@ export class MoveNeighbors {
   huntedAtDown() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.downNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && effectiveSnakeLength(cell.snakeCell.snake) >= myEffectiveLength) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].down = true;
@@ -366,12 +362,10 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let downNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.downNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         downNeighborSnakes = downNeighborSnakes + 1;
-        let snakeEffectiveLength = effectiveSnakeLength(cell.snakeCell.snake)
-        if (snakeEffectiveLength >= myEffectiveLength) {
+        if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
         }
       }
@@ -384,9 +378,8 @@ export class MoveNeighbors {
   huntedAtLeft() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && effectiveSnakeLength(cell.snakeCell.snake) >= myEffectiveLength) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].left = true;
@@ -403,12 +396,10 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let leftNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         leftNeighborSnakes = leftNeighborSnakes + 1;
-        let snakeEffectiveLength = effectiveSnakeLength(cell.snakeCell.snake)
-        if (snakeEffectiveLength >= myEffectiveLength) {
+        if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
         }
       }
@@ -421,9 +412,8 @@ export class MoveNeighbors {
   huntedAtRight() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && effectiveSnakeLength(cell.snakeCell.snake) >= myEffectiveLength) {
+      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].right = true;
@@ -440,12 +430,10 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let rightNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
-    let myEffectiveLength : number = effectiveSnakeLength(_this.me)
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         rightNeighborSnakes = rightNeighborSnakes + 1;
-        let snakeEffectiveLength = effectiveSnakeLength(cell.snakeCell.snake)
-        if (snakeEffectiveLength >= myEffectiveLength) {
+        if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
         }
       }
@@ -453,7 +441,6 @@ export class MoveNeighbors {
     return rightNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
-  // given a populated 
   huntingChanceDirections() : Moves {
     let availableMoves = new Moves(true, true, true, true);
     for (const [id, moves] of Object.entries(this.huntingSnakes)) {
