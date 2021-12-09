@@ -455,3 +455,60 @@ export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMov
   }
   return kissOfDeathState
 }
+
+export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d, snakeKing: boolean) : number {
+  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== me.id})
+  if (otherSnakes.length === 0) { // solo game, deprioritize food unless I'm dying
+    if (me.health < 10) {
+      return board2d.height + board2d.width
+    } else {
+      return 0
+    }
+  }
+  let depth : number = 3
+  if (me.health < 10) { // search for food from farther away if health is lower
+    depth = board2d.height + board2d.width
+  } else if (me.health < 20) {
+    depth = board2d.height - 5
+  } else if (me.health < 30) {
+    depth = board2d.height - 6
+  } else if (me.health < 40) {
+    depth = board2d.height - 7
+  } else if (me.health < 50) {
+    depth = board2d.height - 8
+  }
+
+  if (gameState.turn < 20) { // prioritize food slightly more earlier in game
+    depth = depth > (board2d.height - 5) ? depth : board2d.height - 5
+  }
+
+  if (snakeKing && me.health > 10) {
+    depth = 0 // I don't need it
+  }
+
+  return depth
+}
+
+// looks for food within depth moves away from snakeHead
+// returns an object whose keys are distances away, & whose values are food
+// found at that distance
+export function findFood(depth: number, food: Coord[], snakeHead : Coord) : { [key: number] : Coord[]} {
+  let foundFood: { [key: number]: Coord[] } = {}
+  // for (let i: number = 1; i < depth; i++) {
+  //   foundFood[i] = []
+  // }
+  //let foundFood: Coord[] = []
+  food.forEach(function addFood(foodUnit) {
+    let dist = getDistance(snakeHead, foodUnit)
+  
+    //logToFile(consoleWriteStream, `findFood dist: ${dist} for foodUnit (${foodUnit.x},${foodUnit.y})`)
+    if (dist <= depth) {
+      if (!foundFood[dist]) {
+        foundFood[dist] = []
+      }
+      foundFood[dist].push(foodUnit)
+    }
+  })
+
+  return foundFood
+}
