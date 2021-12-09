@@ -1,5 +1,5 @@
 {
-  "name": "starter-snake-typescript",
+  "name": "waryferryman-snake",
   "version": "1.0.0",
   "description": "A simple Battlesnake written in TypeScript",
   "scripts": {
@@ -24,7 +24,14 @@
   },
   "devDependencies": {
     "@types/jest": "^26.0.24",
-    "jest": "^27.0.6",
+    "jest": "^27.4.3",
     "ts-jest": "^27.0.3"
+  },
+  "bugs": {
+    "url": "https://github.com/mawilson/mawilson_battleSnake_v1/issues"
+  },
+  "main": "build/index.js",
+  "directories": {
+    "test": "test"
   }
 }
