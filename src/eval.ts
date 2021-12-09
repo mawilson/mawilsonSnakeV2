@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves } from "./util"
+import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -24,8 +24,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalCenterMin = 2
   const evalCenterMinDist = 4
   const eval0Move = 1
-  const eval1Move = 20 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 30
+  const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
+  const eval2Moves = 60 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = 50
   const eval4Moves = 100
   const evalHasEaten = 80
@@ -37,12 +37,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalHealth2 = 12
   const evalHealth1 = 6
   const evalHealth0 = 0
-  const evalKissOfDeathCertainty = -100 // everywhere seems like certain death
-  const evalKissOfDeathMaybe = -70 // a 50/50 on whether we'll be kissed to death next turn
+  const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
+  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we'll be kissed to death next turn
   const evalKissOfDeath3To1Avoidance = 0
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
   const evalKissOfDeathNo = 0
+  const evalFoodVal = 2
+  const evalFoodStep = 2
 
   
   let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
@@ -169,14 +171,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     }
   }
 
-  let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
-  let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-  let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+  // let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
+  // let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
+  // let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
   //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
   //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
   // TODO: This function evaluates based on nearby kiss of deaths, but I don't know anything about how likely THE CURRENT GAMESTATE resulted in a kiss of death for myself, or for that matter another snake. Evaluate() might need another param or two to indicate this
-  let validMoves = possibleMoves.validMoves()
+  // let validMoves = possibleMoves.validMoves()
   // switch (kissOfDeathMoves.length) {
   //   case 3: // all three available moves may result in my demise
   //     // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
@@ -245,6 +247,35 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     default:
       break
   }
+
+  const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
+  const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d, kingOfTheSnakes)
+  const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
+  let foodToHunt : Coord[] = []
+
+  let j = foodSearchDepth
+  for (let i: number = 1; i <= foodSearchDepth; i++) {
+    foodToHunt = nearbyFood[i]
+    if (foodToHunt && foodToHunt.length > 0) {
+      // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
+      // ex: foodSearchDepth: 5, evalFoodVal: 2, evalFoodStep: 2, i: 1 (nearest), j: 5, & two pieces of food are found at this depth
+      // evaluation will be incremented by (2 * (2 * 5) * 2) = 40
+      // at depth 2, it would have been incremented by (2 * (2 * 4) * 2) = 32
+      let foodCalc = evalFoodVal * (evalFoodStep * j) * foodToHunt.length
+      buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalc}`)
+      evaluation = evaluation + foodCalc
+    }
+    j = j - 1
+  }
+
+  // TODO: Get board2d spaces in a 5x5 grid surrounding me, count the number that has no snakes & count the number that has no hazard, & assign a value for more open spaces
+  // don't do a grid, do spaces away
+  // for xdist: 0, get all coords with ydist 1, 2, 3, 4, 5 away in either direction
+  // for xdist: 1, get all coords ydist 1, 2, 3, 4 away in either direction
+  // for xdist: 2, get all coords ydist 1, 2, 3 away in either direction
+  // for xdist: 3, get all coords ydist 1, 2 away in either direction
+  // for xdist: 4, get all coords ydist 1 away in either direction
+  // for xdist: 5, none
 
   buildLogString(`final evaluation: ${evaluation}`)
   logToFile(evalWriteStream, `eval log: ${logString}

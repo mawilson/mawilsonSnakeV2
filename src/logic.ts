@@ -148,30 +148,6 @@ export function move(gameState: GameState): MoveResponse {
     // let kissOfDeathState : string = getKissOfDeathState(moveNeighbors, kissOfDeathMoves, possibleMoves)
     // let kissOfMurderState : string = "kissOfMurderNo"
 
-    // looks for food within depth moves away from snakeHead
-    // returns an object whose keys are distances away, & whose values are food
-    // found at that distance
-    function findFood(depth: number, food: Coord[], snakeHead : Coord) : { [key: number] : Coord[]} {
-      let foundFood: { [key: number]: Coord[] } = {}
-      // for (let i: number = 1; i < depth; i++) {
-      //   foundFood[i] = []
-      // }
-      //let foundFood: Coord[] = []
-      food.forEach(function addFood(foodUnit) {
-        let dist = getDistance(snakeHead, foodUnit)
-      
-        //logToFile(consoleWriteStream, `findFood dist: ${dist} for foodUnit (${foodUnit.x},${foodUnit.y})`)
-        if (dist <= depth) {
-          if (!foundFood[dist]) {
-            foundFood[dist] = []
-          }
-          foundFood[dist].push(foodUnit)
-        }
-      })
-
-      return foundFood
-    }
-
     // navigate snakeHead towards newCoord by disallowing directions that move away from it - so long as that doesn't immediately kill us
     function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves) {
       if (snakeHead.x > newCoord.x) { // snake is right of newCoord, no right
@@ -210,48 +186,7 @@ export function move(gameState: GameState): MoveResponse {
       }
     }
 
-    function calculateFoodSearchDepth(me: Battlesnake, board2d: Board2d, snakeKing: boolean) : number {
-      let depth : number = 3
-      if (me.health < 10) { // search for food from farther away if health is lower
-        depth = board2d.height + board2d.width
-      } else if (me.health < 20) {
-        depth = board2d.height - 5
-      } else if (me.health < 30) {
-        depth = board2d.height - 6
-      } else if (me.health < 40) {
-        depth = board2d.height - 7
-      } else if (me.health < 50) {
-        depth = board2d.height - 8
-      }
-
-      if (gameState.turn < 20) { // prioritize food slightly more earlier in game
-        depth = depth > (board2d.height - 5) ? depth : board2d.height - 5
-      }
-
-      if (snakeKing && me.health > 10) {
-        depth = 0 // I don't need it
-      }
-
-      return depth
-    }
-
     const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
-    const foodSearchDepth = calculateFoodSearchDepth(myself, board2d, kingOfTheSnakes)
-    const nearbyFood = findFood(foodSearchDepth, snakeBites, myHead)
-    let foodToHunt : Coord[] = []
-
-    for (let i: number = 1; i <= foodSearchDepth; i++) {
-      foodToHunt = nearbyFood[i]
-      if (foodToHunt && foodToHunt.length > 0) { // the hunt was successful! Don't look any farther
-        break
-      }
-    }
-
-    if (foodToHunt && foodToHunt.length > 0) { // if we've found food nearby, navigate towards one at random
-      let foodIndex = getRandomInt(0, foodToHunt.length)
-      //logToFile(consoleWriteStream, `food found within ${foodSearchDepth} of head, navigating towards (${foodToHunt[foodIndex].x},${foodToHunt[foodIndex].y})`)
-      navigateTowards(myHead, foodToHunt[foodIndex], possibleMoves)
-    }
 
     if (kingOfTheSnakes) {
       //logToFile(consoleWriteStream, `king snake at (${myHead.x},${myHead.y}), looking for other snakes`)
