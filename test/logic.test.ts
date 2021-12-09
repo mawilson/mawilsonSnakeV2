@@ -1,7 +1,7 @@
 import { info, move } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, BoardCell, Board2d } from '../src/classes'
-import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake } from '../src/util'
+import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual } from '../src/util'
 import { evaluate } from '../src/eval'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
@@ -108,7 +108,7 @@ describe('Board2d accurately maps game state', () => {
     // x f z
     // t f z
     // h x z
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 0, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 1}], "101", "", "")
     const gameState = createGameState(snek)
     const gameBoard = gameState.board
 
@@ -125,7 +125,7 @@ describe('Board2d accurately maps game state', () => {
         if (checkSnek) {
           expect(snek.id).toBe(checkSnek.snake.id)
           expect(checkSnek.isHead).toBe(index === 0) // index 0 of the snake body is the head
-          expect(checkSnek.isTail).toBe(index === (arr.length - 1)) // the last index of the snake body is the tail
+          expect(checkSnek.isTail).toBe(coordsEqual(part, arr[arr.length - 1])) // it can be a tail if its coordinates equal the coordinates of the last element in the snake body. If the snake has just eaten food, as in this example, this will be both the last & the second-to-last coord in the body.
         }
       }
     })
@@ -260,10 +260,10 @@ describe('Longest snake function tester', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 2}], "101", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 2}, {x: 5, y: 2}], "101", "", "")
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 2}, {x: 5, y: 2}, {x: 5, y: 2}], "101", "", "")
     gameState.board.snakes.push(otherSnek2)
 
     const longestSnake = getLongestSnake(snek, gameState.board.snakes)
@@ -373,18 +373,18 @@ describe('Snake should seek out a kiss of murder', () => {
 
 describe('King snake should seek out next longest snake', () => {
   it('should attempt to eat another snake given the opportunity', () => {
-    // x  x  x x t2 s2 
-    // x  x  x x x  h2
-    // x  x  h s x  x
-    // x  x  x s s  s
-    // t1 h1 x x x  x
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    // x  x  x t2 s2 s2 x
+    // x  x  x x x  h2 x
+    // x  x  h s x  x x
+    // x  x  x s s  s t
+    // t1 h1 x x x  x x
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}], "101", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 0}, {x: 0, y: 0}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}], "101", "", "")
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 3, y: 4}], "101", "", "")
     gameState.board.snakes.push(otherSnek2)
 
     for (let i = 0; i < 50; i++) {
@@ -813,7 +813,7 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         
         const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}], "101", "", "")
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
         gameState.board.snakes.push(otherSnek)
         
         let evalSnek = evaluate(gameState, snek, "kissOfDeathNo", "kissOfMurderNo")
@@ -831,3 +831,4 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
 // hazard testing
 // food seekout testing
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
+// kiss of death selector - given a choice between death the next turn (0 possible moves) & kissOfDeathCertainty, choose kissOfDeathCertainty
