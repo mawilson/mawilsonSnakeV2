@@ -302,8 +302,9 @@ export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: M
     let newCell = board.getCell(newCoord)
     if (newCell instanceof BoardCell) {
       if (newCell.snakeCell instanceof SnakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
-        //logToFile(consoleWriteStream, `snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${snakeCell.isTail} and has eaten: ${snakeHasEaten(snakeCell.snake)}`)
-        if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move
+        //logToFile(consoleWriteStream, `snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${newCell.snakeCell.isTail} and has eaten: ${snakeHasEaten(newCell.snakeCell.snake)} and is greater than length 3: ${newCell.snakeCell.snake.length >= 3}`)
+        if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake) && !coordsEqual(newCoord, newCell.snakeCell.snake.body[1])) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move. Third check is to ensure the tail is not also the neck - this only applies for turns 0 & 1, when the snake has not yet expanded out to its full starting length of 3
+          //logToFile(consoleWriteStream, `can chase tail at (${newCell.coord.x},${newCell.coord.y})`)
           return true
         } else { // cannot move into any other body part
           return false

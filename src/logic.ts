@@ -135,6 +135,7 @@ export function move(gameState: GameState): MoveResponse {
     //logToFile(consoleWriteStream, `myHead: ${coordToString(myHead)}`)
 
     checkForSnakesAndWalls(myself, board2d, possibleMoves)
+    //logToFile(consoleWriteStream, `possible moves after checkForSnakesAndWalls: ${possibleMoves}`)
 
     let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
     let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
@@ -212,22 +213,22 @@ export function move(gameState: GameState): MoveResponse {
     function calculateFoodSearchDepth(me: Battlesnake, board2d: Board2d, snakeKing: boolean) : number {
       let depth : number = 3
       if (me.health < 10) { // search for food from farther away if health is lower
-        depth = 8
+        depth = board2d.height + board2d.width
       } else if (me.health < 20) {
-        depth = 6
+        depth = board2d.height - 5
       } else if (me.health < 30) {
-        depth = 5
+        depth = board2d.height - 6
       } else if (me.health < 40) {
-        depth = 4
+        depth = board2d.height - 7
       } else if (me.health < 50) {
-        depth = 3
+        depth = board2d.height - 8
       }
 
       if (gameState.turn < 20) { // prioritize food slightly more earlier in game
-        depth = depth > 6 ? depth : 6
+        depth = depth > (board2d.height - 5) ? depth : board2d.height - 5
       }
 
-      if (snakeKing&& me.health > 10) {
+      if (snakeKing && me.health > 10) {
         depth = 0 // I don't need it
       }
 
@@ -335,7 +336,7 @@ export function move(gameState: GameState): MoveResponse {
 
     //checkTime()
 
-    //logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}, newCoord: ${newCoord}`)
+    logToFile(consoleWriteStream, `${gameState.game.id} MOVE ${gameState.turn}: ${response.move}, newCoord: ${newCoord}`)
 
     //logToFile(consoleWriteStream, `myself: ${snakeToString(myself)}`)
     return response
