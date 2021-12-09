@@ -832,3 +832,4 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
 // food seekout testing
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
 // kiss of death selector - given a choice between death the next turn (0 possible moves) & kissOfDeathCertainty, choose kissOfDeathCertainty
+// add test for getting food when next to it, even when lots of food is further away in another direction
