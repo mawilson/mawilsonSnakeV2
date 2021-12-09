@@ -22,13 +22,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalCenterMax = 5
   const evalCenterMaxDist = 2
   const evalCenterMin = 2
-  const evalCenterMinDist = 4
+  const evalCenterMinDist = 3
   const eval0Move = 1
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = 60 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = 50
+  const eval3Moves = 80
   const eval4Moves = 100
-  const evalHasEaten = 80
+  const evalHasEaten = 150
   const evalHealth7 = 42
   const evalHealth6 = 36
   const evalHealth5 = 30
@@ -99,7 +99,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
     evaluation = evaluation + evalCenterMax
   } else if (xDiff < evalCenterMinDist) {
-    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMin}`)
+    buildLogString(`xDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
     evaluation = evaluation + evalCenterMin
   }
   if (yDiff < evalCenterMaxDist) {
