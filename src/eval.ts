@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood } from "./util"
+import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -37,15 +37,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalHealth2 = 12
   const evalHealth1 = 6
   const evalHealth0 = 0
-  const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
-  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we'll be kissed to death next turn
+  const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
+  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
   const evalKissOfDeath3To1Avoidance = 0
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
   const evalKissOfDeathNo = 0
   const evalFoodVal = 2
   const evalFoodStep = 2
-
+  const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   
   let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -249,6 +249,18 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
+  if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
+    //logToFile(consoleEvalStream, `king snake at (${myHead.x},${myHead.y}), looking for other snakes`)
+    let longestSnake = getLongestSnake(myself, otherSnakes)
+    if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
+      let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
+      buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
+      evaluation = evaluation + kingSnakeCalc
+      //logToFile(consoleWriteStream, `king snake at (${myHead.x},${myHead.y}) navigating toward snake at (${longestSnake.head.x},${longestSnake.head.y})`)
+      // is it better to go towards the head here, or some other body part?
+    }
+  }
+
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d, kingOfTheSnakes)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []

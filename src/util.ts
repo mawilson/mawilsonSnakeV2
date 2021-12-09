@@ -512,3 +512,41 @@ export function findFood(depth: number, food: Coord[], snakeHead : Coord) : { [k
 
   return foundFood
 }
+
+// navigate snakeHead towards newCoord by disallowing directions that move away from it - so long as that doesn't immediately kill us
+export function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves) {
+  if (snakeHead.x > newCoord.x) { // snake is right of newCoord, no right
+    // don't disallow the only remaining valid route
+    if (moves.hasOtherMoves("right")) {
+      moves.right = false
+    }
+  } else if (snakeHead.x < newCoord.x) { // snake is left of newCoord, no left
+  // don't disallow the only remaining valid route
+    if (moves.hasOtherMoves("left")) {
+      moves.left = false
+    }
+  } else { // snake is in same column as newCoord, don't move left or right
+    // don't disallow the only remaining valid routes
+    if (moves.up || moves.down) {
+      moves.right = false
+      moves.left = false
+    }
+  }
+  if (snakeHead.y > newCoord.y) { // snake is above newCoord, no up
+  // don't disallow the only remaining valid route
+    if (moves.hasOtherMoves("up")) {
+      moves.up = false
+    }
+  } else if (snakeHead.y < newCoord.y) { // snake is below newCoord, no down
+  // don't disallow the only remaining valid route
+    if (moves.hasOtherMoves("down")) {
+      moves.down = false
+    }
+  } else { // snake is in same row as newCoord, don't move up or down
+    // don't disallow the only remaining valid routes
+    if (moves.left || moves.right) {
+      moves.up = false
+      moves.down = false
+    }
+  }
+}

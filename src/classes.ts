@@ -8,12 +8,12 @@ let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
 })
 
 export class Coord implements ICoord {
-  x: number
-  y: number
+  x: number;
+  y: number;
 
   constructor(x: number, y: number) {
-    this.x = x
-    this.y = y
+    this.x = x;
+    this.y = y;
   }
 
   toString() : string {
@@ -451,5 +451,25 @@ export class MoveNeighbors {
     }
     //logToFile(consoleWriteStream, `huntingChanceDirections: ${availableMoves}`)
     return availableMoves;
+  }
+}
+
+export class KissStates {
+  kissOfDeathState: {
+    up : string,
+    down: string,
+    left: string,
+    right: string
+  };
+  kissOfMurderState: {
+    up: string,
+    down: string,
+    left: string,
+    right: string
+  };
+
+  constructor() {
+    this.kissOfDeathState = {up: "kissOfDeathNo", down: "kissOfDeathNo", left: "kissOfDeathNo", right: "kissOfDeathNo"};
+    this.kissOfMurderState = {up: "kissOfMurderNo", down: "kissOfMurderNo", left: "kissOfMurderNo", right: "kissOfMurderNo"};
   }
 }

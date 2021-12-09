@@ -378,13 +378,13 @@ describe('King snake should seek out next longest snake', () => {
     // x  x  h s x  x x
     // x  x  x s s  s t
     // t1 h1 x x x  x x
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}], "101", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 4, y: 3}, {x: 3, y: 3}, {x: 3, y: 3}], "101", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 3, y: 4}], "101", "", "")
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 6, y: 7}], "101", "", "")
     gameState.board.snakes.push(otherSnek2)
 
     for (let i = 0; i < 50; i++) {
@@ -833,3 +833,5 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
 // kiss of death selector - given a choice between death the next turn (0 possible moves) & kissOfDeathCertainty, choose kissOfDeathCertainty
 // add test for getting food when next to it, even when lots of food is further away in another direction
+// test for MoveSnake - handling snake collisions resulting in deaths
+// tests for seeking open space
