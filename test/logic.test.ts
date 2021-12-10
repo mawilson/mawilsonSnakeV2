@@ -405,7 +405,7 @@ describe('Snake should not attempt to murder in a square that will likely immedi
   // x x x x x j c x x x c
   // x x x x x x x x x x c
   it('prioritizes kill moves in safer tiles', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "101", "", "")
     const gameState = createGameState(snek)
 
     const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 7, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}, {x: 7, y: 8}, {x: 7, y: 9}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 9, y: 9}], "101", "", "")
@@ -805,8 +805,6 @@ describe('Moving a snake from food results in changes to body, head, health', ()
   })
 })
 
-//// evaluate tests ////////
-
 describe('Evaluate a doomed snake and an undoomed snake', () => {
     it('should rank the undoomed move higher', () => {
         const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "101", "", "")
@@ -821,6 +819,19 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
 
         expect(evalSnek).toBeGreaterThan(evalOtherSnek)
     })
+})
+
+describe('Snake should move towards open space', () => {
+  it('even if that means choosing a corner 1move over a wall 2move', () => {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).toBe("up") // down moves us away from a corner & towards two possible moves, but dooms us after three moves. Up offers freedom in a few turns.
+      }
+  })
 })
 
 ///// end evaluate tests ///////

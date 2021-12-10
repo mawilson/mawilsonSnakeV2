@@ -31,7 +31,7 @@ export function end(gameState: GameState): void {
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
-function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves) : KissStates {
+function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
   let validMoves = moves.validMoves()
   let states = new KissStates()
   function setKissOfDeathDirectionState(dir : string, state: string) : void {
@@ -115,13 +115,59 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
       break // all states are by default kissOfDeathNo
   }
 
+  killMoves.forEach(function determineKillMoveState(move) {
+    let preyMoves : Moves = new Moves(true, true, true, true) // do a basic check of prey's surroundings & evaluate how likely this kill is from that
+    switch(move) {
+      case "up":
+        if (moveNeighbors.upPrey instanceof Battlesnake) {
+          checkForSnakesAndWalls(moveNeighbors.upPrey, board2d, preyMoves)
+          if (preyMoves.validMoves().length === 1) {
+            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+          } else {
+            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+          }
+        }
+        break
+      case "down":
+        if (moveNeighbors.downPrey instanceof Battlesnake) {
+          checkForSnakesAndWalls(moveNeighbors.downPrey, board2d, preyMoves)
+          if (preyMoves.validMoves().length === 1) {
+            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+          } else {
+            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+          }
+        }
+        break
+      case "left":
+        if (moveNeighbors.leftPrey instanceof Battlesnake) {
+          checkForSnakesAndWalls(moveNeighbors.leftPrey, board2d, preyMoves)
+          if (preyMoves.validMoves().length === 1) {
+            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+          } else {
+            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+          }
+        }
+        break
+      default: //case "right":
+        if (moveNeighbors.rightPrey instanceof Battlesnake) {
+          checkForSnakesAndWalls(moveNeighbors.rightPrey, board2d, preyMoves)
+          if (preyMoves.validMoves().length === 1) {
+            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+          } else {
+            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+          }
+        }
+        break
+    }
+  })
+
   // second priority is looking for chances to eliminate another snake
-  if (killMoves.length > 0) {
-    logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), killMoves: ${killMoves.toString()}`)
-    let idx = getRandomInt(0, killMoves.length) // TODO: choose the smartest kill index
-    logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), moving towards ${killMoves[idx]} to try to take a snake`)
-    moves.disableOtherMoves(killMoves[idx])
-  }
+  // if (killMoves.length > 0) {
+  //   logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), killMoves: ${killMoves.toString()}`)
+  //   let idx = getRandomInt(0, killMoves.length) // TODO: choose the smartest kill index
+  //   logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), moving towards ${killMoves[idx]} to try to take a snake`)
+  //   moves.disableOtherMoves(killMoves[idx])
+  // }
 
   return states
 }
@@ -140,12 +186,8 @@ export function move(gameState: GameState): MoveResponse {
     const myself = gameState.you
     const myHead: Coord = myself.head
     const myNeck: Coord = myself.body[1]
-    const boardWidth: number = gameState.board.width
-    const boardHeight: number = gameState.board.height
     const myBody: Coord[] = myself.body
     const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== myself.id})
-    const myTail: Coord = myBody[myBody.length - 1]
-    const snakeBites = gameState.board.food
 
     const board2d = new Board2d(gameState.board)
 
@@ -166,7 +208,7 @@ export function move(gameState: GameState): MoveResponse {
     //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
     //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
-     let kissStates = kissDecider(myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves)
+     let kissStates = kissDecider(myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
     // let kissOfDeathState : string = getKissOfDeathState(moveNeighbors, kissOfDeathMoves, possibleMoves)
     // let kissOfMurderState : string = "kissOfMurderNo"

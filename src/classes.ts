@@ -287,6 +287,11 @@ export class MoveNeighbors {
   leftNeighbors: BoardCell[] = [];
   rightNeighbors: BoardCell[] = [];
   huntingSnakes : { [key: string]: Moves; } = {}; // object containing snakes trying to eat me. Each key is an id, each value a Moves object. Moves objects represent the moves I WENT TOWARDS, not the place the hunting snake came from. This is so that I can actually do something with the information - namely, disable a move direction if it's the only one a hunting snake can reach
+  
+  upPrey: Battlesnake | undefined = undefined
+  downPrey: Battlesnake | undefined = undefined
+  leftPrey: Battlesnake | undefined = undefined
+  rightPrey: Battlesnake | undefined = undefined
 
   constructor(me: Battlesnake, upNeighbors?: BoardCell[], downNeighbors?: BoardCell[], leftNeighbors?: BoardCell[], rightNeighbors?: BoardCell[]) {
     this.me = me;
@@ -302,6 +307,10 @@ export class MoveNeighbors {
     if (typeof rightNeighbors !== "undefined") {
       this.rightNeighbors = rightNeighbors;
     }
+    this.upPrey = undefined;
+    this.downPrey = undefined;
+    this.leftPrey = undefined;
+    this.rightPrey = undefined;
   }
 
   // returns true if some upNeighbor snake exists of equal or longer length than me
@@ -333,6 +342,8 @@ export class MoveNeighbors {
         upNeighborSnakes = upNeighborSnakes + 1;
         if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
+        } else {
+          _this.upPrey = cell.snakeCell.snake;
         }
       }
     });
@@ -367,6 +378,8 @@ export class MoveNeighbors {
         downNeighborSnakes = downNeighborSnakes + 1;
         if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
+        } else {
+          _this.downPrey = cell.snakeCell.snake;
         }
       }
     });
@@ -401,6 +414,8 @@ export class MoveNeighbors {
         leftNeighborSnakes = leftNeighborSnakes + 1;
         if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
+        } else {
+          _this.leftPrey = cell.snakeCell.snake;
         }
       }
     });
@@ -435,6 +450,8 @@ export class MoveNeighbors {
         rightNeighborSnakes = rightNeighborSnakes + 1;
         if (cell.snakeCell.snake.length >= _this.me.length) {
           biggerSnake = false;
+        } else {
+          _this.rightPrey = cell.snakeCell.snake;
         }
       }
     });

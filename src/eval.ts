@@ -12,13 +12,13 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderString: string) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string) : number {
   // values to tweak
   const evalBase: number = 500
   const evalNoSnakes: number = 5
   const evalNoMe: number = 0
   const evalSolo: number = 1000
-  const evalWallPenalty: number = -50
+  const evalWallPenalty: number = -25
   const evalCenterMax = 5
   const evalCenterMaxDist = 2
   const evalCenterMin = 2
@@ -43,6 +43,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
   const evalKissOfDeathNo = 0
+  const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
+  const evalKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
   const evalFoodVal = 2
   const evalFoodStep = 2
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
@@ -96,17 +98,17 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const xDiff = Math.abs(myself.head.x - centerX)
   const yDiff = Math.abs(myself.head.y - centerY)
   if (xDiff < evalCenterMaxDist) {
-    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
+    buildLogString(`xDiff <= ${evalCenterMaxDist}, adding ${evalCenterMax}`)
     evaluation = evaluation + evalCenterMax
-  } else if (xDiff < evalCenterMinDist) {
-    buildLogString(`xDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
+  } else if (xDiff <= evalCenterMinDist) {
+    buildLogString(`xDiff <= ${evalCenterMinDist}, adding ${evalCenterMin}`)
     evaluation = evaluation + evalCenterMin
   }
-  if (yDiff < evalCenterMaxDist) {
-    buildLogString(`yDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
+  if (yDiff <= evalCenterMaxDist) {
+    buildLogString(`yDiff <= ${evalCenterMaxDist}, adding ${evalCenterMax}`)
     evaluation = evaluation + evalCenterMax
   } else if (yDiff < evalCenterMinDist) {
-    buildLogString(`yDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
+    buildLogString(`yDiff <= ${evalCenterMinDist}, adding ${evalCenterMin}`)
     evaluation = evaluation + evalCenterMin
   }
   
@@ -248,16 +250,26 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
       break
   }
 
+  switch (kissOfMurderState) {
+    case "kissOfMurderCertainty":
+      buildLogString(`KissOfMurderCertainty, adding ${evalKissOfMurderCertainty}`)
+      evaluation = evaluation + evalKissOfMurderCertainty
+      break
+    case "kissOfMurderMaybe":
+      buildLogString(`KissOfMurderMaybe, adding ${evalKissOfMurderMaybe}`)
+      evaluation = evaluation + evalKissOfMurderMaybe
+      break
+    default: // "kissOfMurderNo":
+      break
+  }
+
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
-    //logToFile(consoleEvalStream, `king snake at (${myHead.x},${myHead.y}), looking for other snakes`)
     let longestSnake = getLongestSnake(myself, otherSnakes)
     if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
       let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
       buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
       evaluation = evaluation + kingSnakeCalc
-      //logToFile(consoleWriteStream, `king snake at (${myHead.x},${myHead.y}) navigating toward snake at (${longestSnake.head.x},${longestSnake.head.y})`)
-      // is it better to go towards the head here, or some other body part?
     }
   }
 
