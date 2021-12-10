@@ -565,3 +565,17 @@ export function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves
     }
   }
 }
+
+// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which shouldn't matter, maybe
+export function createHazardColumn(board: Board, width: number) {
+  for (let i: number = 0; i < board.height; i++) {
+    board.hazards.push({x: width, y: i})
+  }
+}
+
+// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which shouldn't matter, maybe
+export function createHazardRow(board: Board, height: number) {
+  for (let i: number = 0; i < board.width; i++) {
+    board.hazards.push({x: i, y: height})
+  }
+}
