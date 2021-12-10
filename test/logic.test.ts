@@ -371,6 +371,21 @@ describe('Snake should seek out a kiss of murder', () => {
   })
 })
 
+describe('Snake should seek out a kiss of murder in the borderlands', () => {
+  it('seeks out murder even on the outskirts of town', () => {
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}], "101", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}, {x: 5, y: 10}, {x: 5, y: 9}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // should try to murder the snake by going either left or down
+    }
+  })
+})
+
 describe('King snake should seek out next longest snake', () => {
   it('should attempt to eat another snake given the opportunity', () => {
     // x  x  x t2 s2 s2 x
@@ -834,6 +849,24 @@ describe('Snake should move towards open space', () => {
   })
 })
 
+describe('Snake should avoid food when king snake', () => {
+  it('does not choose food if better options exist while king snake', () => {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 5, y: 4}]
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).toBe("left") // we should be king snake here & say no to food while still navigating toward otherSnek
+      }
+  })
+})
+
 ///// end evaluate tests ///////
 
 
@@ -846,3 +879,4 @@ describe('Snake should move towards open space', () => {
 // add test for getting food when next to it, even when lots of food is further away in another direction
 // test for MoveSnake - handling snake collisions resulting in deaths
 // tests for seeking open space
+// tests for MoveNeighbors prey calculator

@@ -91,6 +91,21 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
   return surroundingCells
 }
 
+// returns difference between my length & the length of the largest other snake on the board - can be positive (I am bigger) or negative (I am smaller)
+export function snakeLengthDelta(me: Battlesnake, board: Board) : number {
+  let delta : number = 0
+  if (board.snakes.length === 1) {
+    return 0
+  } else {
+    board.snakes.forEach(function snakeDelta(snake) {
+      if (me.id !== snake.id && ((me.length - snake.length) > delta)) {
+        delta = me.length - snake.length
+      }
+    })
+  }
+  return delta
+}
+
 export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
   let kingOfTheSnakes = true
   if (board.snakes.length === 1) { // what is a king without a kingdom?

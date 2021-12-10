@@ -119,7 +119,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
     let preyMoves : Moves = new Moves(true, true, true, true) // do a basic check of prey's surroundings & evaluate how likely this kill is from that
     switch(move) {
       case "up":
-        if (moveNeighbors.upPrey instanceof Battlesnake) {
+        if (typeof moveNeighbors.upPrey !== "undefined") {
           checkForSnakesAndWalls(moveNeighbors.upPrey, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
@@ -129,7 +129,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
         }
         break
       case "down":
-        if (moveNeighbors.downPrey instanceof Battlesnake) {
+        if (typeof moveNeighbors.downPrey !== "undefined") {
           checkForSnakesAndWalls(moveNeighbors.downPrey, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
@@ -139,7 +139,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
         }
         break
       case "left":
-        if (moveNeighbors.leftPrey instanceof Battlesnake) {
+        if (typeof moveNeighbors.leftPrey !== "undefined") {
           checkForSnakesAndWalls(moveNeighbors.leftPrey, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
@@ -149,7 +149,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
         }
         break
       default: //case "right":
-        if (moveNeighbors.rightPrey instanceof Battlesnake) {
+        if (typeof moveNeighbors.rightPrey !== "undefined") {
           checkForSnakesAndWalls(moveNeighbors.rightPrey, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
