@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood } from "./util"
+import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -12,13 +12,13 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderString: string) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string) : number {
   // values to tweak
   const evalBase: number = 500
   const evalNoSnakes: number = 5
   const evalNoMe: number = 0
   const evalSolo: number = 1000
-  const evalWallPenalty: number = -50
+  const evalWallPenalty: number = -25
   const evalCenterMax = 5
   const evalCenterMaxDist = 2
   const evalCenterMin = 2
@@ -28,7 +28,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const eval2Moves = 60 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = 80
   const eval4Moves = 100
-  const evalHasEaten = 150
+  const snakeLengthDiff = snakeLengthDelta(meSnake, gameState.board) 
+  const evalHasEaten = snakeLengthDiff >= 4 ? -20 : 150 // usually food is great, but we can get into trouble if we're huge, & we only need to be a little bigger than the next biggest snake
   const evalHealth7 = 42
   const evalHealth6 = 36
   const evalHealth5 = 30
@@ -37,15 +38,17 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalHealth2 = 12
   const evalHealth1 = 6
   const evalHealth0 = 0
-  const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
-  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we'll be kissed to death next turn
+  const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
+  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
   const evalKissOfDeath3To1Avoidance = 0
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
   const evalKissOfDeathNo = 0
+  const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
+  const evalKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
   const evalFoodVal = 2
   const evalFoodStep = 2
-
+  const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   
   let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -62,7 +65,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
   const myself = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
-  const board2d = new Board2d(gameState.board)
   let evaluation = evalBase
   if (!(myself instanceof Battlesnake)) {
     buildLogString(`no myself snake, return ${evalNoMe}`)
@@ -96,46 +98,22 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const xDiff = Math.abs(myself.head.x - centerX)
   const yDiff = Math.abs(myself.head.y - centerY)
   if (xDiff < evalCenterMaxDist) {
-    buildLogString(`xDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
+    buildLogString(`xDiff <= ${evalCenterMaxDist}, adding ${evalCenterMax}`)
     evaluation = evaluation + evalCenterMax
-  } else if (xDiff < evalCenterMinDist) {
-    buildLogString(`xDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
+  } else if (xDiff <= evalCenterMinDist) {
+    buildLogString(`xDiff <= ${evalCenterMinDist}, adding ${evalCenterMin}`)
     evaluation = evaluation + evalCenterMin
   }
-  if (yDiff < evalCenterMaxDist) {
-    buildLogString(`yDiff less than ${evalCenterMaxDist}, adding ${evalCenterMax}`)
+  if (yDiff <= evalCenterMaxDist) {
+    buildLogString(`yDiff <= ${evalCenterMaxDist}, adding ${evalCenterMax}`)
     evaluation = evaluation + evalCenterMax
   } else if (yDiff < evalCenterMinDist) {
-    buildLogString(`yDiff less than ${evalCenterMinDist}, adding ${evalCenterMin}`)
+    buildLogString(`yDiff <= ${evalCenterMinDist}, adding ${evalCenterMin}`)
     evaluation = evaluation + evalCenterMin
   }
   
   // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
   const possibleMoves = new Moves(true, true, true, true)
-  checkForSnakesAndWalls(myself, board2d, possibleMoves)
-
-  switch(possibleMoves.validMoves().length) {
-    case 0:
-      buildLogString(`possibleMoves 0, return ${eval0Move}`)
-      evaluation = eval0Move // with no valid moves left, this state is just a notch above death
-      break
-    case 1:
-      buildLogString(`possibleMoves 1, add ${eval1Move}`)
-      evaluation = evaluation + eval1Move // with only one valid move, this is a bad, but not unsalvageable, state
-      break
-    case 2:
-      buildLogString(`possibleMoves 2, add ${eval2Moves}`)
-      evaluation = evaluation + eval2Moves // two valid moves is pretty good
-      break
-    case 3:
-      buildLogString(`possibleMoves 3, add ${eval3Moves}`)
-      evaluation = evaluation + eval3Moves // three valid moves is great
-      break
-    default: // case 4, should only be possible on turn 1 when length is 1
-      buildLogString(`possibleMoves 4, add ${eval4Moves}`)
-      evaluation = evaluation + eval4Moves
-      break
-  }
 
   // health considerations, which are effectively hazard considerations
   if (myself.health === 100) {
@@ -248,7 +226,59 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
       break
   }
 
+  switch (kissOfMurderState) {
+    case "kissOfMurderCertainty":
+      buildLogString(`KissOfMurderCertainty, adding ${evalKissOfMurderCertainty}`)
+      evaluation = evaluation + evalKissOfMurderCertainty
+      break
+    case "kissOfMurderMaybe":
+      buildLogString(`KissOfMurderMaybe, adding ${evalKissOfMurderMaybe}`)
+      evaluation = evaluation + evalKissOfMurderMaybe
+      break
+    default: // "kissOfMurderNo":
+      break
+  }
+
+  const board2d = new Board2d(gameState.board)
+  checkForSnakesAndWalls(myself, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
+
+  let availableMoves : number = possibleMoves.validMoves().length
+  // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
+  // TODO: This may free up more space than this - especially when calculating free space later. Need to try to figure out how to actually remove the snake we've killed from the game
+  availableMoves = kissOfMurderState === "kissOfMurderCertainty" ? availableMoves + 1 : availableMoves
+  switch(availableMoves) {
+    case 0:
+      buildLogString(`possibleMoves 0, return ${eval0Move}`)
+      evaluation = eval0Move // with no valid moves left, this state is just a notch above death
+      break
+    case 1:
+      buildLogString(`possibleMoves 1, add ${eval1Move}`)
+      evaluation = evaluation + eval1Move // with only one valid move, this is a bad, but not unsalvageable, state
+      break
+    case 2:
+      buildLogString(`possibleMoves 2, add ${eval2Moves}`)
+      evaluation = evaluation + eval2Moves // two valid moves is pretty good
+      break
+    case 3:
+      buildLogString(`possibleMoves 3, add ${eval3Moves}`)
+      evaluation = evaluation + eval3Moves // three valid moves is great
+      break
+    default: // case 4, should only be possible on turn 1 when length is 1
+      buildLogString(`possibleMoves 4, add ${eval4Moves}`)
+      evaluation = evaluation + eval4Moves
+      break
+  }
+
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
+  if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
+    let longestSnake = getLongestSnake(myself, otherSnakes)
+    if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
+      let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
+      buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
+      evaluation = evaluation + kingSnakeCalc
+    }
+  }
+
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d, kingOfTheSnakes)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
@@ -256,7 +286,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   let j = foodSearchDepth
   for (let i: number = 1; i <= foodSearchDepth; i++) {
     foodToHunt = nearbyFood[i]
-    if (foodToHunt && foodToHunt.length > 0) {
+    if (nearbyFood[i] && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
       // ex: foodSearchDepth: 5, evalFoodVal: 2, evalFoodStep: 2, i: 1 (nearest), j: 5, & two pieces of food are found at this depth
       // evaluation will be incremented by (2 * (2 * 5) * 2) = 40
