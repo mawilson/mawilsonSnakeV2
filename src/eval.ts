@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta } from "./util"
+import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -12,7 +12,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string, wasStarving: boolean) : number {
   const myself = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   
@@ -22,6 +22,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalNoMe: number = 0
   const evalSolo: number = 1000
   const evalWallPenalty: number = -25
+  const evalHazardWallPenalty: number = 3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
   const evalCenterMax = 5
   const evalCenterMaxDist = 2
   const evalCenterMin = 2
@@ -33,9 +34,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const eval4Moves = 70
   const snakeLengthDiff = snakeLengthDelta(meSnake, gameState.board)
   let evalHasEaten = 150
-  if (gameState.board.snakes.length === 1 && myself.health >= 10) { // usually food is great, but unnecessary growth isn't
-    evalHasEaten = -20
-  } else if (snakeLengthDiff >= 4 && myself.health >= 10) {
+  if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
+    evalHasEaten = 1000 // food scores can get pretty high!
+
+  } else if (gameState.board.snakes.length === 1 || snakeLengthDiff >= 4) { // usually food is great, but unnecessary growth isn't
     evalHasEaten = -20
   }
   const evalHealth7 = 42
@@ -252,6 +254,12 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const board2d = new Board2d(gameState.board)
   checkForSnakesAndWalls(myself, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
 
+  // penalize spaces next to hazard
+  if (isInOrAdjacentToHazard(myself.head, board2d)) {
+    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
+    evaluation = evaluation + evalHazardWallPenalty
+  }
+
   let availableMoves : number = possibleMoves.validMoves().length
   // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
   // TODO: This may free up more space than this - especially when calculating free space later. Need to try to figure out how to actually remove the snake we've killed from the game
@@ -299,16 +307,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     foodToHunt = nearbyFood[i]
     if (foodToHunt && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
-      // ex: foodSearchDepth: 5, evalFoodVal: 2, evalFoodStep: 2, i: 1 (nearest), j: 5, & two pieces of food are found at this depth
-      // evaluation will be incremented by (2 * (2 * 5) * 2) = 40
-      // at depth 2, it would have been incremented by (2 * (2 * 4) * 2) = 32
-      let foodCalcStep = evalFoodVal * (evalFoodStep * j) * foodToHunt.length
+      let foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
       buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
       foodCalc = foodCalc + foodCalcStep
     }
     j = j - 1
   }
-  if (foodCalc > 145) { foodCalc = 145 } // don't let the food heuristic explode - if it does, being hungry might become better than becoming full, even when dying
+  //if (foodCalc > 145) { foodCalc = 145 } // don't let the food heuristic explode - if it does, being hungry might become better than becoming full, even when dying
+  buildLogString(`adding food calc ${foodCalc}`)
   evaluation = evaluation + foodCalc
 
   // TODO: Get board2d spaces in a 5x5 grid surrounding me, count the number that has no snakes & count the number that has no hazard, & assign a value for more open spaces

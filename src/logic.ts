@@ -280,7 +280,7 @@ export function move(gameState: GameState): MoveResponse {
               kissOfMurderState = kissStates.kissOfMurderState.right
               break
           }
-          evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState)
+          evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState, (myself.health < 10))
           //logToFile(consoleWriteStream, `eval for ${newGameState.you.name} at (${newGameState.you.head.x},${newGameState.you.head.y}): ${evalState}`)
           if (evalState > bestMoveEval) {
             bestMove = move
