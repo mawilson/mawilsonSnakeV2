@@ -40,12 +40,12 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   } else if (gameState.board.snakes.length === 1 || snakeLengthDiff >= 4) { // usually food is great, but unnecessary growth isn't
     evalHasEaten = -20
   }
-  const evalHealth7 = 42
-  const evalHealth6 = 36
-  const evalHealth5 = 30
-  const evalHealth4 = 24
-  const evalHealth3 = 18
-  const evalHealth2 = 12
+  const evalHealth7 = 66
+  const evalHealth6 = 56
+  const evalHealth5 = 46
+  const evalHealth4 = 36
+  const evalHealth3 = 26
+  const evalHealth2 = 16
   const evalHealth1 = 6
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
@@ -57,7 +57,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
   const evalFoodVal = 2
-  const evalFoodStep = 2
+  const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   
   let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`

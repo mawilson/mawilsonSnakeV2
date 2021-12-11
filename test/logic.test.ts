@@ -943,6 +943,30 @@ describe('Snake should not seek kill through hazard if not hazard route exists',
   })
 })
 
+describe('Snake should exit hazard when it can do so safely', () => {
+  it.only('does not travel through hazard longer than necessary', () => {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 3, y: 5}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+      createHazardRow(gameState.board, 2)
+
+      gameState.board.food = [{x: 9, y: 0}, {x: 8, y: 5}]
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).toBe("up") // Down & right are both hazard, up also has food, should go up
+      }
+  })
+})
+
 describe('Can accurately get adjacency to hazard', () => {
   it('knows when hazards are adjacent to a coordinate and without a snake', () => {
     const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
