@@ -310,7 +310,7 @@ describe('Snake should avoid two kisses of death for one not', () => {
 
     for (let i = 0; i < 50; i++) {
       let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving only up
+      expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving up
     }
   })
 })
@@ -944,7 +944,7 @@ describe('Snake should not seek kill through hazard if not hazard route exists',
 })
 
 describe('Snake should exit hazard when it can do so safely', () => {
-  it.only('does not travel through hazard longer than necessary', () => {
+  it('does not travel through hazard longer than necessary', () => {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "101", "", "")
       
       const gameState = createGameState(snek)
@@ -991,21 +991,99 @@ describe('Can accurately get adjacency to hazard', () => {
     createHazardRow(gameState.board, 10)
     const board2d = new Board2d(gameState.board)
     
-    expect(isInOrAdjacentToHazard(snek.body[0], board2d)).toBe(true)
-    expect(isInOrAdjacentToHazard(snek.body[1], board2d)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 2, y: 6}, board2d)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 2, y: 7}, board2d)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 3, y: 7}, board2d)).toBe(false)
-    expect(isInOrAdjacentToHazard({x: 7, y: 7}, board2d)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 6, y: 7}, board2d)).toBe(false)
-    expect(isInOrAdjacentToHazard({x: 6, y: 6}, board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard(snek.body[0], board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard(snek.body[1], board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 2, y: 6}, board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 2, y: 7}, board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 3, y: 7}, board2d, gameState)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 7, y: 7}, board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 6, y: 7}, board2d, gameState)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 6, y: 6}, board2d, gameState)).toBe(true)
 
-    expect(isInOrAdjacentToHazard({x: 1, y: 7}, board2d)).toBe(true) // in the hazard should also return true
-    expect(isInOrAdjacentToHazard({x: 3, y: 5}, board2d)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 3, y: 10}, board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 1, y: 7}, board2d, gameState)).toBe(true) // in the hazard should also return true
+    expect(isInOrAdjacentToHazard({x: 3, y: 5}, board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 3, y: 10}, board2d, gameState)).toBe(true)
 
-    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d)).toBe(false) // is adjacent to a hazard, but that hazard has a snake, so don't consider it a hazard
+    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d, gameState)).toBe(false) // is adjacent to a hazard, but that hazard has a snake, so don't consider it a hazard
 
-    expect(isInOrAdjacentToHazard({x: 11, y: 10}, board2d)).toBe(false) // doesn't exist & thus has no neighbors, even if it is numerically one away from it
+    expect(isInOrAdjacentToHazard({x: 11, y: 10}, board2d, gameState)).toBe(false) // doesn't exist & thus has no neighbors, even if it is numerically one away from it
+
+    gameState.game.ruleset.settings.hazardDamagePerTurn = 0 // if hazard damage is 0, function should always return false
+    expect(isInOrAdjacentToHazard({x: 0, y: 0}, board2d, gameState)).toBe(false)
+  })
+})
+
+describe('Snake should cut other snakes off', () => {
+  it('travels straight into the wall, then turns away to kill a larger snake', () => {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y : 4}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        const allowedMoves = ["left", "up"]
+        expect(allowedMoves).toContain(moveResponse.move) // Both up & left will cut otherSnek off, effectively killing it
+      }
+  })
+  it('travels straight into the wall, then turns away to kill a larger snake even with me', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "101", "", "")
+    
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 9}, {x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+    
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // Up will cut otherSnek off, effectively killing it
+    }
+  })
+  it('travels straight into the wall, then turns away to kill a larger snake one behind me', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "101", "", "")
+    
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+    
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // Up will cut otherSnek off, effectively killing it
+    }
+  })
+  it('turns towards the smaller snake and goes for the kill', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "101", "", "")
+    
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    // add another larger snake so snek doesn't think it's king snake & navigate towards otherSnek for that reason
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 30, [{x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 6}, {x: 10, y: 7}], "101", "", "")
+    gameState.board.snakes.push(otherSnek2)
+    
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // Left will send us towards the smaller snake, going for the kill.
+    }
+  })
+  it('turns straight into the wall, then turns away to kill a snake that will grow to my length', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "101", "", "")
+    
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+    
+    gameState.board.food = [{x: 0, y: 7}]
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // Left will send us towards the smaller snake, but it won't be smaller soon, so go up
+    }
   })
 })
