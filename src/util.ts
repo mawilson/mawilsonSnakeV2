@@ -97,17 +97,7 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
 
 // returns difference between my length & the length of the largest other snake on the board - can be positive (I am bigger) or negative (I am smaller)
 export function snakeLengthDelta(me: Battlesnake, board: Board) : number {
-  let delta : number = 0
-  if (board.snakes.length === 1) {
-    return 0
-  } else {
-    board.snakes.forEach(function snakeDelta(snake) {
-      if (me.id !== snake.id && ((me.length - snake.length) > delta)) {
-        delta = me.length - snake.length
-      }
-    })
-  }
-  return delta
+  return me.length - getLongestSnake(me, board.snakes).length
 }
 
 export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
@@ -585,7 +575,17 @@ export function createHazardRow(board: Board, height: number) {
 }
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any. Ignores spaces with snakes! Not beneficial to check for that.
-export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d) : boolean {  
+export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, gameState : GameState) : boolean {  
+  if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
+    return false
+  }
+  let selfCell = board2d.getCell(coord)
+  if (!(selfCell instanceof BoardCell)) {
+    return false // return false for cells outside of board2d's bounds
+  }
+  if (coord.x === 0 || coord.y === 0 || (coord.x === board2d.width - 1) || (coord.y === board2d.height - 1)) {
+    return true // edges are always adjacent to hazard, unless coord is outside of bounds
+  }
   let neighbors = getSurroundingCells(coord, board2d, "")
   let hazardCell = neighbors.find(function checkForHazard(neighbor) {
     if (neighbor.snakeCell instanceof SnakeCell) {
