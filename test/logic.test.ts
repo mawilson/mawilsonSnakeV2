@@ -1,7 +1,7 @@
 import { info, move } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, BoardCell, Board2d } from '../src/classes'
-import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual } from '../src/util'
+import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard } from '../src/util'
 import { evaluate } from '../src/eval'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
@@ -829,8 +829,8 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
         gameState.board.snakes.push(otherSnek)
         
-        let evalSnek = evaluate(gameState, snek, "kissOfDeathNo", "kissOfMurderNo")
-        let evalOtherSnek = evaluate(gameState, otherSnek, "kissOfDeathNo", "kissOfMurderNo")
+        let evalSnek = evaluate(gameState, snek, "kissOfDeathNo", "kissOfMurderNo", false)
+        let evalOtherSnek = evaluate(gameState, otherSnek, "kissOfDeathNo", "kissOfMurderNo", false)
 
         expect(evalSnek).toBeGreaterThan(evalOtherSnek)
     })
@@ -867,16 +867,145 @@ describe('Snake should avoid food when king snake', () => {
   })
 })
 
-///// end evaluate tests ///////
-
-
 // test cases for evaluation function - can include basic stuff as well as more convoluted test cases, can even include specific board configurations from games lost where I picked out a better move
 // test cases for Move output in specific board configurations where I have a preferred move - can even include specific board configurations from games lost where I picked out a better move
-// hazard testing
-// food seekout testing
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
 // kiss of death selector - given a choice between death the next turn (0 possible moves) & kissOfDeathCertainty, choose kissOfDeathCertainty
-// add test for getting food when next to it, even when lots of food is further away in another direction
 // test for MoveSnake - handling snake collisions resulting in deaths
 // tests for seeking open space
 // tests for MoveNeighbors prey calculator
+// tests for Moving a snake resulting in its death, & that snake being removed from the board
+// tests for starving snake getting food
+// add test for getting food when next to it, even when lots of food is further away in another direction
+
+// specific game tests
+describe('Snake should not try for a maybe kill if it leads it to certain doom', () => {
+  it('does not chase after a snake it cannot catch', () => {
+      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 2, y: 5}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 10, y: 8}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 6, y: 5}, {x: 0, y: 6}, {x: 7, y: 1}]
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).toBe("up") // bottom spells death don't chase
+      }
+  })
+})
+
+describe('Snake should not seek food through hazard if not hazard route exists', () => {
+  it('does not path through hazard when possible', () => {
+      const snek = new Battlesnake("snek", "snek", 45, [{x: 8, y: 3}, {x: 8, y: 2}, {x: 7, y: 2}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 4, y: 6}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 4, y: 3}, {x: 1, y: 6}, {x: 1, y: 8}, {x: 5, y: 10}, {x: 10, y: 10}, {x: 9, y: 6}]
+      createHazardRow(gameState.board, 10)
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 1)
+      createHazardColumn(gameState.board, 9)
+      createHazardColumn(gameState.board, 10)
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).not.toBe("right") // I do want the food at (9,6) but I shouldn't go into the hazard to get it
+      }
+  })
+})
+
+describe('Snake should not seek kill through hazard if not hazard route exists', () => {
+  it('does not path through hazard when possible', () => {
+      const snek = new Battlesnake("snek", "snek", 92, [{x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 8, y: 0}, {x: 7, y: 0}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+      createHazardColumn(gameState.board, 9)
+      createHazardColumn(gameState.board, 10)
+
+      gameState.board.food = [{x: 0, y: 8}]
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).not.toBe("down") // I should try to kill directly below me as there's no hazard there, rather than right
+      }
+  })
+})
+
+describe('Snake should exit hazard when it can do so safely', () => {
+  it.only('does not travel through hazard longer than necessary', () => {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 3, y: 5}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+      createHazardRow(gameState.board, 2)
+
+      gameState.board.food = [{x: 9, y: 0}, {x: 8, y: 5}]
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).toBe("up") // Down & right are both hazard, up also has food, should go up
+      }
+  })
+})
+
+describe('Can accurately get adjacency to hazard', () => {
+  it('knows when hazards are adjacent to a coordinate and without a snake', () => {
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("snek", "snek", 100, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
+
+    createHazardColumn(gameState.board, 0)
+    createHazardColumn(gameState.board, 1)
+    createHazardColumn(gameState.board, 10)
+    createHazardColumn(gameState.board, 9)
+    createHazardColumn(gameState.board, 8)
+    createHazardRow(gameState.board, 0)
+    createHazardRow(gameState.board, 1)
+    createHazardRow(gameState.board, 2)
+    createHazardRow(gameState.board, 3)
+    createHazardRow(gameState.board, 4)
+    createHazardRow(gameState.board, 5)
+    createHazardRow(gameState.board, 10)
+    const board2d = new Board2d(gameState.board)
+    
+    expect(isInOrAdjacentToHazard(snek.body[0], board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard(snek.body[1], board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 2, y: 6}, board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 2, y: 7}, board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 3, y: 7}, board2d)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 7, y: 7}, board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 6, y: 7}, board2d)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 6, y: 6}, board2d)).toBe(true)
+
+    expect(isInOrAdjacentToHazard({x: 1, y: 7}, board2d)).toBe(true) // in the hazard should also return true
+    expect(isInOrAdjacentToHazard({x: 3, y: 5}, board2d)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 3, y: 10}, board2d)).toBe(true)
+
+    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d)).toBe(false) // is adjacent to a hazard, but that hazard has a snake, so don't consider it a hazard
+
+    expect(isInOrAdjacentToHazard({x: 11, y: 10}, board2d)).toBe(false) // doesn't exist & thus has no neighbors, even if it is numerically one away from it
+  })
+})

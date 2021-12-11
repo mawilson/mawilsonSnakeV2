@@ -115,6 +115,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
       break // all states are by default kissOfDeathNo
   }
 
+  // TODO: try to add a third tier for murder moves the enemy snake almost certainly won't take
   killMoves.forEach(function determineKillMoveState(move) {
     let preyMoves : Moves = new Moves(true, true, true, true) // do a basic check of prey's surroundings & evaluate how likely this kill is from that
     switch(move) {
@@ -279,7 +280,7 @@ export function move(gameState: GameState): MoveResponse {
               kissOfMurderState = kissStates.kissOfMurderState.right
               break
           }
-          evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState)
+          evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState, (myself.health < 10))
           //logToFile(consoleWriteStream, `eval for ${newGameState.you.name} at (${newGameState.you.head.x},${newGameState.you.head.y}): ${evalState}`)
           if (evalState > bestMoveEval) {
             bestMove = move

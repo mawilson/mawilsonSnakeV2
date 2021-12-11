@@ -59,7 +59,11 @@ export function getCoordAfterMove(coord: Coord, move: string) : Coord {
 }
 
 export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFrom: string) : BoardCell[] {
+  let selfCell = board2d.getCell(coord)
   let surroundingCells : BoardCell[] = []
+  if (!(selfCell instanceof BoardCell)) { // a cell that doesn't exist shouldn't return neighbors
+    return surroundingCells
+  }
   if (directionFrom !== "left") {
     let newCell = board2d.getCell(new Coord(coord.x - 1, coord.y))
     if (newCell instanceof BoardCell) {
@@ -564,4 +568,31 @@ export function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves
       moves.down = false
     }
   }
+}
+
+// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which shouldn't matter, maybe
+export function createHazardColumn(board: Board, width: number) {
+  for (let i: number = 0; i < board.height; i++) {
+    board.hazards.push({x: width, y: i})
+  }
+}
+
+// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which shouldn't matter, maybe
+export function createHazardRow(board: Board, height: number) {
+  for (let i: number = 0; i < board.width; i++) {
+    board.hazards.push({x: i, y: height})
+  }
+}
+
+// gets self and surrounding cells & checks them for hazards, returning true if it finds any. Ignores spaces with snakes! Not beneficial to check for that.
+export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d) : boolean {  
+  let neighbors = getSurroundingCells(coord, board2d, "")
+  let hazardCell = neighbors.find(function checkForHazard(neighbor) {
+    if (neighbor.snakeCell instanceof SnakeCell) {
+      return false
+    } else {
+      return neighbor.hazard
+    }
+  })
+  return hazardCell !== undefined
 }

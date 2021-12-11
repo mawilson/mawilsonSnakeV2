@@ -102,16 +102,17 @@ export class Board2d {
     board.snakes.forEach(processSnake)
 
     board.food.forEach(function addFood(coord : Coord) : void {
-      let board2dCell = self.getCell(coord)
+      let board2dCell = self.getCell(coord);
       if (board2dCell instanceof BoardCell) {
-        board2dCell.food = true
+        board2dCell.food = true;
       }
     })
 
+    let _this = this;
     board.hazards.forEach(function addHazard(coord: Coord) : void {
       let board2dCell = self.getCell(coord)
       if (board2dCell instanceof BoardCell) {
-        board2dCell.hazard = true
+        board2dCell.hazard = true;
       }
     })
   }
