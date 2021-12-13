@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, KissStates } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesAndWalls, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesHealthAndWalls, checkForHealth, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState } from "./util"
 import { evaluate } from "./eval"
 
 import { createWriteStream } from 'fs'
@@ -41,7 +41,7 @@ export function end(gameState: GameState): void {
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
-function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
+function kissDecider(myself: Battlesnake, gameState: GameState, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
   let validMoves = moves.validMoves()
   let states = new KissStates()
   function setKissOfDeathDirectionState(dir : string, state: string) : void {
@@ -131,7 +131,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
     switch(move) {
       case "up":
         if (typeof moveNeighbors.upPrey !== "undefined") {
-          checkForSnakesAndWalls(moveNeighbors.upPrey, board2d, preyMoves)
+          checkForSnakesHealthAndWalls(moveNeighbors.upPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
           } else {
@@ -141,7 +141,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
         break
       case "down":
         if (typeof moveNeighbors.downPrey !== "undefined") {
-          checkForSnakesAndWalls(moveNeighbors.downPrey, board2d, preyMoves)
+          checkForSnakesHealthAndWalls(moveNeighbors.downPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
           } else {
@@ -151,7 +151,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
         break
       case "left":
         if (typeof moveNeighbors.leftPrey !== "undefined") {
-          checkForSnakesAndWalls(moveNeighbors.leftPrey, board2d, preyMoves)
+          checkForSnakesHealthAndWalls(moveNeighbors.leftPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
           } else {
@@ -161,7 +161,7 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
         break
       default: //case "right":
         if (typeof moveNeighbors.rightPrey !== "undefined") {
-          checkForSnakesAndWalls(moveNeighbors.rightPrey, board2d, preyMoves)
+          checkForSnakesHealthAndWalls(moveNeighbors.rightPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
             setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
           } else {
@@ -215,7 +215,7 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     //logToFile(consoleWriteStream, `myTail: ${coordToString(myTail)}`)
     //logToFile(consoleWriteStream, `myHead: ${coordToString(myHead)}`)
 
-    checkForSnakesAndWalls(myself, board2d, possibleMoves)
+    checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves)
     //logToFile(consoleWriteStream, `possible moves after checkForSnakesAndWalls: ${possibleMoves}`)
 
     let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
@@ -224,7 +224,7 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
     //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
-     let kissStates = kissDecider(myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
+     let kissStates = kissDecider(myself, gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
     // let kissOfDeathState : string = getKissOfDeathState(moveNeighbors, kissOfDeathMoves, possibleMoves)
     // let kissOfMurderState : string = "kissOfMurderNo"
@@ -233,12 +233,24 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
     
     // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
-    function decideMove(gameState: GameState, moves: string[]) : string {
-      if (moves.length < 1) {
-        return "up"
+    function decideMove(gameState: GameState, moves: Moves) : string {
+      let availableMoves : string[] = moves.validMoves()
+      logToFile(consoleWriteStream, `moves after checking for snakes, health, & walls: ${moves}`)
+      if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
+        let snakeMoves : Moves = new Moves(true, true, true, true)
+        checkForHealth(myself, gameState, board2d, snakeMoves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
+        logToFile(consoleWriteStream, `snakeMoves after checking for just health & walls: ${snakeMoves}`)
+        availableMoves = snakeMoves.validMoves()
+        logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
       }
-      if (moves.length === 1) {
-        return moves[0]
+      if (availableMoves.length < 1) { // if there are still no available moves, this means we're starving no matter what. Choose any direction that isn't a wall
+        if (gameState.you.head.x !== 0) { // if we're not on left wall, move left
+          return "left"
+        } else { // else we are on the left wall, so move right
+          return "right"
+        }
+      } else if (availableMoves.length === 1) {
+        return availableMoves[0]
       }
       //return moveTowardsCenter(myHead, gameState.board, moves)
 
@@ -246,7 +258,7 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
       let bestMove : string = ""
       let bestMoveEval : number = -1
 
-      moves.forEach(function evaluateMove(move) {
+      availableMoves.forEach(function evaluateMove(move) {
         let newGameState = cloneGameState(gameState)
         let newBoard2d = new Board2d(newGameState.board)
         let evalState = 0
@@ -297,8 +309,8 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
       })
     }
 
-    const safeMoves = possibleMoves.validMoves()
-    const chosenMove : string = decideMove(gameState, safeMoves)
+    //const safeMoves = possibleMoves.validMoves()
+    const chosenMove : string = decideMove(gameState, possibleMoves)
     const response: MoveResponse = {
         move: chosenMove
     }

@@ -103,6 +103,35 @@ describe('BattleSnake will not chase tail after eating', () => {
   })
 })
 
+describe('BattleSnake chooses death by snake over death by wall or hazard', () => {
+  it('always chooses a snake body over a border death given no other valid moves', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 7, y: 9}, {x: 7, y: 8}], "101", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 10}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 2, y: 9}, {x: 1, y: 9}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up")
+    }
+  })
+  it('always chooses a snake body over a hazard death or wall given no other valid moves', () => {
+    const snek = new Battlesnake("snek", "snek", 10, [{x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 7, y: 9}, {x: 7, y: 8}], "101", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 2, y: 9}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    createHazardRow(gameState.board, 10)
+
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // there is no scenario where I live walking into hazard left, even though it is open space. Try the snake cell instead
+    }
+  })
+})
+
 describe('Board2d accurately maps game state', () => {
   it('should know where snakes, food, and hazards are', () => {
     // x f z
@@ -963,6 +992,26 @@ describe('Snake should exit hazard when it can do so safely', () => {
       for (let i = 0; i < 50; i++) {
         let moveResponse: MoveResponse = move(gameState)
         expect(moveResponse.move).toBe("up") // Down & right are both hazard, up also has food, should go up
+      }
+  })
+})
+
+describe('Snake should not enter hazard when it does not need to', () => {
+  it('does not travel through hazard when another viable option exists', () => {
+      const snek = new Battlesnake("snek", "snek", 20, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 1}, {x: 7, y: 1}, {x: 7, y: 2}, {x: 7, y: 3}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 3, y: 3}, {x: 3, y: 4}, {x: 4, y: 4}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      createHazardRow(gameState.board, 0)
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 10)
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).not.toBe("down") // right leads towards larger otherSnek & is pretty bad, but down is certain death. Up is the correct choice
       }
   })
 })

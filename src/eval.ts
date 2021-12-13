@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -38,6 +38,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalHealth2 = 16
   const evalHealth1 = 6
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
+  const evalHealthStarved = -1000 // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 25 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
     evalHasEaten = 1000 // food scores can get pretty high!
@@ -120,7 +121,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   } else {
     let hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
     let validHazardTurns = myself.health / hazardDamage
-    if (hazardDamage <= 5 && myself.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
+    if (myself.health <= 0) {
+      buildLogString(`HealthStarved, adding ${evalHealthStarved}`)
+      evaluation = evaluation + evalHealthStarved
+    } else if (hazardDamage <= 5 && myself.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
       buildLogString(`Health0, adding ${evalHealth0}`)
       evaluation = evaluation + evalHealth0
     }else if (validHazardTurns > 6) {
@@ -241,7 +245,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   const board2d = new Board2d(gameState.board)
-  checkForSnakesAndWalls(myself, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
+  checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
 
   // penalize spaces next to hazard
   if (isInOrAdjacentToHazard(myself.head, board2d, gameState)) {
@@ -324,7 +328,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   // snake cutoff logic!
   otherSnakes.forEach(function isOnEdge(snake) {
     let snakeMoves = new Moves(true, true, true, true)
-    checkForSnakesAndWalls(snake, board2d, snakeMoves)
+    checkForSnakesHealthAndWalls(snake, gameState, board2d, snakeMoves)
     if (snakeMoves.validMoves().length === 1) { // if snake has only one place to go - not sure if I need this one, may comment out later
       //logToFile(evalWriteStream, `investigating ${snakeToString(snake)} for cutoff`)
       if (snake.head.x === 0) { // if they are on the left edge

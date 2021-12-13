@@ -296,7 +296,8 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   }
 }
 
-export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: Moves) {
+// Disables moves in Moves object which lead to or past a wall
+export function checkForWalls(me: Battlesnake, board: Board2d, moves: Moves) {
   function checkCell(x: number, y: number) : boolean {
     if (x < 0) { // indicates a move into the left wall
       return false
@@ -306,7 +307,30 @@ export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: M
       return false
     } else if (y >= board.height) { // indicates a move into the top wall
       return false
+    } else {
+      return true
     }
+  }
+  
+  let myCoords : Coord = me.head
+
+  if (!checkCell(myCoords.x - 1, myCoords.y)) {
+    moves.left = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y - 1)) {
+    moves.down = false
+  }
+  if (!checkCell(myCoords.x + 1, myCoords.y)) {
+    moves.right = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y + 1)) {
+    moves.up = false
+  }
+}
+
+// Disables moves in Moves object which lead into a snake body, except for tails which will recede the next turn
+export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
+  function checkCell(x: number, y: number) : boolean {
     let newCoord = new Coord(x, y)
     let newCell = board.getCell(newCoord)
     if (newCell instanceof BoardCell) {
@@ -340,6 +364,45 @@ export function checkForSnakesAndWalls(me: Battlesnake, board: Board2d, moves: M
   if (!checkCell(myCoords.x, myCoords.y + 1)) {
     moves.up = false
   }
+}
+
+// Disables moves which will cause the snakes death, taking into account normal turn damage, hazard damage, & food acquisition
+export function checkForHealth(me: Battlesnake, gameState: GameState, board: Board2d, moves: Moves) {
+  function checkCell(x: number, y: number) : boolean {
+    let newCoord = new Coord(x, y)
+    let newCell = board.getCell(newCoord)
+    if (newCell instanceof BoardCell) {
+      if (newCell.food) {
+        return true // will not starve if we got food on this cell
+      } else if (newCell.hazard) {
+        return (me.health - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn) > 0 // true if I will not starve here after accounting for hazard, false if not
+      } else {
+        return (me.health - 1) > 0 // true if I will not starve here, false if not
+      }
+    } else {
+      return false // any cell that doesn't exist will also lead to snake's 'starvation' by walking out through a wall
+    }
+  }
+  
+  let myCoords : Coord = me.head
+
+  if (!checkCell(myCoords.x - 1, myCoords.y)) {
+    moves.left = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y - 1)) {
+    moves.down = false
+  }
+  if (!checkCell(myCoords.x + 1, myCoords.y)) {
+    moves.right = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y + 1)) {
+    moves.up = false
+  }
+}
+
+export function checkForSnakesHealthAndWalls(me: Battlesnake, gameState: GameState, board2d: Board2d, moves: Moves) {
+  checkForHealth(me, gameState, board2d, moves)
+  checkForSnakes(me, board2d, moves)
 }
 
 // checks how much time has elapsed since beginning of move function,
