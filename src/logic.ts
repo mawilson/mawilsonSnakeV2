@@ -185,16 +185,21 @@ function kissDecider(myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMov
 
 // start looking ahead!
 // replace random movement entirely
-// hazard support
-// fix king snake & aggressive kissing snake logic to be smarter
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
-export function move(gameState: GameState): MoveResponse {
+
+// optional params indicate base case (so recursion doesn't run indefinitely) & the other snake to run on
+export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Battlesnake): MoveResponse {
     //logToFile(consoleWriteStream, `turn: ${gameState.turn}`)    
     
     let possibleMoves : Moves = new Moves(true, true, true, true)
 
-    const myself = gameState.you
+    let myself: Battlesnake
+    if (otherSelf instanceof Battlesnake) {
+      myself = otherSelf
+    } else {
+      myself = gameState.you
+    }
     const myHead: Coord = myself.head
     const myNeck: Coord = myself.body[1]
     const myBody: Coord[] = myself.body
@@ -226,26 +231,6 @@ export function move(gameState: GameState): MoveResponse {
     
     // Finally, choose a move from the available safe moves.
     // TODO: Step 5 - Select a move to make based on strategy, rather than random.
-
-    function moveTowardsCenter(coord: Coord, board: Board, moves: string[]) : string {
-      let shortestMove : string = "up",
-          shortestDist: number,
-          midX = board.width / 2,
-          midY = board.height / 2,
-          midCoord = new Coord(midX, midY)
-
-      moves.forEach(function checkDistanceFromMiddle(move) {
-        let newCoord = getCoordAfterMove(coord, move)
-        let d = getDistance(newCoord, midCoord)
-        if (!shortestDist || d < shortestDist) {
-          shortestDist = d
-          shortestMove = move
-        } else if (d === shortestDist && getRandomInt(0, 2)) { // given another valid route towards middle, choose it half of the time
-          shortestMove = move
-        }
-      })
-      return shortestMove
-    }
     
     // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
     function decideMove(gameState: GameState, moves: string[]) : string {
@@ -256,7 +241,6 @@ export function move(gameState: GameState): MoveResponse {
         return moves[0]
       }
       //return moveTowardsCenter(myHead, gameState.board, moves)
-
 
       // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
       let bestMove : string = ""
@@ -305,6 +289,12 @@ export function move(gameState: GameState): MoveResponse {
       })
 
       return bestMove
+    }
+
+    if (isBaseCase) { // base case - don't want to run on other snakes
+      otherSnakes.forEach(function mvsnk(snake) { // before evaluating my next move snake, move each other snake as if it moved the way I would
+        move(gameState, true, snake)
+      })
     }
 
     const safeMoves = possibleMoves.validMoves()

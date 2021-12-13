@@ -1101,4 +1101,34 @@ describe('Snake should not enter spaces without a clear escape route', () => {
         expect(moveResponse.move).not.toBe("down") // Down has only three spaces available, fully enclosed by my body. Will die after two turns.
       }
   })
+  it('does not enter a space enclosed by another snake', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 9, y: 8}, {x: 9, y: 9}, {x: 8, y: 9}], "101", "", "")
+    
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 5, y: 3}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.board.food = [{x: 0, y: 0}, {x: 2, y: 5}, {x: 9, y: 10}]
+    
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // Up has only three spaces available, fully enclosed by my otherSnek's body. Will die after two turns.
+    }
+  })
+  it('does not chase a snake into a corner trap', () => {
+    const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 10}, {x: 2, y: 9}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}], "101", "", "")
+    
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 8}, {x: 0, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.board.food = [{x: 0, y: 0}, {x: 2, y: 5}, {x: 9, y: 10}]
+    
+    for (let i = 0; i < 50; i++) {
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // Up has only three spaces available, fully enclosed by my otherSnek's body. Will die after two turns.
+    }
+  })
 })
