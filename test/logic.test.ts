@@ -938,7 +938,7 @@ describe('Snake should not seek kill through hazard if not hazard route exists',
       
       for (let i = 0; i < 50; i++) {
         let moveResponse: MoveResponse = move(gameState)
-        expect(moveResponse.move).not.toBe("down") // I should try to kill directly below me as there's no hazard there, rather than right
+        expect(moveResponse.move).toBe("down") // I should try to kill directly below me as there's no hazard there, rather than right
       }
   })
 })
@@ -1085,5 +1085,20 @@ describe('Snake should cut other snakes off', () => {
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // Left will send us towards the smaller snake, but it won't be smaller soon, so go up
     }
+  })
+})
+
+describe('Snake should not enter spaces without a clear escape route', () => {
+  it('does not enter a space enclosed by itself', () => {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 6}, {x: 8, y: 4}, {x: 7, y: 4}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}], "101", "", "")
+      
+      const gameState = createGameState(snek)
+
+      gameState.board.food = [{x: 0, y: 0}, {x: 2, y: 5}, {x: 9, y: 10}]
+      
+      for (let i = 0; i < 50; i++) {
+        let moveResponse: MoveResponse = move(gameState)
+        expect(moveResponse.move).not.toBe("down") // Down has only three spaces available, fully enclosed by my body. Will die after two turns.
+      }
   })
 })
