@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -23,19 +23,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalSolo: number = 1000
   const evalWallPenalty: number = -5 //-25
   const evalHazardWallPenalty: number = -3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
+  // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const eval0Move = 1
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 30 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = 50
-  const eval4Moves = 70
+  const eval2Moves = 1 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
+  const eval3Moves = 2
+  const eval4Moves = 3
   const snakeLengthDiff = snakeLengthDelta(meSnake, gameState.board)
-  let evalHasEaten = 150
-  if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
-    evalHasEaten = 1000 // food scores can get pretty high!
-
-  } else if (gameState.board.snakes.length === 1 || snakeLengthDiff >= 4) { // usually food is great, but unnecessary growth isn't
-    evalHasEaten = -20
-  }
   const evalHealth7 = 66
   const evalHealth6 = 56
   const evalHealth5 = 46
@@ -44,6 +38,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalHealth2 = 16
   const evalHealth1 = 6
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
+  const evalHealthStarved = -1000 // there is never a circumstance where starving is good, even other snake bodies are better than this
+  let evalHasEaten = evalHealth7 + 25 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
+  if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
+    evalHasEaten = 1000 // food scores can get pretty high!
+
+  } else if (gameState.board.snakes.length === 1 || snakeLengthDiff >= 4) { // usually food is great, but unnecessary growth isn't
+    evalHasEaten = -20
+  }
   const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
   const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
   const evalKissOfDeath3To1Avoidance = 0
@@ -101,22 +103,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const centerX = gameState.board.width / 2
   const centerY = gameState.board.height / 2
 
-  const xDiff = -Math.abs(myself.head.x - centerX)
-  const yDiff = -Math.abs(myself.head.y - centerY)
-  // if (xDiff < evalCenterMaxDist) {
-  //   buildLogString(`xDiff <= ${evalCenterMaxDist}, adding ${evalCenterMax}`)
-  //   evaluation = evaluation + evalCenterMax
-  // } else if (xDiff <= evalCenterMinDist) {
-  //   buildLogString(`xDiff <= ${evalCenterMinDist}, adding ${evalCenterMin}`)
-  //   evaluation = evaluation + evalCenterMin
-  // }
-  // if (yDiff <= evalCenterMaxDist) {
-  //   buildLogString(`yDiff <= ${evalCenterMaxDist}, adding ${evalCenterMax}`)
-  //   evaluation = evaluation + evalCenterMax
-  // } else if (yDiff < evalCenterMinDist) {
-  //   buildLogString(`yDiff <= ${evalCenterMinDist}, adding ${evalCenterMin}`)
-  //   evaluation = evaluation + evalCenterMin
-  // }
+  const xDiff = -Math.floor(Math.abs(myself.head.x - centerX))
+  const yDiff = -Math.floor(Math.abs(myself.head.y - centerY))
 
   buildLogString(`adding xDiff ${xDiff}`)
   evaluation = evaluation + xDiff
@@ -133,7 +121,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   } else {
     let hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
     let validHazardTurns = myself.health / hazardDamage
-    if (hazardDamage <= 5 && myself.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
+    if (myself.health <= 0) {
+      buildLogString(`HealthStarved, adding ${evalHealthStarved}`)
+      evaluation = evaluation + evalHealthStarved
+    } else if (hazardDamage <= 5 && myself.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
       buildLogString(`Health0, adding ${evalHealth0}`)
       evaluation = evaluation + evalHealth0
     }else if (validHazardTurns > 6) {
@@ -254,7 +245,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   const board2d = new Board2d(gameState.board)
-  checkForSnakesAndWalls(myself, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
+  checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
 
   // penalize spaces next to hazard
   if (isInOrAdjacentToHazard(myself.head, board2d, gameState)) {
@@ -337,7 +328,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   // snake cutoff logic!
   otherSnakes.forEach(function isOnEdge(snake) {
     let snakeMoves = new Moves(true, true, true, true)
-    checkForSnakesAndWalls(snake, board2d, snakeMoves)
+    checkForSnakesHealthAndWalls(snake, gameState, board2d, snakeMoves)
     if (snakeMoves.validMoves().length === 1) { // if snake has only one place to go - not sure if I need this one, may comment out later
       //logToFile(evalWriteStream, `investigating ${snakeToString(snake)} for cutoff`)
       if (snake.head.x === 0) { // if they are on the left edge
@@ -514,8 +505,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
             }
           } else if (myself.head.x <= snake.head.x && snake.head.x < snake.body[1].x) { // if I am left of snake, & it is moving left
             let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
-            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
-              
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it 
               let myselfIsLonger = myself.length > snake.length // if my snake is longer
               if (myselfIsLonger) {
                 let foundFood : number = 0
@@ -534,13 +524,52 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
                 buildLogString(`attempting left cutoff, adding ${evalCutoff}`)
                 evaluation = evaluation + evalCutoff
               }
-
             }
           }
         }
       }
     }
   })
+
+  // function _getEscapeRoute(me: Battlesnake, board2d: Board2d, longestRoute: number) : number {
+  //   if (longestRoute >= me.length) {
+  //     return longestRoute
+  //   }
+  //   const moves = new Moves(true, true, true, true)
+  //   checkForSnakesAndWalls(me, board2d, moves)
+  //   const validMoves = moves.validMoves()
+
+  //   possibleMoves.validMoves().forEach(function checkDirection(move) {
+  //     let newCoord : Coord
+  //     switch (move) {
+  //       case "up":
+  //         newCoord = {x: me.head.x, y: me.head.y + 1}
+  //         break
+  //       case "down":
+  //         newCoord = {x: me.head.x, y: me.head.y - 1}
+  //         break
+  //       case "left":
+  //         newCoord = {x: me.head.x + 1, y: me.head.y}
+  //         break
+  //       default: //case "right":
+  //         newCoord = {x: me.head.x - 1, y: me.head.y}
+  //         break
+  //     }
+  //     let newCell = board2d.getCell(newCoord)
+  //     if (newCell instanceof BoardCell) {
+  //       if (!(newCell.snakeCell instanceof SnakeCell)) { // if we pass this, it's a valid cell
+
+  //       } // else it is a snake cell, it's not a valid cell
+  //     } // else it's not a valid cell, must've been out of bounds
+  //   })
+  // }
+
+  // // calculate the longest I can go without dying, up to my length if possible
+  // function getEscapeRoute(me: Battlesnake, gameState: GameState) : number {
+  //   let longestRoute : number = 0
+  //   let board2d = new Board2d(gameState.board)
+  // }
+
 
   buildLogString(`final evaluation: ${evaluation}`)
   logToFile(evalWriteStream, `eval log: ${logString}
