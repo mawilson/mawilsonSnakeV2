@@ -289,11 +289,62 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
       
     snake.body.unshift(newCoord) // add new coordinate to front of body
     snake.head = snake.body[0]
-    snake.length = snake.body.length // note this doesn't account for whether food was eaten this round - this is how Battlesnake does it too, length is just a reference to the snake body array length
+    snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
+
     return true
   } else {
+    logToFile(consoleWriteStream, `Error: failed to move snake at (${snake.head.x},${snake.head.y}) towards ${move}`)
     return false
   }
+}
+
+// After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes
+export function updateGameStateAfterMove(gameState: GameState) {
+  gameState.board.food.filter(function findUneatenFood(food): boolean {
+    let eatSnake : Battlesnake | undefined = gameState.board.snakes.find(function findEatSnake(snake : Battlesnake): boolean { // find any snake whose head is at this food
+      return coordsEqual(snake.head, food) // if snake head is at this food, the food has been eaten. True means this head is on a food, false means it is not
+    })
+    return eatSnake !== undefined // for this food, if it does not have an eatSnake, it has not been eaten. True means it isn't filtered, false means it is
+  })
+  
+  let liveSnakes : Battlesnake[] = [] // snakes that live past the health check
+  gameState.board.snakes.forEach(function checkSnake(snake) { // first check healths. Want to remove any snakes that have starved before checking for collisions
+    if (snake.health > 0) {
+      liveSnakes.push(snake)
+    }
+  })
+  gameState.board.snakes = liveSnakes // should be same snakes, but without the starved ones
+
+  let survivedSnakes : Battlesnake[] = [] // snakes that live past the collision check
+  gameState.board.snakes.forEach(function checkSnake(snake) { // after checking for snakes that have run out of health, check for collisions with other snakes
+    let murderSnek : Battlesnake | undefined = gameState.board.snakes.find(function findMurderSnek(otherSnake) { // find a different, larger snake in the same cell
+      let isSameSnake = otherSnake.id === snake.id
+      let otherSnakeIsLarger = otherSnake.length >= snake
+      let inSameCell = coordsEqual(otherSnake.head, snake.head)
+
+      if (isSameSnake) { // can't murder self
+        return false
+      } else { // look through other snake cells. If it's a snake body, I'm dead for sure, if it's a snake head, check lengths
+        let deathCell : Coord | undefined = otherSnake.body.find(function checkBody(coord : Coord, idx: number) : boolean {
+          if (coordsEqual(coord, snake.head)) { // if coords are equal, we have a collision of some type
+            if (idx === 0) { // if idx is 0, this is otherSnake's head, we have a head-on collision, evaluate length
+              return true // return true if otherSnake is larger or equal, otherwise return false
+            } else { // if we have a collision that is not with otherSnake's head, it always means death for snake
+              return true
+            }
+          } else {
+            return false
+          }
+        })
+        return deathCell !== undefined // if deathCell is defined, return true to indicate we've found its death
+      }
+    })
+    if (murderSnek === undefined) { // if we have not found a murderSnek, the snake survives
+      survivedSnakes.push(snake)
+    }
+  })
+
+  gameState.board.snakes = survivedSnakes // should be same snakes, but without the ones that lost their fight with another snake
 }
 
 // Disables moves in Moves object which lead to or past a wall

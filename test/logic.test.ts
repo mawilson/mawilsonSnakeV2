@@ -896,6 +896,7 @@ describe('Snake should avoid food when king snake', () => {
   })
 })
 
+// TODO
 // test cases for evaluation function - can include basic stuff as well as more convoluted test cases, can even include specific board configurations from games lost where I picked out a better move
 // test cases for Move output in specific board configurations where I have a preferred move - can even include specific board configurations from games lost where I picked out a better move
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
@@ -906,6 +907,7 @@ describe('Snake should avoid food when king snake', () => {
 // tests for Moving a snake resulting in its death, & that snake being removed from the board
 // tests for starving snake getting food
 // add test for getting food when next to it, even when lots of food is further away in another direction
+// tests for updateGameStateAfterMove, for single snake & multiple snakes - need to know where deaths happen & where food lies
 
 // specific game tests
 describe('Snake should not try for a maybe kill if it leads it to certain doom', () => {
