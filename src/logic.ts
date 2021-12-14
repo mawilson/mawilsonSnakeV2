@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, KissStates } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesHealthAndWalls, checkForHealth, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState } from "./util"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesHealthAndWalls, checkForHealth, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState, updateGameStateAfterMove } from "./util"
 import { evaluate } from "./eval"
 
 import { createWriteStream } from 'fs'
@@ -235,13 +235,13 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     // This function will determine the movement strategy for available moves. Should take in the board, the snakes, our health, the turn, etc. May want to replace this with lookahead functions later
     function decideMove(gameState: GameState, moves: Moves) : string {
       let availableMoves : string[] = moves.validMoves()
-      logToFile(consoleWriteStream, `moves after checking for snakes, health, & walls: ${moves}`)
+      //logToFile(consoleWriteStream, `moves after checking for snakes, health, & walls: ${moves}`)
       if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
         let snakeMoves : Moves = new Moves(true, true, true, true)
         checkForHealth(myself, gameState, board2d, snakeMoves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
-        logToFile(consoleWriteStream, `snakeMoves after checking for just health & walls: ${snakeMoves}`)
+        //logToFile(consoleWriteStream, `snakeMoves after checking for just health & walls: ${snakeMoves}`)
         availableMoves = snakeMoves.validMoves()
-        logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
+        //logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
       }
       if (availableMoves.length < 1) { // if there are still no available moves, this means we're starving no matter what. Choose any direction that isn't a wall
         if (gameState.you.head.x !== 0) { // if we're not on left wall, move left
@@ -264,6 +264,7 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
         let evalState = 0
 
         let moveResult = moveSnake(newGameState, newGameState.you, newBoard2d, move)
+        updateGameStateAfterMove(newGameState) // update gameState after moving myself
         if (moveResult) {
           // TODO: evaluate needs to be ran on a new game state in which opposing snakes have also moved, not just me - & that means it needs to be ran multiple times for multiple different realities
           let kissOfDeathState : string = ""
@@ -304,9 +305,16 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     }
 
     if (isBaseCase) { // base case - don't want to run on other snakes
-      otherSnakes.forEach(function mvsnk(snake) { // before evaluating my next move snake, move each other snake as if it moved the way I would
-        move(gameState, true, snake)
+      let moveSnakes : { [key: string]: string} // array of snake IDs & the direction each snake having that ID wishes to move in
+      otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
+        moveSnakes[snake.id] = move(gameState, true, snake).move
       })
+      otherSnakes.forEach(function mvsnk(snake) { // move each of the snakes at the same time, without updating gameState until each has moved
+        if (moveSnakes[snake.id]) {
+          moveSnake(gameState, snake, board2d, moveSnakes[snake.id])
+        }
+      })
+      updateGameStateAfterMove(gameState) // after each otherSnake has moved, evaluate the new state
     }
 
     //const safeMoves = possibleMoves.validMoves()

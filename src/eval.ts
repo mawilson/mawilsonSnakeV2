@@ -13,13 +13,14 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
 export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string, wasStarving: boolean) : number {
-  const myself = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
+  const myself : Battlesnake | undefined = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   
   // values to tweak
   const evalBase: number = 500
-  const evalNoSnakes: number = 5
-  const evalNoMe: number = 0
+  const evalNoSnakes: number = -1000 // no snakes is bad, but not as bad as evalNoMe
+  const evalNoMe: number = -2000 // no me is the worst possible state, give a very bad score
+  const evalSnakeCount = 100 // assign score based on number of snakes left in gameState
   const evalSolo: number = 1000
   const evalWallPenalty: number = -5 //-25
   const evalHazardWallPenalty: number = -3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
@@ -30,13 +31,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const eval3Moves = 2
   const eval4Moves = 3
   const snakeLengthDiff = snakeLengthDelta(meSnake, gameState.board)
-  const evalHealth7 = 66
-  const evalHealth6 = 56
-  const evalHealth5 = 46
-  const evalHealth4 = 36
-  const evalHealth3 = 26
-  const evalHealth2 = 16
-  const evalHealth1 = 6
+  const evalHealthStep = 1
+  const evalHealthTierDifference = 10
+  const evalHealth7 = 75 // evalHealth tiers should differ in severity based on how hungry I am
+  const evalHealth6 = evalHealth7 - evalHealthTierDifference // 75 - 10 = 65
+  const evalHealth5 = evalHealth6 - evalHealthTierDifference - (evalHealthStep * 1) // 65 - 10 - (1 * 1) = 54
+  const evalHealth4 = evalHealth5 - evalHealthTierDifference - (evalHealthStep * 2) // 54 - 10 - (1 * 2) = 42
+  const evalHealth3 = evalHealth4 - evalHealthTierDifference - (evalHealthStep * 3) // 42 - 10 - (1 * 3) = 29
+  const evalHealth2 = evalHealth3 - evalHealthTierDifference - (evalHealthStep * 4) // 29 - 10 - (1 * 4) = 15
+  const evalHealth1 = evalHealth2 - evalHealthTierDifference - (evalHealthStep * 5) // 15 - 10 - (1 * 5) = 0
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalHealthStarved = -1000 // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 25 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
@@ -68,19 +71,23 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     }
   }
 
+  let evaluation = evalBase
+
   if (gameState.board.snakes.length === 0) {
     buildLogString(`no snakes, return ${evalNoSnakes}`)
     return evalNoSnakes // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
-  
-  let evaluation = evalBase
   if (!(myself instanceof Battlesnake)) {
-    buildLogString(`no myself snake, return ${evalNoMe}`)
-    return 0 // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
+    buildLogString(`no myself snake, add ${evalNoMe}`)
+    return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
+    //evaluation = evaluation + evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
   if (otherSnakes.length === 0) {
     buildLogString(`no other snakes, add ${evalSolo}`)
     evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
+  } else {
+    buildLogString(`other snakes are in game, multiply their number by evalSnakeCount & add to eval: ${evalSnakeCount} * ${otherSnakes.length}`)
+    evaluation = evaluation + (evalSnakeCount * otherSnakes.length)
   }
 
   // give walls a penalty, & corners a double penalty
