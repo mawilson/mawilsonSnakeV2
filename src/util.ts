@@ -271,40 +271,87 @@ export function cloneGameState(gameState: GameState) : GameState {
   return cloneGameState
 }
 
-// returns true if it was able to move the snake, else false
-export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : boolean {
+// given a battlesnake, returns what direction its neck is relative to its head. Should always be either left, right, down, or up
+export function getNeckDirection(snake: Battlesnake) : string {
+  if (snake.head.x > snake.body[1].x) {
+    return "left" // neck is left of body
+  } else if (snake.head.x < snake.body[1].x) {
+    return "right" // neck is right of body
+  } else if (snake.head.y > snake.body[1].y) {
+    return "down" // neck is below body
+  } else { // snake.head.y < snake.body[1].y
+    return "up"
+  }
+}
+
+// moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
+export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : void {
+  //logToFile(consoleWriteStream, `moveSnake snake before move: ${snakeToString(snake)}`)
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
     // even if snake has eaten this turn, its tail cell will be duplicated, so we will still want to slice off the last element
     snake.body = snake.body.slice(0, -1) // remove last element of body
+      
+    snake.body.unshift(newCoord) // add new coordinate to front of body
+    snake.head = snake.body[0]
 
     if (newCell.food) {
       snake.health = 100
+      snake.body.push(snake.body[snake.body.length - 1]) // snake should duplicate its tail cell if it has just eaten
     } else if (newCell.hazard) {
       snake.health = snake.health - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn
     } else {
       snake.health = snake.health - 1
     }
-      
-    snake.body.unshift(newCoord) // add new coordinate to front of body
-    snake.head = snake.body[0]
-    snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
 
-    return true
+    snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
   } else {
-    logToFile(consoleWriteStream, `Error: failed to move snake at (${snake.head.x},${snake.head.y}) towards ${move}`)
-    return false
+    let newDir : string = ""
+    let neckDir = getNeckDirection(snake)
+    switch (move) { // set newDir to next direction clockwise
+      case "left":
+        if (neckDir === "up") { // avoid moving into neck. There should be at least one other cell we can move to that won't be out of bounds, or our neck
+          newDir = "right"
+        } else {
+          newDir = "up"
+        }
+        break
+      case "up":
+        if (neckDir === "right") {
+          newDir = "down"
+        } else {
+          newDir = "right"
+        }
+        break
+      case "right":
+        if (neckDir === "down") {
+          newDir = "left"
+        } else {
+          newDir = "down"
+        }
+        break
+      default: // case "down":
+        if (neckDir === "left") {
+          newDir = "up"
+        } else {
+          newDir = "left"
+        }
+        break
+    }
+    logToFile(consoleWriteStream, `failed to move snake at (${snake.head.x},${snake.head.y}) towards ${move}, trying towards ${newDir} instead`)
+    moveSnake(gameState, snake, board2d, newDir) // at least one of the directions will always be on the game board & not be our neck, so this should never infinitely recurse
   }
+  //logToFile(consoleWriteStream, `moveSnake snake after move: ${snakeToString(snake)}`)
 }
 
 // After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes
 export function updateGameStateAfterMove(gameState: GameState) {
-  gameState.board.food.filter(function findUneatenFood(food): boolean {
+  gameState.board.food = gameState.board.food.filter(function findUneatenFood(food): boolean {
     let eatSnake : Battlesnake | undefined = gameState.board.snakes.find(function findEatSnake(snake : Battlesnake): boolean { // find any snake whose head is at this food
       return coordsEqual(snake.head, food) // if snake head is at this food, the food has been eaten. True means this head is on a food, false means it is not
     })
-    return eatSnake !== undefined // for this food, if it does not have an eatSnake, it has not been eaten. True means it isn't filtered, false means it is
+    return eatSnake === undefined // for this food, if it does not have an eatSnake, it has not been eaten.
   })
   
   let liveSnakes : Battlesnake[] = [] // snakes that live past the health check
@@ -315,36 +362,30 @@ export function updateGameStateAfterMove(gameState: GameState) {
   })
   gameState.board.snakes = liveSnakes // should be same snakes, but without the starved ones
 
-  let survivedSnakes : Battlesnake[] = [] // snakes that live past the collision check
-  gameState.board.snakes.forEach(function checkSnake(snake) { // after checking for snakes that have run out of health, check for collisions with other snakes
-    let murderSnek : Battlesnake | undefined = gameState.board.snakes.find(function findMurderSnek(otherSnake) { // find a different, larger snake in the same cell
-      let isSameSnake = otherSnake.id === snake.id
-      let otherSnakeIsLarger = otherSnake.length >= snake
-      let inSameCell = coordsEqual(otherSnake.head, snake.head)
+  gameState.board.snakes = gameState.board.snakes.filter(function checkSnake(snake) { // after checking for snakes that have run out of health, check for collisions with other snakes
+    let murderSnek : Battlesnake | undefined = gameState.board.snakes.find(function findMurderSnek(otherSnake) { // find a different snake in the same cell as my head
+      let otherSnakeIsLarger = otherSnake.length >= snake.length
 
-      if (isSameSnake) { // can't murder self
-        return false
-      } else { // look through other snake cells. If it's a snake body, I'm dead for sure, if it's a snake head, check lengths
-        let deathCell : Coord | undefined = otherSnake.body.find(function checkBody(coord : Coord, idx: number) : boolean {
-          if (coordsEqual(coord, snake.head)) { // if coords are equal, we have a collision of some type
-            if (idx === 0) { // if idx is 0, this is otherSnake's head, we have a head-on collision, evaluate length
-              return true // return true if otherSnake is larger or equal, otherwise return false
-            } else { // if we have a collision that is not with otherSnake's head, it always means death for snake
-              return true
+      // look through other snake cells. If it's a snake body, I'm dead for sure, if it's a snake head, check lengths
+      // note that this didn't filter out myself for iterating through otherSnakes - can still collide with own parts. Need to check for own head later though, see line 382
+      let deathCell : Coord | undefined = otherSnake.body.find(function checkBody(coord : Coord, idx: number) : boolean {
+        if (coordsEqual(coord, snake.head)) { // if coords are equal, we have a collision of some type
+          if (idx === 0) { // if idx is 0, this is otherSnake's head, we have a head-on collision, evaluate length
+            if (snake.id === otherSnake.id) {
+              return false // obviously snake head will be on top of itself, ignore this case
             }
-          } else {
-            return false
+            return otherSnakeIsLarger // return true if otherSnake is larger or equal, otherwise return false
+          } else { // if we have a collision that is not with otherSnake's head, it always means death for snake
+            return true
           }
-        })
-        return deathCell !== undefined // if deathCell is defined, return true to indicate we've found its death
-      }
+        } else {
+          return false
+        }
+      })
+      return deathCell !== undefined // if deathCell is defined, return true to indicate we've found its death
     })
-    if (murderSnek === undefined) { // if we have not found a murderSnek, the snake survives
-      survivedSnakes.push(snake)
-    }
+    return murderSnek === undefined // if we have not found a murderSnek, the snake survives
   })
-
-  gameState.board.snakes = survivedSnakes // should be same snakes, but without the ones that lost their fight with another snake
 }
 
 // Disables moves in Moves object which lead to or past a wall

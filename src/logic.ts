@@ -263,41 +263,36 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
         let newBoard2d = new Board2d(newGameState.board)
         let evalState = 0
 
-        let moveResult = moveSnake(newGameState, newGameState.you, newBoard2d, move)
+        moveSnake(newGameState, newGameState.you, newBoard2d, move)
         updateGameStateAfterMove(newGameState) // update gameState after moving myself
-        if (moveResult) {
-          // TODO: evaluate needs to be ran on a new game state in which opposing snakes have also moved, not just me - & that means it needs to be ran multiple times for multiple different realities
-          let kissOfDeathState : string = ""
-          let kissOfMurderState : string = ""
-          switch (move) {
-            case "up":
-              kissOfDeathState = kissStates.kissOfDeathState.up
-              kissOfMurderState = kissStates.kissOfMurderState.up
-              break
-            case "down":
-              kissOfDeathState = kissStates.kissOfDeathState.down
-              kissOfMurderState = kissStates.kissOfMurderState.down
-              break
-            case "left":
-              kissOfDeathState = kissStates.kissOfDeathState.left
-              kissOfMurderState = kissStates.kissOfMurderState.left
-              break
-            default: // case "right":
-              kissOfDeathState = kissStates.kissOfDeathState.right
-              kissOfMurderState = kissStates.kissOfMurderState.right
-              break
-          }
-          evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState, (myself.health < 10))
-          //logToFile(consoleWriteStream, `eval for ${newGameState.you.name} at (${newGameState.you.head.x},${newGameState.you.head.y}): ${evalState}`)
-          if (evalState > bestMoveEval) {
-            bestMove = move
-            bestMoveEval = evalState
-          } else if ((evalState === bestMoveEval) && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
-            bestMove = move
-            bestMoveEval = evalState
-          }
-        } else {
-          evalState = 0 // !moveResult indicates we couldn't move there. This indicates a bad place to try to move.
+        let kissOfDeathState : string = ""
+        let kissOfMurderState : string = ""
+        switch (move) {
+          case "up":
+            kissOfDeathState = kissStates.kissOfDeathState.up
+            kissOfMurderState = kissStates.kissOfMurderState.up
+            break
+          case "down":
+            kissOfDeathState = kissStates.kissOfDeathState.down
+            kissOfMurderState = kissStates.kissOfMurderState.down
+            break
+          case "left":
+            kissOfDeathState = kissStates.kissOfDeathState.left
+            kissOfMurderState = kissStates.kissOfMurderState.left
+            break
+          default: // case "right":
+            kissOfDeathState = kissStates.kissOfDeathState.right
+            kissOfMurderState = kissStates.kissOfMurderState.right
+            break
+        }
+        evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState, (myself.health < 10))
+        //logToFile(consoleWriteStream, `eval for ${newGameState.you.name} at (${newGameState.you.head.x},${newGameState.you.head.y}): ${evalState}`)
+        if (evalState > bestMoveEval) {
+          bestMove = move
+          bestMoveEval = evalState
+        } else if ((evalState === bestMoveEval) && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
+          bestMove = move
+          bestMoveEval = evalState
         }
       })
 
