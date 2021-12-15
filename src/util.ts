@@ -365,16 +365,24 @@ export function updateGameStateAfterMove(gameState: GameState) {
   gameState.board.snakes = gameState.board.snakes.filter(function checkSnake(snake) { // after checking for snakes that have run out of health, check for collisions with other snakes
     let murderSnek : Battlesnake | undefined = gameState.board.snakes.find(function findMurderSnek(otherSnake) { // find a different snake in the same cell as my head
       let otherSnakeIsLarger = otherSnake.length >= snake.length
-
       // look through other snake cells. If it's a snake body, I'm dead for sure, if it's a snake head, check lengths
       // note that this didn't filter out myself for iterating through otherSnakes - can still collide with own parts. Need to check for own head later though, see line 382
       let deathCell : Coord | undefined = otherSnake.body.find(function checkBody(coord : Coord, idx: number) : boolean {
         if (coordsEqual(coord, snake.head)) { // if coords are equal, we have a collision of some type
-          if (idx === 0) { // if idx is 0, this is otherSnake's head, we have a head-on collision, evaluate length
+          if (coordsEqual(coord, otherSnake.head)) { // this is otherSnake's head (or a body part on turn 0 or 1), we have a head-on collision, evaluate length
             if (snake.id === otherSnake.id) {
-              return false // obviously snake head will be on top of itself, ignore this case
+              if (idx === 0) { // obviously snake head has 'collided' with itself, ignore this case
+                return false
+              } else if (idx === 1 && gameState.turn <= 1) { // special case for turns 1 & 0 when index 1 also has the head coordinate
+                return false
+              } else if (idx === 2 && gameState.turn === 0) { // special case for turn 0 when index 2 also has the head coordinate
+                return false
+              } else {
+                return true // snake can still collide with any other cell
+              }
+            } else {
+              return otherSnakeIsLarger // return true if otherSnake is larger or equal, otherwise return false
             }
-            return otherSnakeIsLarger // return true if otherSnake is larger or equal, otherwise return false
           } else { // if we have a collision that is not with otherSnake's head, it always means death for snake
             return true
           }
