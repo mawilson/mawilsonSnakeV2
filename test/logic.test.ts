@@ -1370,3 +1370,115 @@ describe('updateGameState tests', () => {
     expect(gameState.board.snakes[2].body[2].y).toBe(6)
   })
 })
+
+describe('Food prioritization and acquisition', () => {
+  it('acquires food when healthy and adjacent to it', () => {
+      for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // food is down, we should get it even if we don't really need it (we're not king snake)
+    }
+  })
+  it('acquires food when starving and adjacent to it', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 5, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // food is down, we should get it especially if we really need it
+    }
+  })
+  it('ignores food when adjacent to it but hunting another snake', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // food is left, but we're king snake, should be hunting otherSnek & not food
+    }
+  })
+  it('avoids food when significantly larger than other snakes', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}, {x: 8, y: 1}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 2, y: 3}, {x: 6, y: 6}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // want to hunt snake above us, but will avoid food while doing so
+    }
+  })
+  it('seeks out food under normal competitive circumstances', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 8, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // food is straight right, should seek it out
+    }
+  })
+  it('does not seek out food under normal solo circumstances', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      gameState.board.food = [{x: 9, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("right") // should go back towards center instead, right just takes us further from center
+    }
+  })
+  it('acquires food even along walls', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 1}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // food is straight left, should seek it out
+    }
+  })
+  it('acquires food even in corners', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 0}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // food is straight left, should seek it out even in a corner
+    }
+  })
+})
