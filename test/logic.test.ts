@@ -873,8 +873,6 @@ describe('Snake should avoid food when king snake', () => {
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
 // tests for seeking open space
 // tests for MoveNeighbors prey calculator
-// tests for starving snake getting food
-// add test for getting food when next to it, even when lots of food is further away in another direction
 
 describe('Snake should not try for a maybe kill if it leads it to certain doom', () => {
   it('does not chase after a snake it cannot catch', () => {
@@ -1479,6 +1477,20 @@ describe('Food prioritization and acquisition', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("left") // food is straight left, should seek it out even in a corner
+    }
+  })
+  it('acquires food even if more food exists in another direction', () => {
+    for (let i: number = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 6, y: 5}, {x: 4, y: 4}, {x: 4, y: 6}, {x: 3, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // food is immediately adjacent to the right, but more food is nearby left. Should still get the immediate food
     }
   })
 })

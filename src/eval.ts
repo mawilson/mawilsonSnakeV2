@@ -20,7 +20,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalBase: number = 500
   const evalNoSnakes: number = -1000 // no snakes is bad, but not as bad as evalNoMe
   const evalNoMe: number = -2000 // no me is the worst possible state, give a very bad score
-  const evalSnakeCount = 100 // assign score based on number of snakes left in gameState
+  const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 1000
   const evalWallPenalty: number = -5 //-25
   const evalHazardWallPenalty: number = -3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
