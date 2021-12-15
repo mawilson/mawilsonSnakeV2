@@ -41,7 +41,7 @@ export function end(gameState: GameState): void {
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
-function kissDecider(myself: Battlesnake, gameState: GameState, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
+function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
   let validMoves = moves.validMoves()
   let states = new KissStates()
   function setKissOfDeathDirectionState(dir : string, state: string) : void {
@@ -125,7 +125,6 @@ function kissDecider(myself: Battlesnake, gameState: GameState, moveNeighbors: M
       break // all states are by default kissOfDeathNo
   }
 
-  // TODO: try to add a third tier for murder moves the enemy snake almost certainly won't take
   killMoves.forEach(function determineKillMoveState(move) {
     let preyMoves : Moves = new Moves(true, true, true, true) // do a basic check of prey's surroundings & evaluate how likely this kill is from that
     switch(move) {
@@ -195,22 +194,17 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     let possibleMoves : Moves = new Moves(true, true, true, true)
 
     let myself: Battlesnake
-    if (otherSelf instanceof Battlesnake) {
+    if (typeof otherSelf !== "undefined") {
       myself = otherSelf
     } else {
       myself = gameState.you
     }
-    const myHead: Coord = myself.head
-    const myNeck: Coord = myself.body[1]
-    const myBody: Coord[] = myself.body
-    const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== myself.id})
+    let myHead: Coord = myself.head
+    let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== myself.id})
 
-    const board2d = new Board2d(gameState.board)
-
-    // console.log(`Turn: ${gameState.turn}`)
-    // board2d.logBoard()
+    let board2d = new Board2d(gameState.board)
     
-    const timeBeginning = Date.now()
+    let timeBeginning = Date.now()
 
     //logToFile(consoleWriteStream, `myTail: ${coordToString(myTail)}`)
     //logToFile(consoleWriteStream, `myHead: ${coordToString(myHead)}`)
@@ -224,7 +218,7 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
     //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
-     let kissStates = kissDecider(myself, gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
+     let kissStates = kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
     // let kissOfDeathState : string = getKissOfDeathState(moveNeighbors, kissOfDeathMoves, possibleMoves)
     // let kissOfMurderState : string = "kissOfMurderNo"
@@ -244,7 +238,7 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
         //logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
       }
       if (availableMoves.length < 1) { // if there are still no available moves, this means we're starving no matter what. Choose any direction that isn't a wall
-        if (gameState.you.head.x !== 0) { // if we're not on left wall, move left
+        if (myself.head.x !== 0) { // if we're not on left wall, move left
           return "left"
         } else { // else we are on the left wall, so move right
           return "right"
@@ -263,10 +257,18 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
         let newBoard2d = new Board2d(newGameState.board)
         let evalState = 0
 
-        let moveResult = moveSnake(newGameState, newGameState.you, newBoard2d, move)
-        updateGameStateAfterMove(newGameState) // update gameState after moving myself
-        if (moveResult) {
-          // TODO: evaluate needs to be ran on a new game state in which opposing snakes have also moved, not just me - & that means it needs to be ran multiple times for multiple different realities
+        let newSelf: Battlesnake | undefined
+        if (typeof otherSelf !== "undefined") {
+          newSelf = newGameState.board.snakes.find(function findSnake(snake) {
+            return snake.id === otherSelf.id
+          })
+        } else {
+          newSelf = newGameState.you
+        }
+
+        if (newSelf instanceof Battlesnake) {
+          moveSnake(newGameState, newSelf, newBoard2d, move)
+          updateGameStateAfterMove(newGameState) // update gameState after moving myself
           let kissOfDeathState : string = ""
           let kissOfMurderState : string = ""
           switch (move) {
@@ -287,8 +289,8 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
               kissOfMurderState = kissStates.kissOfMurderState.right
               break
           }
-          evalState = evaluate(newGameState, newGameState.you, kissOfDeathState, kissOfMurderState, (myself.health < 10))
-          //logToFile(consoleWriteStream, `eval for ${newGameState.you.name} at (${newGameState.you.head.x},${newGameState.you.head.y}): ${evalState}`)
+          evalState = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (myself.health < 10))
+          //logToFile(consoleWriteStream, `eval for ${newSelf.name} at (${newSelf.head.x},${newSelf.head.y}): ${evalState}`)
           if (evalState > bestMoveEval) {
             bestMove = move
             bestMoveEval = evalState
@@ -296,16 +298,14 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
             bestMove = move
             bestMoveEval = evalState
           }
-        } else {
-          evalState = 0 // !moveResult indicates we couldn't move there. This indicates a bad place to try to move.
         }
       })
 
       return bestMove
     }
 
-    if (isBaseCase) { // base case - don't want to run on other snakes
-      let moveSnakes : { [key: string]: string} // array of snake IDs & the direction each snake having that ID wishes to move in
+    if (!isBaseCase) { // base case - don't want to run on other snakes
+      let moveSnakes : { [key: string]: string} = {} // array of snake IDs & the direction each snake having that ID wishes to move in
       otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
         moveSnakes[snake.id] = move(gameState, true, snake).move
       })
@@ -318,8 +318,8 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
     }
 
     //const safeMoves = possibleMoves.validMoves()
-    const chosenMove : string = decideMove(gameState, possibleMoves)
-    const response: MoveResponse = {
+    let chosenMove : string = decideMove(gameState, possibleMoves)
+    let response: MoveResponse = {
         move: chosenMove
     }
     

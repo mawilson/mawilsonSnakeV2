@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -107,11 +107,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   // in addition to wall/corner penalty, give a bonus to being closer to center
-  const centerX = gameState.board.width / 2
-  const centerY = gameState.board.height / 2
+  const centerX = (gameState.board.width - 1) / 2
+  const centerY = (gameState.board.height - 1) / 2
 
-  const xDiff = -Math.floor(Math.abs(myself.head.x - centerX))
-  const yDiff = -Math.floor(Math.abs(myself.head.y - centerY))
+  const xDiff = -Math.abs(myself.head.x - centerX)
+  const yDiff = -Math.abs(myself.head.y - centerY)
 
   buildLogString(`adding xDiff ${xDiff}`)
   evaluation = evaluation + xDiff
@@ -290,10 +290,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
     let longestSnake = getLongestSnake(myself, otherSnakes)
-    if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
-      let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
-      buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
-      evaluation = evaluation + kingSnakeCalc
+    let snakeDelta = snakeLengthDelta(myself, gameState.board)
+    if (!(snakeDelta === 2 && snakeHasEaten(myself))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
+      if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
+        let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
+        buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
+        evaluation = evaluation + kingSnakeCalc
+      }
     }
   }
 
