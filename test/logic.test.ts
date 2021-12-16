@@ -1,6 +1,6 @@
 import { info, move } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, BoardCell, Board2d } from '../src/classes'
+import { Battlesnake, Coord, BoardCell, Board2d, KissOfDeathState, KissOfMurderState } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString } from '../src/util'
 import { evaluate } from '../src/eval'
 
@@ -866,8 +866,8 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
         gameState.board.snakes.push(otherSnek)
         
-        let evalSnek = evaluate(gameState, snek, "kissOfDeathNo", "kissOfMurderNo", false)
-        let evalOtherSnek = evaluate(gameState, otherSnek, "kissOfDeathNo", "kissOfMurderNo", false)
+        let evalSnek = evaluate(gameState, snek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, false)
+        let evalOtherSnek = evaluate(gameState, otherSnek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, false)
 
         expect(evalSnek).toBeGreaterThan(evalOtherSnek)
     })

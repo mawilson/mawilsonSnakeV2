@@ -7,6 +7,28 @@ let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
   encoding: "utf8"
 })
 
+export enum Direction {
+  Up,
+  Down,
+  Left,
+  Right
+}
+
+export enum KissOfDeathState {
+  kissOfDeathNo,
+  kissOfDeathMaybe,
+  kissOfDeathCertainty,
+  kissOfDeath3To2Avoidance,
+  kissOfDeath3To1Avoidance,
+  kissOfDeath2To1Avoidance
+}
+
+export enum KissOfMurderState {
+  kissOfMurderNo,
+  kissOfMurderMaybe,
+  kissOfMurderCertainty
+}
+
 export class Coord implements ICoord {
   x: number;
   y: number;
@@ -509,26 +531,26 @@ export class MoveNeighbors {
 // valid states for kissOfMurder: kissOfMurderNo, kissOfMurderMaybe, kissOfMurderCertainty
 export class KissStates {
   kissOfDeathState: {
-    up : string,
-    down: string,
-    left: string,
-    right: string
+    up : KissOfDeathState,
+    down: KissOfDeathState,
+    left: KissOfDeathState,
+    right: KissOfDeathState
   };
   kissOfMurderState: {
-    up: string,
-    down: string,
-    left: string,
-    right: string
+    up: KissOfMurderState,
+    down: KissOfMurderState,
+    left: KissOfMurderState,
+    right: KissOfMurderState
   };
 
   constructor() {
-    this.kissOfDeathState = {up: "kissOfDeathNo", down: "kissOfDeathNo", left: "kissOfDeathNo", right: "kissOfDeathNo"};
-    this.kissOfMurderState = {up: "kissOfMurderNo", down: "kissOfMurderNo", left: "kissOfMurderNo", right: "kissOfMurderNo"};
+    this.kissOfDeathState = {up: KissOfDeathState.kissOfDeathNo, down: KissOfDeathState.kissOfDeathNo, left: KissOfDeathState.kissOfDeathNo, right: KissOfDeathState.kissOfDeathNo};
+    this.kissOfMurderState = {up: KissOfMurderState.kissOfMurderNo, down: KissOfMurderState.kissOfMurderNo, left: KissOfMurderState.kissOfMurderNo, right: KissOfMurderState.kissOfMurderNo};
   }
 
   // given a set of moves, returns true if any of the moves that are true have a state of "kissOfDeathNo"
   canAvoidPossibleDeath(moves: Moves): boolean {
-    let goodStates : string[] = ["kissOfDeathNo", "kissOfDeath3To2Avoidance", "kissOfDeath3To1Avoidance", "kissOfDeath2To1Avoidance"]
+    let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance]
     if (moves.up && goodStates.includes(this.kissOfDeathState.up)) {
       return true
     } else if (moves.down && goodStates.includes(this.kissOfDeathState.down)) {
@@ -544,13 +566,13 @@ export class KissStates {
 
   // given a set of moves, returns true if any of the moves that are true do not have a state of "kissOfDeathCertainty"
   canAvoidCertainDeath(moves: Moves): boolean {
-    if (moves.up && this.kissOfDeathState.up !== "kissOfDeathCertainty") {
+    if (moves.up && this.kissOfDeathState.up !== KissOfDeathState.kissOfDeathCertainty) {
       return true
-    } else if (moves.down && this.kissOfDeathState.down !== "kissOfDeathCertainty") {
+    } else if (moves.down && this.kissOfDeathState.down !== KissOfDeathState.kissOfDeathCertainty) {
       return true
-    } else if (moves.left && this.kissOfDeathState.left !== "kissOfDeathCertainty") {
+    } else if (moves.left && this.kissOfDeathState.left !== KissOfDeathState.kissOfDeathCertainty) {
       return true
-    } else if (moves.right && this.kissOfDeathState.right !== "kissOfDeathCertainty") {
+    } else if (moves.right && this.kissOfDeathState.right !== KissOfDeathState.kissOfDeathCertainty) {
       return true
     } else { // all valid options in moves will lead to certain death
       return false
@@ -559,7 +581,7 @@ export class KissStates {
 
   // given a set of moves, returns true if any of the moves that are true may be able to kill
   canCommitPossibleMurder(moves: Moves) : boolean {
-    let goodStates : string[] = ["kissOfMurderCertainty", "kissOfMurderMaybe"]
+    let goodStates : KissOfMurderState[] = [KissOfMurderState.kissOfMurderCertainty, KissOfMurderState.kissOfMurderMaybe]
     if (moves.up && goodStates.includes(this.kissOfMurderState.up)) {
       return true
     } else if (moves.down && goodStates.includes(this.kissOfMurderState.down)) {
@@ -575,13 +597,13 @@ export class KissStates {
 
   // given a set of moves, returns true if any of the moves that are true are certain to kill
   canCommitCertainMurder(moves: Moves) : boolean {
-    if (moves.up && this.kissOfMurderState.up === "kissOfMurderCertainty") {
+    if (moves.up && this.kissOfMurderState.up === KissOfMurderState.kissOfMurderCertainty) {
       return true
-    } else if (moves.down && this.kissOfMurderState.down === "kissOfMurderCertainty") {
+    } else if (moves.down && this.kissOfMurderState.down === KissOfMurderState.kissOfMurderCertainty) {
       return true
-    } else if (moves.left && this.kissOfMurderState.left === "kissOfMurderCertainty") {
+    } else if (moves.left && this.kissOfMurderState.left === KissOfMurderState.kissOfMurderCertainty) {
       return true
-    } else if (moves.right && this.kissOfMurderState.right === "kissOfMurderCertainty") {
+    } else if (moves.right && this.kissOfMurderState.right === KissOfMurderState.kissOfMurderCertainty) {
       return true
     } else {
       return false

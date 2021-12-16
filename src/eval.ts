@@ -1,5 +1,5 @@
 import { GameState } from "./types"
-import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell } from "./classes"
+import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection } from "./util"
 
@@ -12,7 +12,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string, wasStarving: boolean) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, wasStarving: boolean) : number {
   const myself : Battlesnake | undefined = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
@@ -203,27 +203,27 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   // for kisses from the previous move state
   // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
   switch (kissOfDeathState) {
-    case "kissOfDeathCertainty":
+    case KissOfDeathState.kissOfDeathCertainty:
       buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
       evaluation = evaluation + evalKissOfDeathCertainty
       break
-    case "kissOfDeathMaybe":
+    case KissOfDeathState.kissOfDeathMaybe:
       buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
       evaluation = evaluation + evalKissOfDeathMaybe
       break
-    case "kissOfDeath3To1Avoidance":
+    case KissOfDeathState.kissOfDeath3To1Avoidance:
       buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
       evaluation = evaluation + evalKissOfDeath3To1Avoidance
       break
-    case "kissOfDeath3To2Avoidance":
+    case KissOfDeathState.kissOfDeath3To2Avoidance:
       buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
       evaluation = evaluation + evalKissOfDeath3To2Avoidance
       break
-    case "kissOfDeath2To1Avoidance":
+    case KissOfDeathState.kissOfDeath2To1Avoidance:
       buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
       evaluation = evaluation + evalKissOfDeath2To1Avoidance
       break
-    case "kissOfDeathNo":
+    case KissOfDeathState.kissOfDeathNo:
       buildLogString(`KissOfDeathNo, adding ${evalKissOfDeathNo}`)
       evaluation = evaluation + evalKissOfDeathNo
       break
@@ -232,11 +232,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   switch (kissOfMurderState) {
-    case "kissOfMurderCertainty":
+    case KissOfMurderState.kissOfMurderCertainty:
       buildLogString(`KissOfMurderCertainty, adding ${evalKissOfMurderCertainty}`)
       evaluation = evaluation + evalKissOfMurderCertainty
       break
-    case "kissOfMurderMaybe":
+    case KissOfMurderState.kissOfMurderMaybe:
       buildLogString(`KissOfMurderMaybe, adding ${evalKissOfMurderMaybe}`)
       evaluation = evaluation + evalKissOfMurderMaybe
       break
@@ -251,7 +251,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
-  availableMoves = kissOfMurderState === "kissOfMurderCertainty" ? availableMoves + 1 : availableMoves
+  availableMoves = kissOfMurderState === KissOfMurderState.kissOfMurderCertainty ? availableMoves + 1 : availableMoves
   switch(availableMoves) {
     case 0:
       buildLogString(`possibleMoves 0, return ${eval0Move}`)
