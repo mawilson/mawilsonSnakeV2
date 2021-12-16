@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider } from "./util"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -15,17 +15,18 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string, wasStarving: boolean) : number {
   const myself : Battlesnake | undefined = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
+  const board2d = new Board2d(gameState.board)
   
   // values to tweak
   const evalBase: number = 500
-  const evalNoSnakes: number = -1000 // no snakes is bad, but not as bad as evalNoMe
-  const evalNoMe: number = -2000 // no me is the worst possible state, give a very bad score
+  const evalNoSnakes: number = -3000 // no snakes is bad, but not as bad as evalNoMe
+  const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 1000
   const evalWallPenalty: number = -5 //-25
   const evalHazardWallPenalty: number = -3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
-  const eval0Move = 1
+  const eval0Move = -300
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = 1 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = 2
@@ -61,6 +62,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalCutoff = 35
+  const evalTailChase = -4 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
+  const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   
   let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -161,53 +164,43 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     }
   }
 
-  // let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
-  // let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-  // let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+  checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves)
+  let validMoves : string[] = possibleMoves.validMoves()
+  let availableMoves : number = validMoves.length
+
+  // look for kiss of death & murder cells in this current configuration
+  let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
+  let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
+  let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
   //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
   //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
-  // TODO: This function evaluates based on nearby kiss of deaths, but I don't know anything about how likely THE CURRENT GAMESTATE resulted in a kiss of death for myself, or for that matter another snake. Evaluate() might need another param or two to indicate this
-  // let validMoves = possibleMoves.validMoves()
-  // switch (kissOfDeathMoves.length) {
-  //   case 3: // all three available moves may result in my demise
-  //     // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
-  //     let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
-  //     let huntedDirections = huntingChanceDirections.invalidMoves()
-  //     if (huntedDirections.length !== 3) { // two of the directions offer us a chance
-  //       buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-  //       evaluation = evaluation + evalKissOfDeathMaybe
-  //     } else { // they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
-  //       buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
-  //       evaluation = evaluation + evalKissOfDeathCertainty
-  //     }
-  //     break
-  //   case 2:
-  //     if (validMoves.length === 3) { // in this case, two moves give us a 50/50 kiss of death, but the third is fine. This isn't ideal, but isn't a terrible evaluation
-  //       buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
-  //       evaluation = evaluation + evalKissOfDeath3To1Avoidance
-  //     } else { // this means a 50/50
-  //       buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-  //       evaluation = evaluation + evalKissOfDeathMaybe
-  //     }
-  //     break
-  //   case 1:
-  //     if (possibleMoves.hasOtherMoves(kissOfDeathMoves[0])) {
-  //       if (validMoves.length === 3) {
-  //         buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
-  //         evaluation = evaluation + evalKissOfDeath3To2Avoidance
-  //       } else { // we know validMoves can't be of length 1, else that would be a kiss cell
-  //         buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
-  //         evaluation = evaluation + evalKissOfDeath2To1Avoidance
-  //       }
-  //     }
-  //     break
-  //   default: // no kissOfDeathMoves nearby, this is good
-  //     buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
-  //     evaluation = evaluation + evalKissOfDeathNo
-  //     break
-  // }
+  let kissStates = kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
+  if (kissStates.canAvoidPossibleDeath(possibleMoves)) {
+    buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
+    evaluation = evaluation + evalKissOfDeathNo
+  } else if (kissStates.canAvoidCertainDeath(possibleMoves)) {
+    buildLogString(`Need to deal with possible kisses of death nearby, adding ${evalKissOfDeathMaybe}`)
+    evaluation = evaluation + evalKissOfDeathMaybe
+  } else {
+    buildLogString(`Only kisses of death nearby, adding ${evalKissOfDeathCertainty}`)
+    evaluation = evaluation + evalKissOfDeathCertainty
+  }
+
+  if (kissStates.canCommitCertainMurder(possibleMoves)) {
+    buildLogString(`Certain kiss of murder nearby, adding ${evalKissOfMurderCertainty}`)
+    evaluation = evaluation + evalKissOfMurderCertainty
+  } else if (kissStates.canCommitPossibleMurder(possibleMoves)) {
+    buildLogString(`Possible kiss of murder nearby, adding ${evalKissOfMurderMaybe}`)
+    evaluation = evaluation + evalKissOfMurderMaybe
+  } else {
+    buildLogString(`No kisses of murder nearby, adding ${evalKissOfDeathNo}`)
+    evaluation = evaluation + evalKissOfDeathNo
+  }
+
+  
+  // for kisses from the previous move state
   // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
   switch (kissOfDeathState) {
     case "kissOfDeathCertainty":
@@ -251,18 +244,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
       break
   }
 
-  const board2d = new Board2d(gameState.board)
-  checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves) // check for snakes AFTER we've potentially killed one off
-
   // penalize spaces next to hazard
   if (isInOrAdjacentToHazard(myself.head, board2d, gameState)) {
     buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
     evaluation = evaluation + evalHazardWallPenalty
   }
 
-  let availableMoves : number = possibleMoves.validMoves().length
   // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
-  // TODO: This may free up more space than this - especially when calculating free space later. Need to try to figure out how to actually remove the snake we've killed from the game
   availableMoves = kissOfMurderState === "kissOfMurderCertainty" ? availableMoves + 1 : availableMoves
   switch(availableMoves) {
     case 0:
@@ -580,6 +568,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   //   let board2d = new Board2d(gameState.board)
   // }
 
+  let safeCells: number = getSafeCells(board2d)
+  const numCells: number = board2d.height * board2d.width
+  const safeCellPercentage: number = (safeCells * 100) / numCells
+
+  if (safeCellPercentage < evalTailChasePercentage) {
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
+    buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
+    evaluation = evaluation + (evalTailChase * tailDist)
+  }
 
   buildLogString(`final evaluation: ${evaluation}`)
   logToFile(evalWriteStream, `eval log: ${logString}
