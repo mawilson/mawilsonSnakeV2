@@ -11,22 +11,23 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    // const response: InfoResponse = {
-    //     apiversion: "1",
-    //     author: "waryferryman",
-    //     color: "#ff9900", // #ff9900
-    //     head: "tiger-king", //"tiger-king",
-    //     tail: "mystic-moon" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#ff9900", // #ff9900
+        head: "tiger-king", //"tiger-king",
+        tail: "mystic-moon" //"mystic-moon"
+    }
 
     // Test Snake
-    const response: InfoResponse = {
-      apiversion: "1",
-      author: "waryferryman",
-      color: "#ff9900", // #ff9900
-      head: "trans-rights-scarf", //"tiger-king",
-      tail: "comet" //"mystic-moon"
-  }
+    // const response: InfoResponse = {
+    //   apiversion: "1",
+    //   author: "waryferryman",
+    //   color: "#ff9900", // #ff9900
+    //   head: "trans-rights-scarf", //"tiger-king",
+    //   tail: "comet" //"mystic-moon"
+    // }
+
     return response
 }
 
