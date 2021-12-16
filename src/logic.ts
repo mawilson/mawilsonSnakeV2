@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, KissStates } from "./classes"
-import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesHealthAndWalls, checkForHealth, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState, updateGameStateAfterMove } from "./util"
+import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake } from "./classes"
+import { logToFile, getRandomInt, snakeHasEaten, coordsEqual, getDistance, getCoordAfterMove, getSurroundingCells, isKingOfTheSnakes, getLongestSnake, snakeToString, coordToString, cloneGameState, moveSnake, checkForSnakesHealthAndWalls, checkForHealth, checkTime, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, getKissOfDeathState, updateGameStateAfterMove, kissDecider } from "./util"
 import { evaluate } from "./eval"
 
 import { createWriteStream } from 'fs'
@@ -11,22 +11,23 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    // const response: InfoResponse = {
-    //     apiversion: "1",
-    //     author: "waryferryman",
-    //     color: "#ff9900", // #ff9900
-    //     head: "tiger-king", //"tiger-king",
-    //     tail: "mystic-moon" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#ff9900", // #ff9900
+        head: "tiger-king", //"tiger-king",
+        tail: "mystic-moon" //"mystic-moon"
+    }
 
     // Test Snake
-    const response: InfoResponse = {
-      apiversion: "1",
-      author: "waryferryman",
-      color: "#ff9900", // #ff9900
-      head: "trans-rights-scarf", //"tiger-king",
-      tail: "comet" //"mystic-moon"
-  }
+    // const response: InfoResponse = {
+    //   apiversion: "1",
+    //   author: "waryferryman",
+    //   color: "#ff9900", // #ff9900
+    //   head: "trans-rights-scarf", //"tiger-king",
+    //   tail: "comet" //"mystic-moon"
+    // }
+
     return response
 }
 
@@ -36,150 +37,6 @@ export function start(gameState: GameState): void {
 
 export function end(gameState: GameState): void {
     console.log(`${gameState.game.id} END\n`)
-}
-
-// given a set of deathMoves that lead us into possibly being eaten,
-// killMoves that lead us into possibly eating another snake,
-// and moves, which is our actual move decision array
-function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
-  let validMoves = moves.validMoves()
-  let states = new KissStates()
-  function setKissOfDeathDirectionState(dir : string, state: string) : void {
-    switch (dir) {
-      case "up":
-        states.kissOfDeathState.up = state
-        break
-      case "down":
-        states.kissOfDeathState.down = state
-        break
-      case "left":
-        states.kissOfDeathState.left = state
-        break
-      default: // case "right":
-        states.kissOfDeathState.right = state
-        break
-    }
-  }
-
-  function setKissOfMurderDirectionState(dir : string, state: string) : void {
-    switch (dir) {
-      case "up":
-        states.kissOfMurderState.up = state
-        break
-      case "down":
-        states.kissOfMurderState.down = state
-        break
-      case "left":
-        states.kissOfMurderState.left = state
-        break
-      default: // case "right":
-        states.kissOfMurderState.right = state
-        break
-    }
-  }
-  
-  let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
-  let huntedDirections = huntingChanceDirections.invalidMoves()
-  // first look through dangerous moves
-  switch(deathMoves.length) {
-    case 1: // if one move results in a kissOfDeath, penalize that move in evaluate
-    validMoves.forEach(function setMoveState(move: string) {
-        if (move === deathMoves[0]) {
-          if (huntedDirections.includes(move)) {
-            setKissOfDeathDirectionState(move, "kissOfDeathCertainty")
-          } else {
-            setKissOfDeathDirectionState(move, "kissOfDeathMaybe")
-          }
-        } else{
-          if (validMoves.length === 3) {
-            setKissOfDeathDirectionState(move, "kissOfDeath3To2Avoidance")
-          } else {
-            setKissOfDeathDirectionState(move, "kissOfDeath2To1Avoidance")
-          }
-        }
-      })
-      break
-    case 2: // if two moves result in a kiss of death, penalize those moves in evaluate
-      validMoves.forEach(function setMoveState(move: string) {
-        if (move === deathMoves[0] || move === deathMoves[1]) {
-          if (huntedDirections.includes(move)) { // this direction spells certain death
-            setKissOfDeathDirectionState(move, "kissOfDeathCertainty")
-          } else { // this direction spells possible death
-            setKissOfDeathDirectionState(move, "kissOfDeathMaybe")
-          }
-        } else { // this direction does not have any kiss of death cells
-          setKissOfDeathDirectionState(move, "kissOfDeath3To1Avoidance")
-        }
-      })
-      break
-    case 3: // if all three moves may cause my demise, penalize those moves in evaluate
-      validMoves.forEach(function setMoveState(move: string) {
-        if (huntedDirections.includes(move)) { // this direction spells certain death
-          setKissOfDeathDirectionState(move, "kissOfDeathCertainty")
-        } else { // this direction spells possible death
-          setKissOfDeathDirectionState(move, "kissOfDeathMaybe")
-        }
-      })
-      break
-    default: // case 0
-      break // all states are by default kissOfDeathNo
-  }
-
-  killMoves.forEach(function determineKillMoveState(move) {
-    let preyMoves : Moves = new Moves(true, true, true, true) // do a basic check of prey's surroundings & evaluate how likely this kill is from that
-    switch(move) {
-      case "up":
-        if (typeof moveNeighbors.upPrey !== "undefined") {
-          checkForSnakesHealthAndWalls(moveNeighbors.upPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
-          } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
-          }
-        }
-        break
-      case "down":
-        if (typeof moveNeighbors.downPrey !== "undefined") {
-          checkForSnakesHealthAndWalls(moveNeighbors.downPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
-          } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
-          }
-        }
-        break
-      case "left":
-        if (typeof moveNeighbors.leftPrey !== "undefined") {
-          checkForSnakesHealthAndWalls(moveNeighbors.leftPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
-          } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
-          }
-        }
-        break
-      default: //case "right":
-        if (typeof moveNeighbors.rightPrey !== "undefined") {
-          checkForSnakesHealthAndWalls(moveNeighbors.rightPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
-          } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
-          }
-        }
-        break
-    }
-  })
-
-  // second priority is looking for chances to eliminate another snake
-  // if (killMoves.length > 0) {
-  //   logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), killMoves: ${killMoves.toString()}`)
-  //   let idx = getRandomInt(0, killMoves.length) // TODO: choose the smartest kill index
-  //   logToFile(consoleWriteStream, `for snake at (${myself.head.x},${myself.head.y}), moving towards ${killMoves[idx]} to try to take a snake`)
-  //   moves.disableOtherMoves(killMoves[idx])
-  // }
-
-  return states
 }
 
 // start looking ahead!
@@ -246,16 +103,15 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
       } else if (availableMoves.length === 1) {
         return availableMoves[0]
       }
-      //return moveTowardsCenter(myHead, gameState.board, moves)
 
       // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
-      let bestMove : string = ""
-      let bestMoveEval : number = -1
+      let bestMove : string | undefined = undefined
+      let bestMoveEval : number | undefined = undefined
 
+      //logToFile(consoleWriteStream, `availableMoves for ${myself.name}: ${availableMoves}`)
       availableMoves.forEach(function evaluateMove(move) {
         let newGameState = cloneGameState(gameState)
         let newBoard2d = new Board2d(newGameState.board)
-        let evalState = 0
 
         let newSelf: Battlesnake | undefined
         if (typeof otherSelf !== "undefined") {
@@ -289,17 +145,24 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
               kissOfMurderState = kissStates.kissOfMurderState.right
               break
           }
-          evalState = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (myself.health < 10))
+          let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (myself.health < 10))
           //logToFile(consoleWriteStream, `eval for ${newSelf.name} at (${newSelf.head.x},${newSelf.head.y}): ${evalState}`)
-          if (evalState > bestMoveEval) {
+          //logToFile(consoleWriteStream, `prior best move: ${bestMove}, best move eval: ${bestMoveEval}`)
+          if (bestMoveEval === undefined || (evalState > bestMoveEval)) {
+            //logToFile(consoleWriteStream, `replacing prior best move ${bestMove} with eval ${bestMoveEval} with new move ${move} & eval ${evalState}`)
             bestMove = move
             bestMoveEval = evalState
           } else if ((evalState === bestMoveEval) && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
+            //logToFile(consoleWriteStream, `replacing prior best move ${bestMove} with eval ${bestMoveEval} with new move ${move} & eval ${evalState}`)
             bestMove = move
             bestMoveEval = evalState
           }
         }
       })
+      if (bestMove === undefined) {
+        logToFile(consoleWriteStream, `bestMove still undefined at end of decideMove, using up as default`)
+        bestMove = "up"
+      }
 
       return bestMove
     }

@@ -309,7 +309,7 @@ describe('Snake should go towards uncertain doom versus certain doom', () => {
   })
 })
 
-describe('Snake should avoid two kisses of death for one not', () => {
+describe('Kiss of death tests', () => {
   it('should navigate away from kiss of death cells towards freedom', () => {
     // x  x  x x x x  x
     // s1 s1 x x x s2 s2
@@ -326,6 +326,22 @@ describe('Snake should avoid two kisses of death for one not', () => {
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving up
+    }
+  })
+  it('chooses a kiss of death cell over a snake body if those are the sole options', () => {
+    for (let i = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 1}, {x: 6, y: 1}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}], "101", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      let moveResponse : MoveResponse = move(gameState)
+      let allowedMoves : string[] = ["up", "down"]
+      expect(allowedMoves).toContain(moveResponse.move)
     }
   })
 })
@@ -393,6 +409,23 @@ describe('Snake should seek out a kiss of murder in the borderlands', () => {
       gameState.board.snakes.push(otherSnek)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // should try to murder the snake by going either left or down
+    }
+  })
+})
+
+describe('Snake should account for possible kisses after it moves', () => {
+  it('avoids moving towards a cell that would result in kisses of death', () => {
+    for (let i = 0; i < 50; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 10}, {x: 3, y: 10}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 5, y: 8}, {x: 7, y: 5}]
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // down will put me in a situation where I will be kissed to death the next turn
     }
   })
 })
