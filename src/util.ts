@@ -272,7 +272,15 @@ export function cloneGameState(gameState: GameState) : GameState {
 }
 
 // given a battlesnake, returns what direction its neck is relative to its head. Should always be either left, right, down, or up
-export function getNeckDirection(snake: Battlesnake) : string {
+// will be undefined on turn 0, as snakes effectively have no necks yet
+export function getNeckDirection(snake: Battlesnake) : string | undefined {
+  let neckCell : Coord = snake.body[1]
+  if (coordsEqual(snake.head, neckCell)) {
+    neckCell = snake.body[2]
+  }
+  if (coordsEqual(snake.head, neckCell)) {
+    return undefined // should only ever be true on turn 0, when snake body 0, 1, 2 are all the same coord
+  }
   if (snake.head.x > snake.body[1].x) {
     return "left" // neck is left of body
   } else if (snake.head.x < snake.body[1].x) {
@@ -282,6 +290,27 @@ export function getNeckDirection(snake: Battlesnake) : string {
   } else { // snake.head.y < snake.body[1].y
     return "up"
   }
+}
+
+function getOppositeDirection(dir: string | undefined) : string | undefined {
+  switch (dir) {
+    case "left":
+      return "right"
+    case "right":
+      return "left"
+    case "up":
+      return "down"
+    case "down":
+      return "up"
+    default:
+      return undefined
+  }
+}
+
+// returns the direction a snake is moving by checking which direction its neck is relative to itself. Returns undefined on turn 0
+export function getSnakeDirection(snake: Battlesnake) : string | undefined {
+  let neckDirection : string | undefined = getNeckDirection(snake)
+  return getOppositeDirection(neckDirection)
 }
 
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
@@ -306,9 +335,9 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     }
 
     snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
-  } else {
+  } else { // moveSnake should never move anywhere that isn't on the board, try again a different direction
     let newDir : string = ""
-    let neckDir = getNeckDirection(snake)
+    let neckDir : string | undefined = getNeckDirection(snake)
     switch (move) { // set newDir to next direction clockwise
       case "left":
         if (neckDir === "up") { // avoid moving into neck. There should be at least one other cell we can move to that won't be out of bounds, or our neck

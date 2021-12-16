@@ -146,6 +146,39 @@ export class Board2d {
     }
   }
 
+  printBoard() : void {
+    let str : string = ""
+    for (let j = this.height - 1; j >= 0; j--) {
+      for (let i = 0; i < this.width; i++) {
+        let tempCell = this.getCell({x: i, y: j})
+        if (tempCell) {
+          if (i !== 0) {
+            str = str + "  "
+          }
+          if (tempCell.snakeCell instanceof SnakeCell) {
+            if (tempCell.snakeCell.isHead) {
+              str = str + "h"
+            } else if (tempCell.snakeCell.isTail) {
+              str = str + "t"
+            } else {
+              str = str + "s"
+            }
+          } else if (tempCell.food && tempCell.hazard) {
+            str = str + "F"
+          } else if (tempCell.food) {
+            str = str + "f"
+          } else if (tempCell.hazard) {
+            str = str + "h"
+          } else { // empty cell
+            str = str + "x"
+          }
+        }
+      }
+      str = str + "\n"
+    }
+    logToFile(consoleWriteStream, str)
+  }
+
   // returns true if a snake exists at coord that is not the inputSnake
   hasSnake(coord: Coord, inputSnake: Battlesnake) : boolean {
     let cell = this.getCell(coord);

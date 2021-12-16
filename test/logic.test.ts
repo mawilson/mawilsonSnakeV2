@@ -328,7 +328,7 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving up
     }
   })
-  it.only('chooses a kiss of death cell over a snake body if those are the sole options', () => {
+  it('chooses a kiss of death cell over a snake body if those are the sole options', () => {
     for (let i = 0; i < 50; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}], "101", "", "")
       const gameState = createGameState(snek)

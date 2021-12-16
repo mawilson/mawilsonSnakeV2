@@ -102,10 +102,9 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
       } else if (availableMoves.length === 1) {
         return availableMoves[0]
       }
-      //return moveTowardsCenter(myHead, gameState.board, moves)
 
       // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
-      let bestMove : string = ""
+      let bestMove : string | undefined = undefined
       let bestMoveEval : number | undefined = undefined
 
       //logToFile(consoleWriteStream, `availableMoves for ${myself.name}: ${availableMoves}`)
@@ -159,6 +158,10 @@ export function move(gameState: GameState, isBaseCase?: boolean, otherSelf?: Bat
           }
         }
       })
+      if (bestMove === undefined) {
+        logToFile(consoleWriteStream, `bestMove still undefined at end of decideMove, using up as default`)
+        bestMove = "up"
+      }
 
       return bestMove
     }
