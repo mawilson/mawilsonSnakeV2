@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState } from "./classes"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval } from "./classes"
 import { evaluate } from "./eval"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -314,9 +314,25 @@ export function getSnakeDirection(snake: Battlesnake) : string | undefined {
   return getOppositeDirection(neckDirection)
 }
 
+// return any move that is neither outside of the gameState boundaries, nor the snake's neck
+// a maximum of two directions can result in out of bounds, & one direction can result in neck. Thus there must always be one valid direction
+export function getDefaultMove(gameState: GameState, snake: Battlesnake) : string {
+  let neckDir = getNeckDirection(snake)
+  if (snake.head.x !== 0 && neckDir !== "left") {
+    return "left" // left is neither out of bounds nor our neck
+  } else if (snake.head.x !== (gameState.board.width - 1) && neckDir !== "right") {
+    return "right" // right is neither out of bounds nor our neck
+  } else if (snake.head.y !== 0 && neckDir !== "down") {
+    return "down" // down is neither out of bounds nor our neck
+  } else {
+    return "up"
+  }
+}
+
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
-export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : void {
+export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: string | undefined) : void {
   //logToFile(consoleWriteStream, `moveSnake snake before move: ${snakeToString(snake)}`)
+  let move : string = _move === undefined ? getDefaultMove(gameState, snake) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
@@ -337,38 +353,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
 
     snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
   } else { // moveSnake should never move anywhere that isn't on the board, try again a different direction
-    let newDir : string = ""
-    let neckDir : string | undefined = getNeckDirection(snake)
-    switch (move) { // set newDir to next direction clockwise
-      case "left":
-        if (neckDir === "up") { // avoid moving into neck. There should be at least one other cell we can move to that won't be out of bounds, or our neck
-          newDir = "right"
-        } else {
-          newDir = "up"
-        }
-        break
-      case "up":
-        if (neckDir === "right") {
-          newDir = "down"
-        } else {
-          newDir = "right"
-        }
-        break
-      case "right":
-        if (neckDir === "down") {
-          newDir = "left"
-        } else {
-          newDir = "down"
-        }
-        break
-      default: // case "down":
-        if (neckDir === "left") {
-          newDir = "up"
-        } else {
-          newDir = "left"
-        }
-        break
-    }
+    let newDir = getDefaultMove(gameState, snake)
     logToFile(consoleWriteStream, `failed to move snake ${snake.name} at (${snake.head.x},${snake.head.y}) towards ${move}, trying towards ${newDir} instead`)
     moveSnake(gameState, snake, board2d, newDir) // at least one of the directions will always be on the game board & not be our neck, so this should never infinitely recurse
   }
@@ -939,91 +924,4 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
     }
   })
   return states
-}
-
-export function decideMove(gameState: GameState, moves: Moves, myself: Battlesnake, board2d: Board2d) : string {
-  let moveNeighbors = findMoveNeighbors(myself, board2d, moves)
-  let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-  let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-  //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
-  //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
-
-    let kissStates = kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
-  
-  let availableMoves : string[] = moves.validMoves()
-  //logToFile(consoleWriteStream, `moves after checking for snakes, health, & walls: ${moves}`)
-  if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
-    let snakeMoves : Moves = new Moves(true, true, true, true)
-    checkForHealth(myself, gameState, board2d, snakeMoves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
-    //logToFile(consoleWriteStream, `snakeMoves after checking for just health & walls: ${snakeMoves}`)
-    availableMoves = snakeMoves.validMoves()
-    //logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
-  }
-  if (availableMoves.length < 1) { // if there are still no available moves, this means we're starving no matter what. Choose any direction that isn't a wall
-    if (myself.head.x !== 0) { // if we're not on left wall, move left
-      return "left"
-    } else { // else we are on the left wall, so move right
-      return "right"
-    }
-  } else if (availableMoves.length === 1) {
-    return availableMoves[0]
-  }
-
-  // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
-  let bestMove : string | undefined = undefined
-  let bestMoveEval : number | undefined = undefined
-
-  //logToFile(consoleWriteStream, `availableMoves for ${myself.name}: ${availableMoves}`)
-  availableMoves.forEach(function evaluateMove(move) {
-    let newGameState = cloneGameState(gameState)
-    let newBoard2d = new Board2d(newGameState.board)
-
-    let newSelf: Battlesnake | undefined
-    newSelf = newGameState.board.snakes.find(function findSnake(snake) {
-      return snake.id === myself.id
-    })
-
-    if (newSelf instanceof Battlesnake) {
-      moveSnake(newGameState, newSelf, newBoard2d, move)
-      updateGameStateAfterMove(newGameState) // update gameState after moving myself
-      let kissOfDeathState : KissOfDeathState
-      let kissOfMurderState : KissOfMurderState
-      switch (move) {
-        case "up":
-          kissOfDeathState = kissStates.kissOfDeathState.up
-          kissOfMurderState = kissStates.kissOfMurderState.up
-          break
-        case "down":
-          kissOfDeathState = kissStates.kissOfDeathState.down
-          kissOfMurderState = kissStates.kissOfMurderState.down
-          break
-        case "left":
-          kissOfDeathState = kissStates.kissOfDeathState.left
-          kissOfMurderState = kissStates.kissOfMurderState.left
-          break
-        default: // case "right":
-          kissOfDeathState = kissStates.kissOfDeathState.right
-          kissOfMurderState = kissStates.kissOfMurderState.right
-          break
-      }
-      let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (myself.health < 10))
-      //logToFile(consoleWriteStream, `eval for ${newSelf.name} at (${newSelf.head.x},${newSelf.head.y}): ${evalState}`)
-      //logToFile(consoleWriteStream, `prior best move: ${bestMove}, best move eval: ${bestMoveEval}`)
-      if (bestMoveEval === undefined || (evalState > bestMoveEval)) {
-        //logToFile(consoleWriteStream, `replacing prior best move ${bestMove} with eval ${bestMoveEval} with new move ${move} & eval ${evalState}`)
-        bestMove = move
-        bestMoveEval = evalState
-      } else if ((evalState === bestMoveEval) && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
-        //logToFile(consoleWriteStream, `replacing prior best move ${bestMove} with eval ${bestMoveEval} with new move ${move} & eval ${evalState}`)
-        bestMove = move
-        bestMoveEval = evalState
-      }
-    }
-  })
-  if (bestMove === undefined) {
-    logToFile(consoleWriteStream, `bestMove still undefined at end of decideMove, using up as default`)
-    bestMove = "up"
-  }
-
-  return bestMove
 }

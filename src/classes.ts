@@ -43,6 +43,20 @@ export class Coord implements ICoord {
   }
 }
 
+export class MoveWithEval {
+  direction: string | undefined
+  score: number | undefined
+
+  constructor(direction: string | undefined, score: number | undefined) {
+    this.direction = direction
+    this.score = score
+  }
+
+  toString() : string {
+    return `Direction: ${this.direction}, score: ${this.score}`
+  }
+}
+
 export class Battlesnake implements IBattlesnake {
   id: string;
   name: string;
@@ -551,7 +565,9 @@ export class KissStates {
   // given a set of moves, returns true if any of the moves that are true have a state of "kissOfDeathNo"
   canAvoidPossibleDeath(moves: Moves): boolean {
     let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance]
-    if (moves.up && goodStates.includes(this.kissOfDeathState.up)) {
+    if (moves.validMoves().length === 0) {
+      return false // snake is doomed, but not due to kisses of death
+    } else if (moves.up && goodStates.includes(this.kissOfDeathState.up)) {
       return true
     } else if (moves.down && goodStates.includes(this.kissOfDeathState.down)) {
       return true
@@ -566,7 +582,9 @@ export class KissStates {
 
   // given a set of moves, returns true if any of the moves that are true do not have a state of "kissOfDeathCertainty"
   canAvoidCertainDeath(moves: Moves): boolean {
-    if (moves.up && this.kissOfDeathState.up !== KissOfDeathState.kissOfDeathCertainty) {
+    if (moves.validMoves().length === 0) {
+      return false // snake is doomed, but not due to kisses of death
+    } else if (moves.up && this.kissOfDeathState.up !== KissOfDeathState.kissOfDeathCertainty) {
       return true
     } else if (moves.down && this.kissOfDeathState.down !== KissOfDeathState.kissOfDeathCertainty) {
       return true
