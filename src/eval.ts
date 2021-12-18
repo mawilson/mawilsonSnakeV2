@@ -26,7 +26,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalWallPenalty: number = -5 //-25
   const evalHazardWallPenalty: number = -3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
-  const eval0Move = -300
+  const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = 2 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = 4
@@ -42,13 +42,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHealth2 = evalHealth3 - evalHealthTierDifference - (evalHealthStep * 4) // 29 - 10 - (1 * 4) = 15
   const evalHealth1 = evalHealth2 - evalHealthTierDifference - (evalHealthStep * 5) // 15 - 10 - (1 * 5) = 0
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
-  const evalHealthStarved = -1000 // there is never a circumstance where starving is good, even other snake bodies are better than this
+  const evalHealthStarved = evalNoMe // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
     evalHasEaten = 1000 // food scores can get pretty high!
-
-  } else if (gameState.board.snakes.length === 1 || snakeLengthDiff >= 4) { // usually food is great, but unnecessary growth isn't
+  } else if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
+  } else if (gameState.board.snakes.length === 1) {
+    evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
   const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
   const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
@@ -130,7 +131,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     evaluation = evaluation + evalHasEaten
   } else {
     let hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
-    let validHazardTurns = myself.health / hazardDamage
+    let validHazardTurns = myself.health / (hazardDamage + 1)
     if (myself.health <= 0) {
       buildLogString(`HealthStarved, adding ${evalHealthStarved}`)
       evaluation = evaluation + evalHealthStarved
@@ -156,8 +157,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       buildLogString(`Health2, adding ${evalHealth2}`)
       evaluation = evaluation + evalHealth2 
     } else if (validHazardTurns > 0) {
-      buildLogString(`Health1, adding ${evalHealth1}`)
-      evaluation = evaluation + evalHealth1
+      buildLogString(`Health1, adding ${evalHealth0}`)
+      evaluation = evaluation + evalHealth0
     } else {
       buildLogString(`Health0, adding ${evalHealth0}`)
       evaluation = evaluation + evalHealth0
@@ -254,8 +255,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   availableMoves = kissOfMurderState === KissOfMurderState.kissOfMurderCertainty ? availableMoves + 1 : availableMoves
   switch(availableMoves) {
     case 0:
-      buildLogString(`possibleMoves 0, return ${eval0Move}`)
-      evaluation = eval0Move // with no valid moves left, this state is just a notch above death
+      buildLogString(`possibleMoves 0, add ${eval0Move}`)
+      evaluation = evaluation + eval0Move // with no valid moves left, this state is just a notch above death
       break
     case 1:
       buildLogString(`possibleMoves 1, add ${eval1Move}`)
@@ -580,6 +581,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   buildLogString(`final evaluation: ${evaluation}`)
   logToFile(evalWriteStream, `eval log: ${logString}
-  `)
+`)
+//   if (myself.id === gameState.you.id) {
+//     logToFile(evalWriteStream, `eval log: ${logString}
+// `)
+//   }
   return evaluation
 }

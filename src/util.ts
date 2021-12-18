@@ -360,7 +360,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   //logToFile(consoleWriteStream, `moveSnake snake after move: ${snakeToString(snake)}`)
 }
 
-// After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes
+// After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes, increment turn
 export function updateGameStateAfterMove(gameState: GameState) {
   gameState.board.food = gameState.board.food.filter(function findUneatenFood(food): boolean {
     let eatSnake : Battlesnake | undefined = gameState.board.snakes.find(function findEatSnake(snake : Battlesnake): boolean { // find any snake whose head is at this food
@@ -409,6 +409,7 @@ export function updateGameStateAfterMove(gameState: GameState) {
     })
     return murderSnek === undefined // if we have not found a murderSnek, the snake survives
   })
+  gameState.turn = gameState.turn + 1
 }
 
 // Disables moves in Moves object which lead to or past a wall
