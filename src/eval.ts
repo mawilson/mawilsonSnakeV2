@@ -1,5 +1,5 @@
 import { GameState } from "./types"
-import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell } from "./classes"
+import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection } from "./util"
 
@@ -12,9 +12,9 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: string, kissOfMurderState: string, wasStarving: boolean) : number {
-  const myself : Battlesnake | undefined = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
-  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, wasStarving: boolean) : number {
+  const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
+  const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
   
   // values to tweak
@@ -28,10 +28,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const eval0Move = -300
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 1 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = 2
-  const eval4Moves = 3
-  const snakeLengthDiff = snakeLengthDelta(meSnake, gameState.board)
+  const eval2Moves = 2 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
+  const eval3Moves = 4
+  const eval4Moves = 6
+  const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   const evalHealthStep = 1
   const evalHealthTierDifference = 10
   const evalHealth7 = 75 // evalHealth tiers should differ in severity based on how hungry I am
@@ -43,7 +43,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalHealth1 = evalHealth2 - evalHealthTierDifference - (evalHealthStep * 5) // 15 - 10 - (1 * 5) = 0
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalHealthStarved = -1000 // there is never a circumstance where starving is good, even other snake bodies are better than this
-  let evalHasEaten = evalHealth7 + 25 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
+  let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
     evalHasEaten = 1000 // food scores can get pretty high!
 
@@ -65,7 +65,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalTailChase = -4 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   
-  let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
+  let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
     if (logString === "") {
       logString = str
@@ -203,27 +203,27 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   // for kisses from the previous move state
   // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
   switch (kissOfDeathState) {
-    case "kissOfDeathCertainty":
+    case KissOfDeathState.kissOfDeathCertainty:
       buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
       evaluation = evaluation + evalKissOfDeathCertainty
       break
-    case "kissOfDeathMaybe":
+    case KissOfDeathState.kissOfDeathMaybe:
       buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
       evaluation = evaluation + evalKissOfDeathMaybe
       break
-    case "kissOfDeath3To1Avoidance":
+    case KissOfDeathState.kissOfDeath3To1Avoidance:
       buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
       evaluation = evaluation + evalKissOfDeath3To1Avoidance
       break
-    case "kissOfDeath3To2Avoidance":
+    case KissOfDeathState.kissOfDeath3To2Avoidance:
       buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
       evaluation = evaluation + evalKissOfDeath3To2Avoidance
       break
-    case "kissOfDeath2To1Avoidance":
+    case KissOfDeathState.kissOfDeath2To1Avoidance:
       buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
       evaluation = evaluation + evalKissOfDeath2To1Avoidance
       break
-    case "kissOfDeathNo":
+    case KissOfDeathState.kissOfDeathNo:
       buildLogString(`KissOfDeathNo, adding ${evalKissOfDeathNo}`)
       evaluation = evaluation + evalKissOfDeathNo
       break
@@ -232,11 +232,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   switch (kissOfMurderState) {
-    case "kissOfMurderCertainty":
+    case KissOfMurderState.kissOfMurderCertainty:
       buildLogString(`KissOfMurderCertainty, adding ${evalKissOfMurderCertainty}`)
       evaluation = evaluation + evalKissOfMurderCertainty
       break
-    case "kissOfMurderMaybe":
+    case KissOfMurderState.kissOfMurderMaybe:
       buildLogString(`KissOfMurderMaybe, adding ${evalKissOfMurderMaybe}`)
       evaluation = evaluation + evalKissOfMurderMaybe
       break
@@ -251,7 +251,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   }
 
   // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
-  availableMoves = kissOfMurderState === "kissOfMurderCertainty" ? availableMoves + 1 : availableMoves
+  availableMoves = kissOfMurderState === KissOfMurderState.kissOfMurderCertainty ? availableMoves + 1 : availableMoves
   switch(availableMoves) {
     case 0:
       buildLogString(`possibleMoves 0, return ${eval0Move}`)
@@ -528,6 +528,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     }
   })
 
+  // only run getescape route when possiblemoves is 1?
   // function _getEscapeRoute(me: Battlesnake, board2d: Board2d, longestRoute: number) : number {
   //   if (longestRoute >= me.length) {
   //     return longestRoute

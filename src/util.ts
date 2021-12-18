@@ -1,6 +1,7 @@
 import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates } from "./classes"
+import { Coord, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval } from "./classes"
+import { evaluate } from "./eval"
 
 export function logToFile(file: WriteStream, str: string) {
   console.log(str)
@@ -276,7 +277,7 @@ export function cloneGameState(gameState: GameState) : GameState {
 export function getNeckDirection(snake: Battlesnake) : string | undefined {
   let neckCell : Coord = snake.body[1]
   if (coordsEqual(snake.head, neckCell)) {
-    neckCell = snake.body[2]
+    neckCell = snake.body[2] // this triggers on turn 1, when snake neck is at body cell 2 & snake head is at body cells 0 & 1
   }
   if (coordsEqual(snake.head, neckCell)) {
     return undefined // should only ever be true on turn 0, when snake body 0, 1, 2 are all the same coord
@@ -313,9 +314,25 @@ export function getSnakeDirection(snake: Battlesnake) : string | undefined {
   return getOppositeDirection(neckDirection)
 }
 
+// return any move that is neither outside of the gameState boundaries, nor the snake's neck
+// a maximum of two directions can result in out of bounds, & one direction can result in neck. Thus there must always be one valid direction
+export function getDefaultMove(gameState: GameState, snake: Battlesnake) : string {
+  let neckDir = getNeckDirection(snake)
+  if (snake.head.x !== 0 && neckDir !== "left") {
+    return "left" // left is neither out of bounds nor our neck
+  } else if (snake.head.x !== (gameState.board.width - 1) && neckDir !== "right") {
+    return "right" // right is neither out of bounds nor our neck
+  } else if (snake.head.y !== 0 && neckDir !== "down") {
+    return "down" // down is neither out of bounds nor our neck
+  } else {
+    return "up"
+  }
+}
+
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
-export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, move: string) : void {
+export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: string | undefined) : void {
   //logToFile(consoleWriteStream, `moveSnake snake before move: ${snakeToString(snake)}`)
+  let move : string = _move === undefined ? getDefaultMove(gameState, snake) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
@@ -336,39 +353,8 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
 
     snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
   } else { // moveSnake should never move anywhere that isn't on the board, try again a different direction
-    let newDir : string = ""
-    let neckDir : string | undefined = getNeckDirection(snake)
-    switch (move) { // set newDir to next direction clockwise
-      case "left":
-        if (neckDir === "up") { // avoid moving into neck. There should be at least one other cell we can move to that won't be out of bounds, or our neck
-          newDir = "right"
-        } else {
-          newDir = "up"
-        }
-        break
-      case "up":
-        if (neckDir === "right") {
-          newDir = "down"
-        } else {
-          newDir = "right"
-        }
-        break
-      case "right":
-        if (neckDir === "down") {
-          newDir = "left"
-        } else {
-          newDir = "down"
-        }
-        break
-      default: // case "down":
-        if (neckDir === "left") {
-          newDir = "up"
-        } else {
-          newDir = "left"
-        }
-        break
-    }
-    logToFile(consoleWriteStream, `failed to move snake at (${snake.head.x},${snake.head.y}) towards ${move}, trying towards ${newDir} instead`)
+    let newDir = getDefaultMove(gameState, snake)
+    logToFile(consoleWriteStream, `failed to move snake ${snake.name} at (${snake.head.x},${snake.head.y}) towards ${move}, trying towards ${newDir} instead`)
     moveSnake(gameState, snake, board2d, newDir) // at least one of the directions will always be on the game board & not be our neck, so this should never infinitely recurse
   }
   //logToFile(consoleWriteStream, `moveSnake snake after move: ${snakeToString(snake)}`)
@@ -529,6 +515,27 @@ export function checkForHealth(me: Battlesnake, gameState: GameState, board: Boa
   }
 }
 
+// disables the direction in moves that contains the neck of me
+export function checkForNeck(me: Battlesnake, gameState: GameState, moves: Moves): void {
+  let neckDir = getNeckDirection(me)
+  switch (neckDir) {
+    case "left":
+      moves.left = false
+      break
+    case "right":
+      moves.right = false
+      break
+    case "up":
+      moves.up = false
+      break
+    case "down":
+      moves.down = false
+      break
+    default: // snake has no neck, don't disable any neck direction
+      break
+  }
+}
+
 export function checkForSnakesHealthAndWalls(me: Battlesnake, gameState: GameState, board2d: Board2d, moves: Moves) {
   checkForHealth(me, gameState, board2d, moves)
   checkForSnakes(me, board2d, moves)
@@ -605,9 +612,9 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
   return deathMoves
 }
 
-export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMoves: string[], possibleMoves: Moves) : string {
+export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMoves: string[], possibleMoves: Moves) : KissOfDeathState {
   let validMoves : string[] = possibleMoves.validMoves()
-  let kissOfDeathState = "kissOfDeathNo"
+  let kissOfDeathState : KissOfDeathState = KissOfDeathState.kissOfDeathNo
   switch (kissOfDeathMoves.length) {
     case 3: // all three available moves may result in my demise
       // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
@@ -615,43 +622,43 @@ export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMov
       let huntedDirections = huntingChanceDirections.invalidMoves()
       if (huntedDirections.length !== 3) { // two of the directions offer us a chance
         //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-        kissOfDeathState = "kissOfDeathMaybe"
+        kissOfDeathState = KissOfDeathState.kissOfDeathMaybe
         huntedDirections.forEach(function disableDir(dir) {
           possibleMoves.disableMove(dir)
         })
       } else { // they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
         //buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
-        kissOfDeathState = "kissOfDeathCertainty"
+        kissOfDeathState = KissOfDeathState.kissOfDeathCertainty
       }
       break
     case 2:
       if (validMoves.length === 3) { // in this case, two moves give us a 50/50 kiss of death, but the third is fine. This isn't ideal, but isn't a terrible evaluation
         //buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
-        kissOfDeathState = "kissOfDeath3To1Avoidance"
+        kissOfDeathState = KissOfDeathState.kissOfDeath3To1Avoidance
         possibleMoves.disableMove(kissOfDeathMoves[0])
         possibleMoves.disableMove(kissOfDeathMoves[1])
       } else { // this means a 50/50
         //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-        kissOfDeathState = "kissOfDeathMaybe"
+        kissOfDeathState = KissOfDeathState.kissOfDeathMaybe
       }
       break
     case 1:
       if (possibleMoves.hasOtherMoves(kissOfDeathMoves[0])) {
         if (validMoves.length === 3) {
           //buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
-          kissOfDeathState = "kissOfDeath3To2Avoidance"
+          kissOfDeathState = KissOfDeathState.kissOfDeath3To2Avoidance
           possibleMoves.disableMove(kissOfDeathMoves[0])
         } else { // we know validMoves can't be of length 1, else that would be a kiss cell
           //buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
-          kissOfDeathState = "kissOfDeath2To1Avoidance"
+          kissOfDeathState = KissOfDeathState.kissOfDeath2To1Avoidance
         }
       } else {
-        kissOfDeathState = "kissOfDeathCertainty"
+        kissOfDeathState = KissOfDeathState.kissOfDeathCertainty
       }
       break
     default: // no kissOfDeathMoves nearby, this is good
       //buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
-      kissOfDeathState = "kissOfDeathNo"
+      kissOfDeathState = KissOfDeathState.kissOfDeathNo
       break
   }
   return kissOfDeathState
@@ -805,13 +812,35 @@ export function getSafeCells(board2d: Board2d) : number {
   return num
 }
 
+// looks at gamestate & myself & returns any moves that are valid - won't result in starvation, moving out of bounds, or (if possible) snake cells
+export function getAvailableMoves(gameState: GameState, myself: Battlesnake, board2d: Board2d) : Moves {
+  let moves : Moves = new Moves(true, true, true, true)
+
+  checkForSnakesHealthAndWalls(myself, gameState, board2d, moves)
+  //logToFile(consoleWriteStream, `possible moves after checkForSnakesAndWalls: ${possibleMoves}`)
+
+  let availableMoves : string[] = moves.validMoves()
+  //logToFile(consoleWriteStream, `moves after checking for snakes, health, & walls: ${moves}`)
+  if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
+    moves.up = true
+    moves.down = true
+    moves.left = true
+    moves.right = true
+    checkForHealth(myself, gameState, board2d, moves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
+    checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
+    //logToFile(consoleWriteStream, `snakeMoves after checking for just health & walls: ${snakeMoves}`)
+    //logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
+  }
+  return moves
+}
+
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
 export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, deathMoves : string[], killMoves : string[], moves: Moves, board2d: Board2d) : KissStates {
   let validMoves = moves.validMoves()
   let states = new KissStates()
-  function setKissOfDeathDirectionState(dir : string, state: string) : void {
+  function setKissOfDeathDirectionState(dir : string, state: KissOfDeathState) : void {
     switch (dir) {
       case "up":
         states.kissOfDeathState.up = state
@@ -828,7 +857,7 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
     }
   }
 
-  function setKissOfMurderDirectionState(dir : string, state: string) : void {
+  function setKissOfMurderDirectionState(dir : string, state: KissOfMurderState) : void {
     switch (dir) {
       case "up":
         states.kissOfMurderState.up = state
@@ -853,15 +882,15 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
     validMoves.forEach(function setMoveState(move: string) {
         if (move === deathMoves[0]) {
           if (huntedDirections.includes(move)) {
-            setKissOfDeathDirectionState(move, "kissOfDeathCertainty")
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
           } else {
-            setKissOfDeathDirectionState(move, "kissOfDeathMaybe")
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
           }
         } else{
           if (validMoves.length === 3) {
-            setKissOfDeathDirectionState(move, "kissOfDeath3To2Avoidance")
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeath3To2Avoidance)
           } else {
-            setKissOfDeathDirectionState(move, "kissOfDeath2To1Avoidance")
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeath2To1Avoidance)
           }
         }
       })
@@ -870,21 +899,21 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
       validMoves.forEach(function setMoveState(move: string) {
         if (move === deathMoves[0] || move === deathMoves[1]) {
           if (huntedDirections.includes(move)) { // this direction spells certain death
-            setKissOfDeathDirectionState(move, "kissOfDeathCertainty")
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
           } else { // this direction spells possible death
-            setKissOfDeathDirectionState(move, "kissOfDeathMaybe")
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
           }
         } else { // this direction does not have any kiss of death cells
-          setKissOfDeathDirectionState(move, "kissOfDeath3To1Avoidance")
+          setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeath3To1Avoidance)
         }
       })
       break
     case 3: // if all three moves may cause my demise, penalize those moves in evaluate
       validMoves.forEach(function setMoveState(move: string) {
         if (huntedDirections.includes(move)) { // this direction spells certain death
-          setKissOfDeathDirectionState(move, "kissOfDeathCertainty")
+          setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
         } else { // this direction spells possible death
-          setKissOfDeathDirectionState(move, "kissOfDeathMaybe")
+          setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
         }
       })
       break
@@ -899,9 +928,9 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
         if (typeof moveNeighbors.upPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.upPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
           } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
           }
         }
         break
@@ -909,9 +938,9 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
         if (typeof moveNeighbors.downPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.downPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
           } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
           }
         }
         break
@@ -919,9 +948,9 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
         if (typeof moveNeighbors.leftPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.leftPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
           } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
           }
         }
         break
@@ -929,13 +958,50 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
         if (typeof moveNeighbors.rightPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.rightPrey, gameState, board2d, preyMoves)
           if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, "kissOfMurderCertainty")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
           } else {
-            setKissOfMurderDirectionState(move, "kissOfMurderMaybe")
+            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
           }
         }
         break
     }
   })
   return states
+}
+
+// given a gamestate, snake, & board2d, return the kiss states of the neighboring cells
+export function determineKissStates(gameState: GameState, myself: Battlesnake, board2d: Board2d) : KissStates {
+  let moves : Moves = getAvailableMoves(gameState, myself, board2d)
+  let moveNeighbors = findMoveNeighbors(myself, board2d, moves)
+  let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
+  let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+  //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
+  //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
+
+  return kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
+}
+
+// given a set of neighboring cells & their kiss states, return the appropriate kiss states per the direction given
+export function determineKissStateForDirection(direction: string, kissStates: KissStates): {kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState} {
+  let kissOfDeathState : KissOfDeathState
+  let kissOfMurderState : KissOfMurderState
+  switch (direction) {
+    case "up":
+      kissOfDeathState = kissStates.kissOfDeathState.up
+      kissOfMurderState = kissStates.kissOfMurderState.up
+      break
+    case "down":
+      kissOfDeathState = kissStates.kissOfDeathState.down
+      kissOfMurderState = kissStates.kissOfMurderState.down
+      break
+    case "left":
+      kissOfDeathState = kissStates.kissOfDeathState.left
+      kissOfMurderState = kissStates.kissOfMurderState.left
+      break
+    default: // case "right":
+      kissOfDeathState = kissStates.kissOfDeathState.right
+      kissOfMurderState = kissStates.kissOfMurderState.right
+      break
+  }
+  return {kissOfDeathState: kissOfDeathState, kissOfMurderState: kissOfMurderState}
 }
