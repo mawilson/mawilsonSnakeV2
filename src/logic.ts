@@ -11,22 +11,22 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    // const response: InfoResponse = {
-    //     apiversion: "1",
-    //     author: "waryferryman",
-    //     color: "#ff9900", // #ff9900
-    //     head: "tiger-king", //"tiger-king",
-    //     tail: "mystic-moon" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#ff9900", // #ff9900
+        head: "tiger-king", //"tiger-king",
+        tail: "mystic-moon" //"mystic-moon"
+    }
 
     // Test Snake
-    const response: InfoResponse = {
-      apiversion: "1",
-      author: "waryferryman",
-      color: "#ff9900", // #ff9900
-      head: "trans-rights-scarf", //"tiger-king",
-      tail: "comet" //"mystic-moon"
-    }
+    // const response: InfoResponse = {
+    //   apiversion: "1",
+    //   author: "waryferryman",
+    //   color: "#ff9900", // #ff9900
+    //   head: "trans-rights-scarf", //"tiger-king",
+    //   tail: "comet" //"mystic-moon"
+    // }
 
     return response
 }
@@ -43,7 +43,8 @@ export function end(gameState: GameState): void {
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
-function decideMove(gameState: GameState, myself: Battlesnake, board2d: Board2d, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
+function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
+  let board2d = new Board2d(gameState.board)
   let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
   let priorKissOfDeathState: KissOfDeathState = _priorKissOfDeathState === undefined ? KissOfDeathState.kissOfDeathNo : _priorKissOfDeathState
@@ -87,7 +88,7 @@ function decideMove(gameState: GameState, myself: Battlesnake, board2d: Board2d,
         // move all snakes on board - newSelf according to availableMoves, otherSnakes according to their own _move result
         let moveSnakes : { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
         otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
-          moveSnakes[snake.id] = decideMove(newGameState, snake, board2d, startTime) // decide best move for other snakes according to current data
+          moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // decide best move for other snakes according to current data
           //moveSnakes[snake.id] = _move(newGameState, startTime, snake)
         })
         
@@ -109,7 +110,7 @@ function decideMove(gameState: GameState, myself: Battlesnake, board2d: Board2d,
       
       let evalState: MoveWithEval
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-        let moveAhead = decideMove(newGameState, newSelf, newBoard2d, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
+        let moveAhead = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
         if (moveAhead !== undefined) { // if looking ahead does not result in undefined, set the evaluation to the lookahead evaluation
           evalState = moveAhead
         } else { // looking ahead resulted in a state that we don't want to consider, evaluate this state instead
@@ -145,8 +146,10 @@ function decideMove(gameState: GameState, myself: Battlesnake, board2d: Board2d,
   })
 
   if (bestMove.score !== undefined) {
+    logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
     bestMove.score = bestMove.score + evalThisState
   } else {
+    logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
     bestMove.score = evalThisState
   }
   return bestMove
@@ -154,8 +157,7 @@ function decideMove(gameState: GameState, myself: Battlesnake, board2d: Board2d,
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
-  let board2d = new Board2d(gameState.board)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, board2d, timeBeginning, 1)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, 2)
   let chosenMoveDirection : string = chosenMove.direction ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: chosenMoveDirection}
 }

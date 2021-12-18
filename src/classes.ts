@@ -108,8 +108,15 @@ export class BoardCell {
     this.coord = _coord;
   }
 
-  logSelf(str? : string) : void {
-    logToFile(consoleWriteStream, `${str}; BoardCell at (${this.coord.x},${this.coord.y}) has snake: ${!!this.snakeCell}; has food: ${this.food}; has hazard: ${this.hazard}`);
+  logSelf(str? : string) : string {
+    let ret : string
+    if (str !== undefined) {
+      ret = `${str}; BoardCell at (${this.coord.x},${this.coord.y}) has snake: ${!!this.snakeCell}; has food: ${this.food}; has hazard: ${this.hazard}`
+    } else {
+      ret = `BoardCell at (${this.coord.x},${this.coord.y}) has snake: ${!!this.snakeCell}; has food: ${this.food}; has hazard: ${this.hazard}`
+    }
+    logToFile(consoleWriteStream, ret);
+    return ret
   }
 }
 
@@ -166,23 +173,27 @@ export class Board2d {
     return this.cells[idx];
   }
 
-  logCell(coord: Coord) : void {
+  logCell(coord: Coord) : string {
     let cell = this.getCell(coord);
     if (cell) {
-      cell.logSelf();
+      return cell.logSelf();
+    } else {
+      return `Could not get BoardCell at ${coord}`
     }
   }
 
-  logBoard() : void {
+  logBoard() : string {
+    let ret: string = ""
     for (let i = 0; i < this.width; i++) {
       for (let j = 0; j < this.height; j++) {
         let tempCoord = new Coord(i, j);
-        this.logCell(tempCoord);
+        ret = ret + this.logCell(tempCoord);
       }
     }
+    return ret
   }
 
-  printBoard() : void {
+  printBoard() : string {
     let str : string = ""
     for (let j = this.height - 1; j >= 0; j--) {
       for (let i = 0; i < this.width; i++) {
@@ -213,6 +224,7 @@ export class Board2d {
       str = str + "\n"
     }
     logToFile(consoleWriteStream, str)
+    return str
   }
 
   // returns true if a snake exists at coord that is not the inputSnake
