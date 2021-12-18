@@ -12,9 +12,9 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, wasStarving: boolean) : number {
-  const myself : Battlesnake | undefined = gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
-  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, wasStarving: boolean) : number {
+  const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
+  const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
   
   // values to tweak
@@ -31,7 +31,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const eval2Moves = 1 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = 2
   const eval4Moves = 3
-  const snakeLengthDiff = snakeLengthDelta(meSnake, gameState.board)
+  const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   const evalHealthStep = 1
   const evalHealthTierDifference = 10
   const evalHealth7 = 75 // evalHealth tiers should differ in severity based on how hungry I am
@@ -65,7 +65,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
   const evalTailChase = -4 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   
-  let logString : string = `eval snake ${meSnake.name} at (${meSnake.head.x},${meSnake.head.y} turn ${gameState.turn})`
+  let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
     if (logString === "") {
       logString = str
@@ -528,6 +528,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake, kissOfDeath
     }
   })
 
+  // only run getescape route when possiblemoves is 1?
   // function _getEscapeRoute(me: Battlesnake, board2d: Board2d, longestRoute: number) : number {
   //   if (longestRoute >= me.length) {
   //     return longestRoute
