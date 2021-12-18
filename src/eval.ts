@@ -28,9 +28,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const eval0Move = -300
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 1 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = 2
-  const eval4Moves = 3
+  const eval2Moves = 2 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
+  const eval3Moves = 4
+  const eval4Moves = 6
   const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   const evalHealthStep = 1
   const evalHealthTierDifference = 10
@@ -43,7 +43,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHealth1 = evalHealth2 - evalHealthTierDifference - (evalHealthStep * 5) // 15 - 10 - (1 * 5) = 0
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalHealthStarved = -1000 // there is never a circumstance where starving is good, even other snake bodies are better than this
-  let evalHasEaten = evalHealth7 + 25 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
+  let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
     evalHasEaten = 1000 // food scores can get pretty high!
 

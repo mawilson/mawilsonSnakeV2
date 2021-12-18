@@ -155,7 +155,7 @@ function decideMove(gameState: GameState, myself: Battlesnake, board2d: Board2d,
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let board2d = new Board2d(gameState.board)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, board2d, timeBeginning, 2)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, board2d, timeBeginning, 1)
   let chosenMoveDirection : string = chosenMove.direction ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: chosenMoveDirection}
 }
