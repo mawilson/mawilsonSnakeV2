@@ -886,18 +886,18 @@ describe('Snake should move towards open space', () => {
 
 describe('Snake should avoid food when king snake', () => {
   it('does not choose food if better options exist while king snake', () => {
-      for (let i = 0; i < 10; i++) {
-        const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "101", "", "")
-      
-        const gameState = createGameState(snek)
+    for (let i = 0; i < 10; i++) {
+      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "101", "", "")
+    
+      const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
-        gameState.board.snakes.push(otherSnek)
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
 
-        gameState.board.food = [{x: 5, y: 4}]
-        let moveResponse: MoveResponse = move(gameState)
-        expect(moveResponse.move).toBe("left") // we should be king snake here & say no to food while still navigating toward otherSnek
-      }
+      gameState.board.food = [{x: 5, y: 4}]
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // we should be king snake here & say no to food while still navigating toward otherSnek
+    }
   })
 })
 
