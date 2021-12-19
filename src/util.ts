@@ -30,9 +30,13 @@ export function coordsEqual(c1: Coord, c2: Coord): boolean {
 }
 
 // returns true if snake health is max, indicating it ate this turn
-export function snakeHasEaten(snake: Battlesnake) : boolean {
+export function snakeHasEaten(snake: Battlesnake, lookahead?: number) : boolean {
   //logToFile(`snakeHasEaten: snake at (${snake.head.x},${snake.head.y}) length: ${snake.length}; body length: ${snake.body.length}; snake health: ${snake.health}`)
-  return (snake.health === 100 && snake.length > 1)
+  if (lookahead !== undefined) {
+    return ((snake.health + lookahead) >= 100) && snake.length > 3
+  } else {
+    return (snake.health === 100 && snake.length > 3)
+  }
 }
 
 // returns minimum number of moves between input coordinates

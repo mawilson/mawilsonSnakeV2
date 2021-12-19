@@ -8,6 +8,8 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
+export const lookahead : number = 2
+
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
@@ -43,7 +45,7 @@ export function end(gameState: GameState): void {
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
-function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
   let board2d = new Board2d(gameState.board)
   let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
@@ -105,19 +107,27 @@ function decideMove(gameState: GameState, myself: Battlesnake, startTime: number
       } else { // for other snakes, still need to be able to move self to a new position to evaluate it
         moveSnake(newGameState, newSelf, newBoard2d, move) // move newSelf to available move
         //kissStates = determineKissStateForDirection(move, kissStatesThisState)
+
+        // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
+        otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails, or else this otherSnake won't consider tail cells other than its own valid
+          snake.body = snake.body.slice(0, -1) // removes tail
+        })
+
         updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
       }
       
       let evalState: MoveWithEval
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-        let moveAhead = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
-        if (moveAhead !== undefined) { // if looking ahead does not result in undefined, set the evaluation to the lookahead evaluation
-          evalState = moveAhead
-        } else { // looking ahead resulted in a state that we don't want to consider, evaluate this state instead
-          evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (newSelf.health < 10)))
-        }
+        evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
       } else { // base case, just run the eval
         evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (newSelf.health < 10)))
+      }
+
+      // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
+      if (evalState.score !== undefined && lookahead !== undefined) {
+        let evalWeight : number = 1
+        evalWeight = evalWeight + 0.1 * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
+        evalState.score = evalState.score * evalWeight
       }
 
       //let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (newSelf.health < 10))
@@ -157,7 +167,7 @@ function decideMove(gameState: GameState, myself: Battlesnake, startTime: number
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, 2)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, lookahead)
   let chosenMoveDirection : string = chosenMove.direction ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: chosenMoveDirection}
 }
