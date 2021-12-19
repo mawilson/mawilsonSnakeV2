@@ -1,4 +1,4 @@
-import { info, move } from '../src/logic'
+import { info, move, decideMove } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, BoardCell, Board2d, KissOfDeathState, KissOfMurderState } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString } from '../src/util'
@@ -81,6 +81,39 @@ describe('BattleSnake can chase tail', () => {
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right")
+    }
+  })
+  it('should be allowed to chase another snake tail', () => {
+    for (let i = 0; i < 10; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 1, y: 0}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right")
+    }
+  })
+  it.only('should allow otherSnakes to chase their own tails', () => {
+    for (let i = 0; i < 10; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let otherSnekMove = decideMove(gameState, otherSnek, 0)
+      expect(otherSnekMove.direction).toBe("left")
+    }
+  })
+  it.only('should allow otherSnakes to chase other snake tails', () => {
+    for (let i = 0; i < 10; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let otherSnekMove = decideMove(gameState, otherSnek, 0)
+      expect(otherSnekMove.direction).toBe("left")
     }
   })
 })
@@ -463,7 +496,7 @@ describe('Snake should not attempt to murder in a square that will likely immedi
   // x x x x x x x x x x c
   it('prioritizes kill moves in safer tiles', () => {
     for (let i = 0; i < 10; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "101", "", "")
       const gameState = createGameState(snek)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 7, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}, {x: 7, y: 8}, {x: 7, y: 9}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 9, y: 9}], "101", "", "")
@@ -474,6 +507,18 @@ describe('Snake should not attempt to murder in a square that will likely immedi
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("down") // snek can eat otherSnek2 at right or down, but going right will result in certain death unless otherSnek2 stupidly goes up
     }
+  })
+  it('does not attempt a kill in a cell where its prey can escape by chasing another snake tail', () => {
+    const snek = new Battlesnake("snek", "snek", 90, [{x: 7, y: 7}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}], "101", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 8, y: 9}, {x: 9, y: 9}, {x: 10, y: 9}], "101", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+    gameState.board.snakes.push(otherSnek2)
+    let moveResponse : MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up") // as above, otherSnek should never go left, so snek should never close itself in by trying to eat it going down
   })
 })
 
@@ -947,7 +992,6 @@ describe('Snake should not seek food through hazard if not hazard route exists',
 
 describe('Snake should not seek kill through hazard if not hazard route exists', () => {
   it('does not path through hazard when possible', () => { // skipping, no longer valid as we predict snake moves away & we don't consider down as good a prospect as right, even considering hazard
-    debugger
     for (let i = 0; i < 10; i++) {
       const snek = new Battlesnake("snek", "snek", 10, [{x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}], "101", "", "")
     
@@ -1110,7 +1154,8 @@ describe('Snake should cut other snakes off', () => {
       expect(moveResponse.move).toBe("left") // Left will send us towards the smaller snake, going for the kill.
     }
   })
-  it('turns straight into the wall, then turns away to kill a snake that will grow to my length', () => {
+  it.only('turns straight into the wall, then turns away to kill a snake that will grow to my length', () => {
+    debugger
     for (let i = 0; i < 10; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "101", "", "")
     
@@ -1474,7 +1519,6 @@ describe('Food prioritization and acquisition', () => {
     }
   })
   it('does not avoid food in order to hunt another snake', () => {
-    debugger
     for (let i: number = 0; i < 10; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 3, y: 8}], "101", "", "")
       const gameState = createGameState(snek)

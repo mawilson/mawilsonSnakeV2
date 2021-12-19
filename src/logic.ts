@@ -43,7 +43,7 @@ export function end(gameState: GameState): void {
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
-function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
   let board2d = new Board2d(gameState.board)
   let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
@@ -105,6 +105,12 @@ function decideMove(gameState: GameState, myself: Battlesnake, startTime: number
       } else { // for other snakes, still need to be able to move self to a new position to evaluate it
         moveSnake(newGameState, newSelf, newBoard2d, move) // move newSelf to available move
         //kissStates = determineKissStateForDirection(move, kissStatesThisState)
+
+        // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
+        otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails, or else this otherSnake won't consider tail cells other than its own valid
+          snake.body = snake.body.slice(0, -1) // removes tail
+        })
+
         updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
       }
       
