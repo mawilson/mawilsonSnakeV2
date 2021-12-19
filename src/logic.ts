@@ -8,6 +8,8 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
+export const lookahead : number = 2
+
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
@@ -165,7 +167,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, 2)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, lookahead)
   let chosenMoveDirection : string = chosenMove.direction ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: chosenMoveDirection}
 }

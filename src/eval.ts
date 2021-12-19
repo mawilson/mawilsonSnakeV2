@@ -2,6 +2,7 @@ import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection } from "./util"
+import { lookahead } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -136,7 +137,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const possibleMoves = new Moves(true, true, true, true)
 
   // health considerations, which are effectively hazard considerations
-  if (myself.health === 100) {
+  if (snakeHasEaten(myself, lookahead)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
@@ -311,17 +312,18 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     if (foodToHunt && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
       let foodCalcStep = 0
-      if (i === 1) {
-        foodCalcStep = 2*(evalFoodVal * (evalFoodStep + j) * foodToHunt.length) // food immediately adjacent is twice as valuable, plus some, to other food
-      } else {
-        foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
-      }
+      foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
+      // if (i === 1) {
+      //   foodCalcStep = 2*(evalFoodVal * (evalFoodStep + j) * foodToHunt.length) // food immediately adjacent is twice as valuable, plus some, to other food
+      // } else {
+      //   foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
+      // }
       buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
       foodCalc = foodCalc + foodCalcStep
     }
     j = j - 1
   }
-  //if (foodCalc > 145) { foodCalc = 145 } // don't let the food heuristic explode - if it does, being hungry might become better than becoming full, even when dying
+
   buildLogString(`adding food calc ${foodCalc}`)
   evaluation = evaluation + foodCalc
 
