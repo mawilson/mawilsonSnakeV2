@@ -51,6 +51,16 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   } else if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
+
+  const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
+  const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
+  const evalPriorKissOfDeath3To1Avoidance = -75
+  const evalPriorKissOfDeath3To2Avoidance = -50
+  const evalPriorKissOfDeath2To1Avoidance = -60
+  const evalPriorKissOfDeathNo = 0
+  const evalPriorKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
+  const evalPriorKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
+
   const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
   const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
   const evalKissOfDeath3To1Avoidance = 0
@@ -78,11 +88,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let evaluation = evalBase
 
   if (gameState.board.snakes.length === 0) {
-    buildLogString(`no snakes, return ${evalNoSnakes}`)
+    logToFile(evalWriteStream, `no snakes, return ${evalNoSnakes}`)
     return evalNoSnakes // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (!(myself instanceof Battlesnake)) {
-    buildLogString(`no myself snake, add ${evalNoMe}`)
+    logToFile(evalWriteStream, `no myself snake, return ${evalNoMe}`)
     return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
     //evaluation = evaluation + evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
@@ -205,28 +215,28 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
   switch (kissOfDeathState) {
     case KissOfDeathState.kissOfDeathCertainty:
-      buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
-      evaluation = evaluation + evalKissOfDeathCertainty
+      buildLogString(`KissOfDeathCertainty, adding ${evalPriorKissOfDeathCertainty}`)
+      evaluation = evaluation + evalPriorKissOfDeathCertainty
       break
     case KissOfDeathState.kissOfDeathMaybe:
-      buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-      evaluation = evaluation + evalKissOfDeathMaybe
+      buildLogString(`KissOfDeathMaybe, adding ${evalPriorKissOfDeathMaybe}`)
+      evaluation = evaluation + evalPriorKissOfDeathMaybe
       break
     case KissOfDeathState.kissOfDeath3To1Avoidance:
-      buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
-      evaluation = evaluation + evalKissOfDeath3To1Avoidance
+      buildLogString(`KissOfDeath3To1Avoidance, adding ${evalPriorKissOfDeath3To1Avoidance}`)
+      evaluation = evaluation + evalPriorKissOfDeath3To1Avoidance
       break
     case KissOfDeathState.kissOfDeath3To2Avoidance:
-      buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
-      evaluation = evaluation + evalKissOfDeath3To2Avoidance
+      buildLogString(`KissOfDeath3To2Avoidance, adding ${evalPriorKissOfDeath3To2Avoidance}`)
+      evaluation = evaluation + evalPriorKissOfDeath3To2Avoidance
       break
     case KissOfDeathState.kissOfDeath2To1Avoidance:
-      buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
-      evaluation = evaluation + evalKissOfDeath2To1Avoidance
+      buildLogString(`KissOfDeath2To1Avoidance, adding ${evalPriorKissOfDeath2To1Avoidance}`)
+      evaluation = evaluation + evalPriorKissOfDeath2To1Avoidance
       break
     case KissOfDeathState.kissOfDeathNo:
-      buildLogString(`KissOfDeathNo, adding ${evalKissOfDeathNo}`)
-      evaluation = evaluation + evalKissOfDeathNo
+      buildLogString(`KissOfDeathNo, adding ${evalPriorKissOfDeathNo}`)
+      evaluation = evaluation + evalPriorKissOfDeathNo
       break
     default:
       break
@@ -234,14 +244,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   switch (kissOfMurderState) {
     case KissOfMurderState.kissOfMurderCertainty:
-      buildLogString(`KissOfMurderCertainty, adding ${evalKissOfMurderCertainty}`)
-      evaluation = evaluation + evalKissOfMurderCertainty
+      buildLogString(`KissOfMurderCertainty, adding ${evalPriorKissOfMurderCertainty}`)
+      evaluation = evaluation + evalPriorKissOfMurderCertainty
       break
     case KissOfMurderState.kissOfMurderMaybe:
-      buildLogString(`KissOfMurderMaybe, adding ${evalKissOfMurderMaybe}`)
-      evaluation = evaluation + evalKissOfMurderMaybe
+      buildLogString(`KissOfMurderMaybe, adding ${evalPriorKissOfMurderMaybe}`)
+      evaluation = evaluation + evalPriorKissOfMurderMaybe
       break
-    default: // "kissOfMurderNo":
+    case KissOfMurderState.kissOfMurderNo:
+    default:
       break
   }
 

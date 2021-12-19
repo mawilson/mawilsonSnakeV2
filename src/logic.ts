@@ -116,14 +116,16 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       
       let evalState: MoveWithEval
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-        let moveAhead = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
-        if (moveAhead !== undefined) { // if looking ahead does not result in undefined, set the evaluation to the lookahead evaluation
-          evalState = moveAhead
-        } else { // looking ahead resulted in a state that we don't want to consider, evaluate this state instead
-          evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (newSelf.health < 10)))
-        }
+        evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
       } else { // base case, just run the eval
         evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (newSelf.health < 10)))
+      }
+
+      // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
+      if (evalState.score !== undefined && lookahead !== undefined) {
+        let evalWeight : number = 1
+        evalWeight = evalWeight + 0.1 * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
+        evalState.score = evalState.score * evalWeight
       }
 
       //let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (newSelf.health < 10))
