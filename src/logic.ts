@@ -56,7 +56,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   let kissStatesThisState: KissStates = determineKissStates(gameState, myself, board2d)
 
-  if (availableMoves.length < 1) { // if there are still no available moves, return an direction & the evaluation for this state
+  if (availableMoves.length < 1) { // if there are no available moves, return an direction & the evaluation for this state
+    if (lookahead !== undefined) {
+      evalThisState = evalThisState * (lookahead + 1) // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
+    }
     return new MoveWithEval(undefined, evalThisState)
   } 
   // can't skip evaluating even if it's just one move, because we need to know that move's eval score
@@ -68,6 +71,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)
   //let bestMove : string | undefined = undefined
   //let bestMoveEval : number | undefined = undefined
+
+  // can determine each otherSnake's moves just once as it won't differ for each availableMove for myself
+  let moveSnakes : { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
+  if (myself.id === gameState.you.id) {
+    let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
+      return snake.id !== gameState.you.id
+    })
+    otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
+      moveSnakes[snake.id] = decideMove(gameState, snake, startTime) // decide best move for other snakes according to current data
+      //moveSnakes[snake.id] = _move(newGameState, startTime, snake)
+    })
+  }
 
   //logToFile(consoleWriteStream, `availableMoves for ${myself.name}: ${availableMoves}`)
   availableMoves.forEach(function evaluateMove(move) {
@@ -88,11 +103,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place
         // move all snakes on board - newSelf according to availableMoves, otherSnakes according to their own _move result
-        let moveSnakes : { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
-        otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
-          moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // decide best move for other snakes according to current data
-          //moveSnakes[snake.id] = _move(newGameState, startTime, snake)
-        })
+        
         
         moveSnake(newGameState, newSelf, newBoard2d, move) // move newSelf to available move
         // determine kiss states before moving other snakes - we want to see what our neighbors would look like after we moved somewhere, which we won't see if we've already moved our neighbors
