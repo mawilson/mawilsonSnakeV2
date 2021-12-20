@@ -14,6 +14,21 @@ export enum Direction {
   Right
 }
 
+export function directionToString(dir: Direction | undefined) {
+  switch (dir) {
+    case Direction.Up:
+      return "up"
+    case Direction.Down:
+      return "down"
+    case Direction.Left:
+      return "left"
+    case Direction.Right:
+      return "right"
+    default:
+      return "undefined"
+  }
+}
+
 export enum KissOfDeathState {
   kissOfDeathNo,
   kissOfDeathMaybe,
@@ -44,16 +59,16 @@ export class Coord implements ICoord {
 }
 
 export class MoveWithEval {
-  direction: string | undefined
+  direction: Direction | undefined
   score: number | undefined
 
-  constructor(direction: string | undefined, score: number | undefined) {
+  constructor(direction: Direction | undefined, score: number | undefined) {
     this.direction = direction
     this.score = score
   }
 
   toString() : string {
-    return `Direction: ${this.direction}, score: ${this.score}`
+    return `Direction: ${directionToString(this.direction)}, score: ${this.score}`
   }
 }
 
@@ -251,105 +266,105 @@ export class Moves {
     this.left = left;
   }
 
-  validMoves() : string[] {
-    let moves : string[] = [];
+  validMoves() : Direction[] {
+    let moves : Direction[] = [];
     if (this.up) {
-      moves.push("up");
+      moves.push(Direction.Up);
     }
     if (this.down) {
-      moves.push("down");
+      moves.push(Direction.Down);
     }
     if (this.left) {
-      moves.push("left");
+      moves.push(Direction.Left);
     }
     if (this.right) {
-      moves.push("right");
+      moves.push(Direction.Right);
     }
     return moves;
   }
 
-  invalidMoves() : string[] {
-    let moves : string[] = [];
+  invalidMoves() : Direction[] {
+    let moves : Direction[] = [];
     if (!this.up) {
-      moves.push("up");
+      moves.push(Direction.Up);
     }
     if (!this.down) {
-      moves.push("down");
+      moves.push(Direction.Down);
     }
     if (!this.left) {
-      moves.push("left");
+      moves.push(Direction.Left);
     }
     if (!this.right) {
-      moves.push("right");
+      moves.push(Direction.Right);
     }
     return moves;
   }
 
-  hasOtherMoves(move: string) : boolean {
+  hasOtherMoves(move: Direction) : boolean {
     switch (move) {
-      case "up":
+      case Direction.Up:
         return (this.down || this.left || this.right);
-      case "down":
+      case Direction.Down:
         return (this.up || this.left || this.right);
-      case "left":
+      case Direction.Left:
         return (this.up || this.down || this.right);
-      default: //case "right":
+      default: //case Direction.Right:
         return (this.up || this.down || this.left);
     }
   }
 
-  enableMove(move: string) : void {
+  enableMove(move: Direction) : void {
     switch (move) {
-      case "up":
+      case Direction.Up:
         this.up = true;
         break;
-      case "down":
+      case Direction.Down:
         this.down = true;
         break;
-      case "left":
+      case Direction.Left:
         this.left = true;
         break;
-      default: // case "right":
+      default: // case Direction.Right:
         this.right = true;
         break;
     }
   }
 
-  disableMove(move: string) : void {
+  disableMove(move: Direction) : void {
     switch (move) {
-      case "up":
+      case Direction.Up:
         this.up = false;
         break;
-      case "down":
+      case Direction.Down:
         this.down = false;
         break;
-      case "left":
+      case Direction.Left:
         this.left = false;
         break;
-      default: // case "right":
+      default: // case Direction.Right:
         this.right = false;
         break;
     }
   }
 
-  disableOtherMoves(move: string) : void {
+  disableOtherMoves(move: Direction) : void {
     switch (move) {
-      case "up":
+      case Direction.Up:
         this.right = false;
         this.left = false;
         this.down = false;
         break;
-      case "down":
+      case Direction.Down:
         this.up = false;
         this.left = false;
         this.right = false;
         break;
-      case "left":
+      case Direction.Left:
         this.up = false;
         this.down = false;
         this.right = false;
         break;
-      case "right":
+      case Direction.Right:
         this.up = false;
         this.down = false;
         this.left = false;

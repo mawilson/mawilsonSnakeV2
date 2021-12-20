@@ -1,5 +1,5 @@
 import { GameState } from "./types"
-import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection } from "./util"
 import { futureSight } from "./logic"
@@ -177,7 +177,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves)
-  let validMoves : string[] = possibleMoves.validMoves()
+  let validMoves : Direction[] = possibleMoves.validMoves()
   let availableMoves : number = validMoves.length
 
   // look for kiss of death & murder cells in this current configuration
@@ -347,7 +347,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       //logToFile(evalWriteStream, `snake is at 0`)
       if (myself.head.x === 1 || myself.head.x === 0) { // if I am next to them on the left edge
         //logToFile(evalWriteStream, `myself is at 1`)
-        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === "up") { // if I am above snake, & it is moving up
+        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === Direction.Up) { // if I am above snake, & it is moving up
           //logToFile(evalWriteStream, `myself is above or level with snake, & snake is moving up`)
           let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head - TODO: Make this snake's NECK after moving otherSnakes prior to evaluate
           //logToFile(evalWriteStream, `cutoffCell snakeCell is myself: ${cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id}`)
@@ -371,7 +371,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === "down") { // if I am below snake, & it is moving down
+        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === Direction.Down) { // if I am below snake, & it is moving down
           let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it  
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -397,7 +397,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     } else if (snake.head.x === (gameState.board.width - 1)) { // if they are on the right edge
       if (myself.head.x === (gameState.board.width - 2) || myself.head.x === (gameState.board.width - 1)) { // if I am next to them on the right edge
-        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === "up") { // if I am above snake, & it is moving up
+        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === Direction.Up) { // if I am above snake, & it is moving up
           let cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y}) // cell one to the left of snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -419,7 +419,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === "down") { // if I am below snake, & it is moving down
+        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === Direction.Down) { // if I am below snake, & it is moving down
           let cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y}) // cell one to the left of snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it          
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -445,7 +445,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     } else if (snake.head.y === 0) { // if they are on the bottom edge
       if (myself.head.y === 1 || myself.head.y === 0) { // if I am next to them on the bottom edge
-        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === "right") { // if I am right of snake, & it is moving right
+        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === Direction.Right) { // if I am right of snake, & it is moving right
           let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -467,7 +467,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === "left") { // if I am left of snake, & it is moving left
+        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === Direction.Left) { // if I am left of snake, & it is moving left
           let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it       
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -493,7 +493,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     } else if (snake.head.y === (gameState.board.height - 1)) { // if they are on the top edge
       if (myself.head.y === (gameState.board.height - 2) || myself.head.y === (gameState.board.height - 1)) { // if I am next to them on the bottom edge
-        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === "right") { // if I am right of snake, & it is moving right
+        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === Direction.Right) { // if I am right of snake, & it is moving right
           let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it             
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -515,7 +515,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === "left") { // if I am left of snake, & it is moving left
+        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === Direction.Left) { // if I am left of snake, & it is moving left
           let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it 
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -554,16 +554,16 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   //   possibleMoves.validMoves().forEach(function checkDirection(move) {
   //     let newCoord : Coord
   //     switch (move) {
-  //       case "up":
+  //       case Direction.Up:
   //         newCoord = {x: me.head.x, y: me.head.y + 1}
   //         break
-  //       case "down":
+  //       case Direction.Down:
   //         newCoord = {x: me.head.x, y: me.head.y - 1}
   //         break
-  //       case "left":
+  //       case Direction.Left:
   //         newCoord = {x: me.head.x + 1, y: me.head.y}
   //         break
-  //       default: //case "right":
+  //       default: //case Direction.Right:
   //         newCoord = {x: me.head.x - 1, y: me.head.y}
   //         break
   //     }

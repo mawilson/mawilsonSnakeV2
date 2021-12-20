@@ -1,6 +1,6 @@
 import { info, move, decideMove } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, BoardCell, Board2d, KissOfDeathState, KissOfMurderState } from '../src/classes'
+import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString } from '../src/util'
 import { evaluate } from '../src/eval'
 
@@ -102,7 +102,8 @@ describe('BattleSnake can chase tail', () => {
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "101", "", "")
       gameState.board.snakes.push(otherSnek)
       let otherSnekMove = decideMove(gameState, otherSnek, 0)
-      expect(otherSnekMove.direction).toBe("left")
+      let otherSnekMoveDir = directionToString(otherSnekMove.direction)
+      expect(otherSnekMoveDir).toBe("left")
     }
   })
   it('should allow otherSnakes to chase other snake tails', () => {
@@ -113,7 +114,8 @@ describe('BattleSnake can chase tail', () => {
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
       gameState.board.snakes.push(otherSnek)
       let otherSnekMove = decideMove(gameState, otherSnek, 0)
-      expect(otherSnekMove.direction).toBe("left")
+      let otherSnekMoveDir = directionToString(otherSnekMove.direction)
+      expect(otherSnekMoveDir).toBe("left")
     }
   })
 })
@@ -777,7 +779,7 @@ describe('Moving a snake results in changes to body, head, health', () => {
 
     const board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "up")
+    moveSnake(gameState, snek, board2d, Direction.Up)
 
     expect(snek.length).toBe(5) // length shouldn't have changed
     expect(snek.health).toBe(79) // health should be one less
@@ -807,7 +809,7 @@ describe('Moving a snake into hazard results in changes to body, head, health', 
 
     const board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "up")
+    moveSnake(gameState, snek, board2d, Direction.Up)
 
     expect(snek.length).toBe(5) // length shouldn't have changed
     expect(snek.health).toBe(80 - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn) // health should be one less, and also hazardDamagePerTurn less
@@ -837,7 +839,7 @@ describe('Moving a snake into food results in changes to body, head, health', ()
 
     const board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "up")
+    moveSnake(gameState, snek, board2d, Direction.Up)
 
     expect(snek.length).toBe(6) // length will have changed
     expect(snek.health).toBe(100) // health should be maximum of 100
@@ -871,7 +873,7 @@ describe('Moving a snake from food results in changes to body, head, health', ()
 
     const board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "up")
+    moveSnake(gameState, snek, board2d, Direction.Up)
 
     expect(snek.length).toBe(6)
     expect(snek.health).toBe(99)
@@ -1236,11 +1238,11 @@ describe('updateGameState tests', () => {
 
       let board2d = new Board2d(gameState.board)
 
-      moveSnake(gameState, snek, board2d, "left") // this should starve the snake out due to hazard
-      moveSnake(gameState, otherSnek, board2d, "up") // this snake should be safe moving any direction
-      moveSnake(gameState, otherSnek2, board2d, "right") // this snake has enough health not to starve if it moves into hazard
-      moveSnake(gameState, otherSnek3, board2d, "right") // this snake would starve moving into hazard, but shouldn't starve moving into not hazard
-      moveSnake(gameState, otherSnek4, board2d, "up") // this snake will starve, even though up is a valid direction
+      moveSnake(gameState, snek, board2d, Direction.Left) // this should starve the snake out due to hazard
+      moveSnake(gameState, otherSnek, board2d, Direction.Up) // this snake should be safe moving any direction
+      moveSnake(gameState, otherSnek2, board2d, Direction.Right) // this snake has enough health not to starve if it moves into hazard
+      moveSnake(gameState, otherSnek3, board2d, Direction.Right) // this snake would starve moving into hazard, but shouldn't starve moving into not hazard
+      moveSnake(gameState, otherSnek4, board2d, Direction.Up) // this snake will starve, even though up is a valid direction
 
       updateGameStateAfterMove(gameState)
 
@@ -1274,8 +1276,8 @@ describe('updateGameState tests', () => {
 
     let board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "up") // snek should get the food at (5,6)
-    moveSnake(gameState, otherSnek, board2d, "down")
+    moveSnake(gameState, snek, board2d, Direction.Up) // snek should get the food at (5,6)
+    moveSnake(gameState, otherSnek, board2d, Direction.Down)
 
     updateGameStateAfterMove(gameState)
 
@@ -1346,16 +1348,16 @@ describe('updateGameState tests', () => {
 
     let board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "down") // snek moves down to die at the jaws of snekOpponent, who is larger
-    moveSnake(gameState, snekOpponent, board2d, "up") // snekOpponent moves up to kill snek, who is smaller
-    moveSnake(gameState, otherSnek, board2d, "down") // otherSnek moves down, but doesn't die to otherSnekOpponent, who starves first
-    moveSnake(gameState, otherSnekOpponent, board2d, "up") // otherSnekOpponent moves up & tries to kill otherSnek, but starves first & dies
-    moveSnake(gameState, hazardSnek, board2d, "down") // hazardSnake moves down & lives thanks to hazardSnekOpponent dying before they can collide
-    moveSnake(gameState, hazardSnekOpponent, board2d, "up") // hazardSnekOpponent moves up & starves before colliding with hazardSnek
-    moveSnake(gameState, newSnek, board2d, "down") // newSnek moves down to kill newSnekOpponent, since it just grew by eating this turn
-    moveSnake(gameState, newSnekOpponent, board2d, "up") // newSnekOpponent moves up to die to newSnek, who is now one larger since newSnekOpponent did not eat this turn
-    moveSnake(gameState, lastSnek, board2d, "down") // lastSnek moves down to die in a mutual kiss of death with lastSnekOpponent
-    moveSnake(gameState, lastSnekOpponent, board2d, "up") // lastSnekOpponent moves up to die in a mutual kiss of death with lastSnek
+    moveSnake(gameState, snek, board2d, Direction.Down) // snek moves down to die at the jaws of snekOpponent, who is larger
+    moveSnake(gameState, snekOpponent, board2d, Direction.Up) // snekOpponent moves up to kill snek, who is smaller
+    moveSnake(gameState, otherSnek, board2d, Direction.Down) // otherSnek moves down, but doesn't die to otherSnekOpponent, who starves first
+    moveSnake(gameState, otherSnekOpponent, board2d, Direction.Up) // otherSnekOpponent moves up & tries to kill otherSnek, but starves first & dies
+    moveSnake(gameState, hazardSnek, board2d, Direction.Down) // hazardSnake moves down & lives thanks to hazardSnekOpponent dying before they can collide
+    moveSnake(gameState, hazardSnekOpponent, board2d, Direction.Up) // hazardSnekOpponent moves up & starves before colliding with hazardSnek
+    moveSnake(gameState, newSnek, board2d, Direction.Down) // newSnek moves down to kill newSnekOpponent, since it just grew by eating this turn
+    moveSnake(gameState, newSnekOpponent, board2d, Direction.Up) // newSnekOpponent moves up to die to newSnek, who is now one larger since newSnekOpponent did not eat this turn
+    moveSnake(gameState, lastSnek, board2d, Direction.Down) // lastSnek moves down to die in a mutual kiss of death with lastSnekOpponent
+    moveSnake(gameState, lastSnekOpponent, board2d, Direction.Up) // lastSnekOpponent moves up to die in a mutual kiss of death with lastSnek
 
     updateGameStateAfterMove(gameState)
 
@@ -1414,13 +1416,13 @@ describe('updateGameState tests', () => {
 
     let board2d = new Board2d(gameState.board)
 
-    moveSnake(gameState, snek, board2d, "left") // snek will avoid colliding with snekOpponent by moving its head left
-    moveSnake(gameState, snekOpponent, board2d, "left") // otherSnek will collide with snek's neck at (1,9) - note that because snek also moves, this won't be a head-to-head
-    moveSnake(gameState, otherSnek, board2d, "left") // otherSnek is right of its body, it will die if it moves left
-    moveSnake(gameState, hazardSnek, board2d, "left") // hazardSnek will die after turning left into one more turn of hazard
-    moveSnake(gameState, hazardSnekOpponent, board2d, "left") // hazardSnekOpponent should live as hazardSnek will starve before it collides with its body left
-    moveSnake(gameState, starvingSnek, board2d, "left") // starvingSnek will starve next turn no matter what
-    moveSnake(gameState, starvingSnekOpponent, board2d, "down") // starvingSnekOpponent should live as starvingSnek will starve before this collision happens
+    moveSnake(gameState, snek, board2d, Direction.Left) // snek will avoid colliding with snekOpponent by moving its head left
+    moveSnake(gameState, snekOpponent, board2d, Direction.Left) // otherSnek will collide with snek's neck at (1,9) - note that because snek also moves, this won't be a head-to-head
+    moveSnake(gameState, otherSnek, board2d, Direction.Left) // otherSnek is right of its body, it will die if it moves left
+    moveSnake(gameState, hazardSnek, board2d, Direction.Left) // hazardSnek will die after turning left into one more turn of hazard
+    moveSnake(gameState, hazardSnekOpponent, board2d, Direction.Left) // hazardSnekOpponent should live as hazardSnek will starve before it collides with its body left
+    moveSnake(gameState, starvingSnek, board2d, Direction.Left) // starvingSnek will starve next turn no matter what
+    moveSnake(gameState, starvingSnekOpponent, board2d, Direction.Down) // starvingSnekOpponent should live as starvingSnek will starve before this collision happens
 
     updateGameStateAfterMove(gameState)
 

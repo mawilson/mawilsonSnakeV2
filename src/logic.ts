@@ -1,5 +1,5 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates } from "./classes"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates } from "./classes"
 import { logToFile, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake } from "./util"
 import { evaluate } from "./eval"
 
@@ -8,7 +8,7 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export const futureSight : number = 0
+export const futureSight : number = 3
 const lookaheadWeight = 0.1
 
 export function info(): InfoResponse {
@@ -132,7 +132,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
         evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
       } else { // base case, just run the eval
-        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (newSelf.health < 10)))
+        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (myself.health < 10)))
       }
 
       // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
@@ -180,6 +180,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
-  let chosenMoveDirection : string = chosenMove.direction ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
-  return {move: chosenMoveDirection}
+  let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
+  return {move: directionToString(chosenMoveDirection)}
 }
