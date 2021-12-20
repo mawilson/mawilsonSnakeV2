@@ -8,27 +8,27 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export const lookahead : number = 2
+export const futureSight : number = 2
 
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    const response: InfoResponse = {
-        apiversion: "1",
-        author: "waryferryman",
-        color: "#ff9900", // #ff9900
-        head: "tiger-king", //"tiger-king",
-        tail: "mystic-moon" //"mystic-moon"
-    }
+    // const response: InfoResponse = {
+    //     apiversion: "1",
+    //     author: "waryferryman",
+    //     color: "#ff9900", // #ff9900
+    //     head: "tiger-king", //"tiger-king",
+    //     tail: "mystic-moon" //"mystic-moon"
+    // }
 
     // Test Snake
-    // const response: InfoResponse = {
-    //   apiversion: "1",
-    //   author: "waryferryman",
-    //   color: "#ff9900", // #ff9900
-    //   head: "trans-rights-scarf", //"tiger-king",
-    //   tail: "comet" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+      apiversion: "1",
+      author: "waryferryman",
+      color: "#ff9900", // #ff9900
+      head: "trans-rights-scarf", //"tiger-king",
+      tail: "comet" //"mystic-moon"
+    }
 
     return response
 }
@@ -167,7 +167,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, lookahead)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : string = chosenMove.direction ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: chosenMoveDirection}
 }

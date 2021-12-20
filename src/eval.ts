@@ -2,7 +2,7 @@ import { GameState } from "./types"
 import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection } from "./util"
-import { lookahead } from "./logic"
+import { futureSight } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -137,7 +137,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const possibleMoves = new Moves(true, true, true, true)
 
   // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself, lookahead)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
+  if (snakeHasEaten(myself, futureSight)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
