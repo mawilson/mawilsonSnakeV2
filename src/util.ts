@@ -364,6 +364,12 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   //logToFile(consoleWriteStream, `moveSnake snake after move: ${snakeToString(snake)}`)
 }
 
+// for moving a snake without actually moving it. Reduces its tail without reducing its length, duplicating its head instead
+export function fakeMoveSnake(snake: Battlesnake) {
+  snake.body = snake.body.slice(0, -1)
+  snake.body.push(snake.body[snake.body.length - 1])
+}
+
 // After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes, increment turn
 export function updateGameStateAfterMove(gameState: GameState) {
   gameState.board.food = gameState.board.food.filter(function findUneatenFood(food): boolean {
