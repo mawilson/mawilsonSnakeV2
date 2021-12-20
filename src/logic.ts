@@ -8,7 +8,8 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export const futureSight : number = 2
+export const futureSight : number = 0
+const lookaheadWeight = 0.1
 
 export function info(): InfoResponse {
     console.log("INFO")
@@ -137,7 +138,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
       if (evalState.score !== undefined && lookahead !== undefined) {
         let evalWeight : number = 1
-        evalWeight = evalWeight + 0.1 * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
+        evalWeight = evalWeight + lookaheadWeight * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
         evalState.score = evalState.score * evalWeight
       }
 

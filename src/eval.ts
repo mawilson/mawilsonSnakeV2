@@ -55,15 +55,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
-  const evalPriorKissOfDeath3To1Avoidance = -75
-  const evalPriorKissOfDeath3To2Avoidance = -50
-  const evalPriorKissOfDeath2To1Avoidance = -60
+  const evalPriorKissOfDeath3To1Avoidance = 0
+  const evalPriorKissOfDeath3To2Avoidance = 0
+  const evalPriorKissOfDeath2To1Avoidance = 0
   const evalPriorKissOfDeathNo = 0
-  const evalPriorKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
-  const evalPriorKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
+  const evalPriorKissOfMurderCertainty = 80 // we can kill a snake, this is probably a good thing
+  const evalPriorKissOfMurderMaybe = 40 // we can kill a snake, but they have at least one escape route or 50/50
 
-  const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
-  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
+  const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
+  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we will be kissed to death next turn
   const evalKissOfDeath3To1Avoidance = 0
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
