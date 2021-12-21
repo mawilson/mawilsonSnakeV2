@@ -8,7 +8,7 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export const futureSight : number = 3
+export const futureSight : number = 2
 const lookaheadWeight = 0.1
 
 export function info(): InfoResponse {

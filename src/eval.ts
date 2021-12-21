@@ -18,6 +18,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
   
+  const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
+
   // values to tweak
   const evalBase: number = 500
   const evalNoSnakes: number = -3000 // no snakes is bad, but not as bad as evalNoMe
@@ -29,9 +31,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 2 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = 4
-  const eval4Moves = 6
+  const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
+  const eval3Moves = isOriginalSnake? 4 : 40
+  const eval4Moves = isOriginalSnake? 6 : 60
   const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   const evalHealthStep = 1
   const evalHealthTierDifference = 10
