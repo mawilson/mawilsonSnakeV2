@@ -1,5 +1,5 @@
 import { GameState } from "./types"
-import { Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection } from "./util"
 import { futureSight } from "./logic"
@@ -13,11 +13,13 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, wasStarving: boolean) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, _priorHealth?: number) : number {
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
-  
+
+  const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
+
   // values to tweak
   const evalBase: number = 500
   const evalNoSnakes: number = -3000 // no snakes is bad, but not as bad as evalNoMe
@@ -29,9 +31,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = 2 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = 4
-  const eval4Moves = 6
+  const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
+  const eval3Moves = isOriginalSnake? 4 : 40
+  const eval4Moves = isOriginalSnake? 6 : 60
   const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   const evalHealthStep = 1
   const evalHealthTierDifference = 10
@@ -45,7 +47,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalHealthStarved = evalNoMe // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
+  const starvingHealth = 10 // below this, we are starving
+  let priorHealth: number = 0
+  if (_priorHealth === undefined && myself !== undefined) {
+    priorHealth = myself.health
+  } else if (_priorHealth !== undefined) {
+    priorHealth = _priorHealth
+  }
+  if (priorHealth < starvingHealth) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
     evalHasEaten = 1000 // food scores can get pretty high!
   } else if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
@@ -55,15 +64,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
-  const evalPriorKissOfDeath3To1Avoidance = -75
-  const evalPriorKissOfDeath3To2Avoidance = -50
-  const evalPriorKissOfDeath2To1Avoidance = -60
+  const evalPriorKissOfDeath3To1Avoidance = 0
+  const evalPriorKissOfDeath3To2Avoidance = 0
+  const evalPriorKissOfDeath2To1Avoidance = 0
   const evalPriorKissOfDeathNo = 0
-  const evalPriorKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
-  const evalPriorKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
+  const evalPriorKissOfMurderCertainty = 80 // we can kill a snake, this is probably a good thing
+  const evalPriorKissOfMurderMaybe = 40 // we can kill a snake, but they have at least one escape route or 50/50
 
-  const evalKissOfDeathCertainty = -400 // everywhere seemed like certain death
-  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we were kissed to death this turn
+  const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
+  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we will be kissed to death next turn
   const evalKissOfDeath3To1Avoidance = 0
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
@@ -177,7 +186,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves)
-  let validMoves : string[] = possibleMoves.validMoves()
+  let validMoves : Direction[] = possibleMoves.validMoves()
   let availableMoves : number = validMoves.length
 
   // look for kiss of death & murder cells in this current configuration
@@ -292,7 +301,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
     let longestSnake = getLongestSnake(myself, otherSnakes)
     let snakeDelta = snakeLengthDelta(myself, gameState.board)
-    if (!(snakeDelta === 2 && snakeHasEaten(myself))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
+    if (!(snakeDelta === 2 && snakeHasEaten(myself, futureSight))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
       if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
         let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
         buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
@@ -309,6 +318,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let foodCalc : number = 0
   for (let i: number = 1; i <= foodSearchDepth; i++) {
     foodToHunt = nearbyFood[i]
+    if (snakeHasEaten(myself, futureSight)) {
+      // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
+      if (foodToHunt) {
+        foodToHunt.push(myself.head)
+      } else {
+        foodToHunt = [myself.head]
+      }
+    }
     if (foodToHunt && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
       let foodCalcStep = 0
@@ -347,7 +364,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       //logToFile(evalWriteStream, `snake is at 0`)
       if (myself.head.x === 1 || myself.head.x === 0) { // if I am next to them on the left edge
         //logToFile(evalWriteStream, `myself is at 1`)
-        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === "up") { // if I am above snake, & it is moving up
+        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === Direction.Up) { // if I am above snake, & it is moving up
           //logToFile(evalWriteStream, `myself is above or level with snake, & snake is moving up`)
           let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head - TODO: Make this snake's NECK after moving otherSnakes prior to evaluate
           //logToFile(evalWriteStream, `cutoffCell snakeCell is myself: ${cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id}`)
@@ -371,7 +388,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === "down") { // if I am below snake, & it is moving down
+        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === Direction.Down) { // if I am below snake, & it is moving down
           let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it  
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -397,7 +414,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     } else if (snake.head.x === (gameState.board.width - 1)) { // if they are on the right edge
       if (myself.head.x === (gameState.board.width - 2) || myself.head.x === (gameState.board.width - 1)) { // if I am next to them on the right edge
-        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === "up") { // if I am above snake, & it is moving up
+        if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === Direction.Up) { // if I am above snake, & it is moving up
           let cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y}) // cell one to the left of snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -419,7 +436,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === "down") { // if I am below snake, & it is moving down
+        } else if (myself.head.y <= snake.head.y && getSnakeDirection(snake) === Direction.Down) { // if I am below snake, & it is moving down
           let cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y}) // cell one to the left of snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it          
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -445,7 +462,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     } else if (snake.head.y === 0) { // if they are on the bottom edge
       if (myself.head.y === 1 || myself.head.y === 0) { // if I am next to them on the bottom edge
-        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === "right") { // if I am right of snake, & it is moving right
+        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === Direction.Right) { // if I am right of snake, & it is moving right
           let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -467,7 +484,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === "left") { // if I am left of snake, & it is moving left
+        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === Direction.Left) { // if I am left of snake, & it is moving left
           let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it       
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -493,7 +510,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     } else if (snake.head.y === (gameState.board.height - 1)) { // if they are on the top edge
       if (myself.head.y === (gameState.board.height - 2) || myself.head.y === (gameState.board.height - 1)) { // if I am next to them on the bottom edge
-        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === "right") { // if I am right of snake, & it is moving right
+        if (myself.head.x >= snake.head.x && getSnakeDirection(snake) === Direction.Right) { // if I am right of snake, & it is moving right
           let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it             
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -515,7 +532,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
               evaluation = evaluation + evalCutoff
             }
           }
-        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === "left") { // if I am left of snake, & it is moving left
+        } else if (myself.head.x <= snake.head.x && getSnakeDirection(snake) === Direction.Left) { // if I am left of snake, & it is moving left
           let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it 
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
@@ -554,16 +571,16 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   //   possibleMoves.validMoves().forEach(function checkDirection(move) {
   //     let newCoord : Coord
   //     switch (move) {
-  //       case "up":
+  //       case Direction.Up:
   //         newCoord = {x: me.head.x, y: me.head.y + 1}
   //         break
-  //       case "down":
+  //       case Direction.Down:
   //         newCoord = {x: me.head.x, y: me.head.y - 1}
   //         break
-  //       case "left":
+  //       case Direction.Left:
   //         newCoord = {x: me.head.x + 1, y: me.head.y}
   //         break
-  //       default: //case "right":
+  //       default: //case Direction.Right:
   //         newCoord = {x: me.head.x - 1, y: me.head.y}
   //         break
   //     }
