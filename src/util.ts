@@ -563,9 +563,10 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
   return timeLeft > 50
 }
 
-export function findMoveNeighbors(me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
+export function findMoveNeighbors(gameState: GameState, me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
   let myHead = me.head
-  let kissMoves : MoveNeighbors = new MoveNeighbors(me)
+  let isDuel = gameState.you.id === me.id && gameState.board.snakes.length === 2 // only treat as a duel if 2 snakes are left & the snake is myself. Assumes other snakes will continue to avoid ties if possible
+  let kissMoves : MoveNeighbors = new MoveNeighbors(me, isDuel) // pass in argument for whether it's a duel or not
   if (moves.up) {
     let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
     kissMoves.upNeighbors = getSurroundingCells(newCoord, board2d, Direction.Down)    
@@ -983,7 +984,7 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
 // given a gamestate, snake, & board2d, return the kiss states of the neighboring cells
 export function determineKissStates(gameState: GameState, myself: Battlesnake, board2d: Board2d) : KissStates {
   let moves : Moves = getAvailableMoves(gameState, myself, board2d)
-  let moveNeighbors = findMoveNeighbors(myself, board2d, moves)
+  let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
   let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
   let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
   //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)

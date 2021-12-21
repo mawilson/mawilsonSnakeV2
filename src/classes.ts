@@ -384,13 +384,14 @@ export class MoveNeighbors {
   leftNeighbors: BoardCell[] = [];
   rightNeighbors: BoardCell[] = [];
   huntingSnakes : { [key: string]: Moves; } = {}; // object containing snakes trying to eat me. Each key is an id, each value a Moves object. Moves objects represent the moves I WENT TOWARDS, not the place the hunting snake came from. This is so that I can actually do something with the information - namely, disable a move direction if it's the only one a hunting snake can reach
+  isDuel: boolean;
   
   upPrey: Battlesnake | undefined = undefined
   downPrey: Battlesnake | undefined = undefined
   leftPrey: Battlesnake | undefined = undefined
   rightPrey: Battlesnake | undefined = undefined
 
-  constructor(me: Battlesnake, upNeighbors?: BoardCell[], downNeighbors?: BoardCell[], leftNeighbors?: BoardCell[], rightNeighbors?: BoardCell[]) {
+  constructor(me: Battlesnake, isDuel: boolean, upNeighbors?: BoardCell[], downNeighbors?: BoardCell[], leftNeighbors?: BoardCell[], rightNeighbors?: BoardCell[]) {
     this.me = me;
     if (typeof upNeighbors !== "undefined") {
       this.upNeighbors = upNeighbors;
@@ -408,6 +409,18 @@ export class MoveNeighbors {
     this.downPrey = undefined;
     this.leftPrey = undefined;
     this.rightPrey = undefined;
+    this.isDuel = isDuel;
+  }
+
+  isSnakeCellLarger(cell: BoardCell): boolean {
+    if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) { // if cell has a snake
+      if (cell.snakeCell.snake.length >= this.me.length && !this.isDuel) { // if that snake is larger or equal than me, & we're not dueling
+        return true
+      } else if (cell.snakeCell.snake.length > this.me.length && this.isDuel) { // if that snake is larger than me, & we're dueling
+        return true
+      }
+    }
+    return false // snake either doesn't exist, or isn't larger/tied depending on isDuel
   }
 
   // returns true if some upNeighbor snake exists of equal or longer length than me
@@ -416,7 +429,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.upNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].up = true;
@@ -437,7 +450,7 @@ export class MoveNeighbors {
     this.upNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         upNeighborSnakes = upNeighborSnakes + 1;
-        if (cell.snakeCell.snake.length >= _this.me.length) {
+        if (_this.isSnakeCellLarger(cell)) {
           biggerSnake = false;
         } else {
           _this.upPrey = cell.snakeCell.snake;
@@ -453,7 +466,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.downNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].down = true;
@@ -473,7 +486,7 @@ export class MoveNeighbors {
     this.downNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         downNeighborSnakes = downNeighborSnakes + 1;
-        if (cell.snakeCell.snake.length >= _this.me.length) {
+        if (_this.isSnakeCellLarger(cell)) {
           biggerSnake = false;
         } else {
           _this.downPrey = cell.snakeCell.snake;
@@ -489,7 +502,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].left = true;
@@ -509,7 +522,7 @@ export class MoveNeighbors {
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         leftNeighborSnakes = leftNeighborSnakes + 1;
-        if (cell.snakeCell.snake.length >= _this.me.length) {
+        if (_this.isSnakeCellLarger(cell)) {
           biggerSnake = false;
         } else {
           _this.leftPrey = cell.snakeCell.snake;
@@ -525,7 +538,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= _this.me.length) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
         if (_this.huntingSnakes[cell.snakeCell.snake.id]){
           _this.huntingSnakes[cell.snakeCell.snake.id].right = true;
@@ -545,7 +558,7 @@ export class MoveNeighbors {
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         rightNeighborSnakes = rightNeighborSnakes + 1;
-        if (cell.snakeCell.snake.length >= _this.me.length) {
+        if (_this.isSnakeCellLarger(cell)) {
           biggerSnake = false;
         } else {
           _this.rightPrey = cell.snakeCell.snake;

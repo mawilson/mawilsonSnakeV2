@@ -22,7 +22,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   // values to tweak
   const evalBase: number = 500
-  const evalNoSnakes: number = -3000 // no snakes is bad, but not as bad as evalNoMe
+  const evalNoSnakes: number = 400 // no snakes can be legitimately good. Ties are fine, & is the other snake chickened, we may be better off. Consider 400 a moderately 'good' move.
   const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 1000
@@ -190,7 +190,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let availableMoves : number = validMoves.length
 
   // look for kiss of death & murder cells in this current configuration
-  let moveNeighbors = findMoveNeighbors(myself, board2d, possibleMoves)
+  let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, possibleMoves)
   let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
   let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
   //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
