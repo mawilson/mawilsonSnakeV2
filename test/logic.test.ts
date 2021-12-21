@@ -323,24 +323,6 @@ describe('Longest snake function tester', () => {
   })
 })
 
-// while I still think this test is valid, lookahead has it failing. I think the situation is just really bad, & snek is doomed on proximate turns anyway.
-describe('Snake should go towards uncertain doom versus certain doom', () => {
-  it.skip('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "101", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 3, y: 5}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "101", "", "")
-      gameState.board.snakes.push(otherSnek2)
-      let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).not.toBe("up") // up is certain death to otherSnek2, but left or down are 50% death to otherSnek
-    }
-  })
-})
-
 describe('Kiss of death tests', () => {
   it('should navigate away from kiss of death cells towards freedom', () => {
     // x  x  x x x x  x
@@ -376,6 +358,21 @@ describe('Kiss of death tests', () => {
       expect(allowedMoves).toContain(moveResponse.move)
     }
   })
+  // while I still think this test is valid, lookahead has it failing. I think the situation is just really bad, & snek is doomed on proximate turns anyway.
+  it.skip('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 3, y: 5}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "101", "", "")
+      gameState.board.snakes.push(otherSnek2)
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // up is certain death to otherSnek2, but left or down are 50% death to otherSnek
+    }
+  })
   it('should navigate elsewhere, even an otherwise worse tile', () => {
     // x x h1 s1 s1
     // x h s  x  s1
@@ -406,10 +403,7 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("up") // up puts us in a 50/50 against otherSnek for basically no reason
     }
   })
-})
-
-describe('Snake should avoid a tie kiss of death', () => {
-  it('should navigate elsewhere, even an otherwise worse tile', () => {
+  it('avoids a tie kiss of death', () => {
     // x x h1 s1 s1
     // x h s  x  t1
     // x x s  t  x
@@ -419,8 +413,70 @@ describe('Snake should avoid a tie kiss of death', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}], "101", "", "")
       gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 9, y: 9}, {x: 9, y: 8}, {x: 9, y: 7}], "101", "", "")
+      gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
+    }
+  })
+  it('does not avoid a tie kiss of death if in a duel', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 5, y: 5}] // put food in the center so snakes have a good reason to collide
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // in this case not going for the food means otherSnek has a good chance to get it, putting me at a real disadvantage in a duel. Instead, can just go for it, & maybe tie
+    }
+  })
+  it('does not avoid a tie kiss of death if in a duel if it saves my life', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 2, y: 5}, {x: 3, y: 5}, {x: 3, y: 6}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 6, y: 10}, {x: 6, y: 10}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 9, y: 0}, {x: 10, y: 0}, {x: 10, y: 5}, {x: 10, y: 8}]
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 10)
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 1)
+      createHazardColumn(gameState.board, 10)
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // left traps us in sauce, bottom traps us in sauce a couple turns later. Right threatens tie, but is also not sauce, our best option
+    }
+  })
+  it.only('avoids a tie kiss of death in a duel if it thinks it can do better', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 2}], "101", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 9, y: 3}, {x: 9, y: 2}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 5, y: 0}, {x: 4, y: 0}, {x: 3, y: 0}, {x: 2, y: 0}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}], "101", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 6}, {x: 0, y: 9}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 4, y: 10}, {x: 10, y: 10}]
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+      createHazardRow(gameState.board, 2)
+      createHazardRow(gameState.board, 8)
+      createHazardRow(gameState.board, 9)
+      createHazardRow(gameState.board, 10)
+
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 8)
+      createHazardColumn(gameState.board, 9)
+      createHazardColumn(gameState.board, 10)
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("right") // snek has multiple move options & much more health in a hazard-filled board. Don't go for the tie right, make otherSnek play it out
     }
   })
 })
@@ -567,8 +623,12 @@ describe('Snake should not try to murder another snake of one less length if tha
       const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}], "101", "", "")
       const gameState = createGameState(snek)
 
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "") // otherSnek so snek doesn't think this is a duel where collisions are acceptable
+      gameState.board.snakes.push(otherSnek)
+
       const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 3}], "101", "", "")
       gameState.board.snakes.push(otherSnek2)
+
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("left") // snek should avoid otherSnek2 as they are effectively the same length now that otherSnek2 has eaten
     }
