@@ -13,11 +13,11 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, wasStarving: boolean) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, _priorHealth?: number) : number {
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
-  
+
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
   // values to tweak
@@ -47,7 +47,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalHealthStarved = evalNoMe // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  if (wasStarving) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
+  const starvingHealth = 10 // below this, we are starving
+  let priorHealth: number = 0
+  if (_priorHealth === undefined && myself !== undefined) {
+    priorHealth = myself.health
+  } else if (_priorHealth !== undefined) {
+    priorHealth = _priorHealth
+  }
+  if (priorHealth < starvingHealth) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
     evalHasEaten = 1000 // food scores can get pretty high!
   } else if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
@@ -294,7 +301,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
     let longestSnake = getLongestSnake(myself, otherSnakes)
     let snakeDelta = snakeLengthDelta(myself, gameState.board)
-    if (!(snakeDelta === 2 && snakeHasEaten(myself))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
+    if (!(snakeDelta === 2 && snakeHasEaten(myself, futureSight))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
       if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
         let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
         buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
@@ -311,6 +318,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let foodCalc : number = 0
   for (let i: number = 1; i <= foodSearchDepth; i++) {
     foodToHunt = nearbyFood[i]
+    if (snakeHasEaten(myself, futureSight)) {
+      // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
+      if (foodToHunt) {
+        foodToHunt.push(myself.head)
+      } else {
+        foodToHunt = [myself.head]
+      }
+    }
     if (foodToHunt && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
       let foodCalcStep = 0

@@ -8,7 +8,7 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export const futureSight : number = 2
+export const futureSight : number = 3
 const lookaheadWeight = 0.1
 
 export function info(): InfoResponse {
@@ -46,14 +46,14 @@ export function end(gameState: GameState): void {
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState) : MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState, priorHealth?: number) : MoveWithEval {
   let board2d = new Board2d(gameState.board)
   let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
   let priorKissOfDeathState: KissOfDeathState = _priorKissOfDeathState === undefined ? KissOfDeathState.kissOfDeathNo : _priorKissOfDeathState
   let priorKissOfMurderState: KissOfMurderState = _priorKissOfMurderState === undefined ? KissOfMurderState.kissOfMurderNo : _priorKissOfMurderState
 
-  let evalThisState: number = evaluate(gameState, myself, priorKissOfDeathState, priorKissOfMurderState, false)
+  let evalThisState: number = evaluate(gameState, myself, priorKissOfDeathState, priorKissOfMurderState, priorHealth)
 
   let kissStatesThisState: KissStates = determineKissStates(gameState, myself, board2d)
 
@@ -130,9 +130,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       
       let evalState: MoveWithEval
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-        evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
+        evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health) // This is the recursive case!!!
       } else { // base case, just run the eval
-        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, (myself.health < 10)))
+        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health))
       }
 
       // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
@@ -163,7 +163,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     } else { // if newSelf isn't defined, I have died, evaluate the state without me
       bestMove.direction = move
-      bestMove.score = evaluate(newGameState, newSelf, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, false)
+      bestMove.score = evaluate(newGameState, newSelf, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
     }
   })
 

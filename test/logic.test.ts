@@ -916,8 +916,8 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
         gameState.board.snakes.push(otherSnek)
         
-        let evalSnek = evaluate(gameState, snek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, false)
-        let evalOtherSnek = evaluate(gameState, otherSnek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, false)
+        let evalSnek = evaluate(gameState, snek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
+        let evalOtherSnek = evaluate(gameState, otherSnek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
 
         expect(evalSnek).toBeGreaterThan(evalOtherSnek)
     })
