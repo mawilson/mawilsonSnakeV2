@@ -1049,20 +1049,20 @@ export function lookaheadDeterminator(gameState: GameState) {
   if (gameState.you.name === "Test Snake Please Ignore") {
     return lookaheadDeterminatorNonCpuBound(gameState)
   } else {
-    switch (gameState.board.snakes.length) {
-      case 0:
-      case 1:
-        return 0
-      case 2:
-        return 6
-      case 3:
-        return 6
-      default: // 4 or more
-        if (gameState.game.timeout < 500) {
-          return 4
-        } else {
-          return 5
-        } 
+    if(gameState.game.timeout < 500) {
+      return 4 // this is all we can afford in speed snake
+    } else {
+      switch (gameState.board.snakes.length) {
+        case 0:
+        case 1:
+          return 0
+        case 2:
+          return 6
+        case 3:
+          return 6
+        default: // 4 or more
+          return 5 
+      }
     }
   }
 }
