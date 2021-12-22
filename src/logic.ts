@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates } from "./classes"
-import { logToFile, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake } from "./util"
+import { logToFile, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator } from "./util"
 import { evaluate } from "./eval"
 
 import { createWriteStream } from 'fs'
@@ -8,7 +8,7 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export const futureSight : number = 3
+export var futureSight : number = 4
 const lookaheadWeight = 0.1
 
 export function info(): InfoResponse {
@@ -179,6 +179,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
+  futureSight = lookaheadDeterminator(gameState)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: directionToString(chosenMoveDirection)}

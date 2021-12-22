@@ -4,9 +4,9 @@ import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, Mo
 import { evaluate } from "./eval"
 
 export function logToFile(file: WriteStream, str: string) {
-  console.log(str)
-  file.write(`${str}
-  `)
+  // console.log(str)
+  // file.write(`${str}
+  // `)
 }
 
 let consoleWriteStream = createWriteStream("consoleLogs_util.txt", {
@@ -799,11 +799,7 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, gameState
   }
   let neighbors = getSurroundingCells(coord, board2d)
   let hazardCell = neighbors.find(function checkForHazard(neighbor) {
-    if (neighbor.snakeCell instanceof SnakeCell) {
-      return false
-    } else {
-      return neighbor.hazard
-    }
+    return neighbor.hazard
   })
   return hazardCell !== undefined
 }
@@ -1016,4 +1012,34 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
       break
   }
   return {kissOfDeathState: kissOfDeathState, kissOfMurderState: kissOfMurderState}
+}
+
+export function lookaheadDeterminator(gameState: GameState): number {
+  let timeout = gameState.game.timeout
+  let defaultLatency = gameState.you.name === "Test Snake Please Ignore" ? 150 : 30 // default latency of 30 for prod snakes, 150 for local snake
+  let latency = gameState.you.latency === "" ? defaultLatency : parseInt(gameState.you.latency, 10)
+  latency = latency === NaN ? defaultLatency : latency // in case latency is non-numeric for some reason
+  let numSnakes = gameState.board.snakes.length
+  let comfortMargin: number = 50 // time in ms I'm comfortable skirting close to the edge of timeout
+  let timeLeft: number = timeout - latency - comfortMargin
+
+  function _lookaheadDeterminator(penalty: number) {
+    let lookahead: number = 1 // base lookahead of 1, assume we can do at least this
+
+    // for jaguar, with a latency of 30 & penalty of 20, this would give us a lookahead of 8, with a 90ms penalty for the 8th lookahead
+    // for test snake, with a latency of 150& penalty of 20, this would give us a lookahead of 7, with a 80ms penalty for the 7th lookahead
+    for (let j: number = timeLeft; j >= 0; j = j - penalty - (lookahead * 10)) { // 1st lookahead free. 40ms for second, 50ms for third, etc.
+      lookahead = lookahead + 1
+    }
+    return lookahead
+  }
+
+  if (numSnakes === 0) {
+    return 0 // with no snakes there's no meaningful calqs for us to do anyway, return lookahead of 0
+  }
+  if (numSnakes > 2) {
+    return _lookaheadDeterminator(20) // give a 20ms base penalty for each loop plus cost associated with lookahead depth
+  } else {
+    return _lookaheadDeterminator(10) // give a 10ms base penalty for each loop plus cost associated with lookahead depth
+  }
 }

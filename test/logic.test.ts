@@ -59,9 +59,8 @@ describe('Battlesnake Moves', () => {
       // x x x
       // s s x
       // h t x
-      // Act 1,000x (this isn't a great way to test, but it's okay for starting out)
       for (let i = 0; i < 3; i++) {
-        const me = new Battlesnake("me", "me", 80, [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }], "101", "", "")
+        const me = new Battlesnake("me", "me", 80, [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }], "30", "", "")
         const gameState = createGameState(me)
         const moveResponse: MoveResponse = move(gameState)
         // In this state, we should NEVER move left.
@@ -77,7 +76,7 @@ describe('BattleSnake can chase tail', () => {
     // s s x
     // h t x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], "101", "", "") // 50 health means it hasn't just eaten
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], "30", "", "") // 50 health means it hasn't just eaten
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right")
@@ -85,10 +84,10 @@ describe('BattleSnake can chase tail', () => {
   })
   it('should be allowed to chase another snake tail', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 1, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 1, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right")
@@ -96,10 +95,10 @@ describe('BattleSnake can chase tail', () => {
   })
   it('should allow otherSnakes to chase their own tails', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let otherSnekMove = decideMove(gameState, otherSnek, 0)
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
@@ -108,10 +107,10 @@ describe('BattleSnake can chase tail', () => {
   })
   it('should allow otherSnakes to chase other snake tails', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let otherSnekMove = decideMove(gameState, otherSnek, 0)
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
@@ -126,7 +125,7 @@ describe('BattleSnake will not chase tail after eating', () => {
     // t x x
     // h x x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right")
@@ -137,10 +136,10 @@ describe('BattleSnake will not chase tail after eating', () => {
 describe('BattleSnake chooses death by snake over death by wall or hazard', () => {
   it('always chooses a snake body over a border death given no other valid moves', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 7, y: 9}, {x: 7, y: 8}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 7, y: 9}, {x: 7, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 10}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 2, y: 9}, {x: 1, y: 9}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 10}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 2, y: 9}, {x: 1, y: 9}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up")
@@ -148,10 +147,10 @@ describe('BattleSnake chooses death by snake over death by wall or hazard', () =
   })
   it('always chooses a snake body over a hazard death or wall given no other valid moves', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 10, [{x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 7, y: 9}, {x: 7, y: 8}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 10, [{x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 7, y: 9}, {x: 7, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 2, y: 9}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 2, y: 9}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       createHazardRow(gameState.board, 10)
@@ -166,7 +165,7 @@ describe('Board2d accurately maps game state', () => {
     // x f z
     // t f z
     // h x z
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
     const gameBoard = gameState.board
 
@@ -212,7 +211,7 @@ describe('BattleSnake will not eat a left wall', () => {
     // h s t
     // x x x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 2, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 2, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("left")
@@ -226,7 +225,7 @@ describe('BattleSnake will not eat a right wall', () => {
     // t s h
     // x x x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 10, y: 1}, {x: 9, y: 1}, {x: 8, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 10, y: 1}, {x: 9, y: 1}, {x: 8, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("right")
@@ -240,7 +239,7 @@ describe('BattleSnake will not eat an up wall', () => {
     // x s x
     // x t x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 8}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up")
@@ -254,7 +253,7 @@ describe('BattleSnake will not eat a down wall', () => {
     // x s x
     // x h x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("down")
@@ -268,7 +267,7 @@ describe('Battlesnake will not eat its own body', () => {
     // x s h
     // x t x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 1}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 1, y: 0}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 1}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 1, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(["down", "right"]).toContain(moveResponse.move)
@@ -283,10 +282,10 @@ describe('Snake should not walk into another snake body', () => {
     // s s1 h1
     // t s1 t1
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 2}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 2}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("down")
@@ -296,10 +295,10 @@ describe('Snake should not walk into another snake body', () => {
 
 describe('Battlesnake knows if it is king snake', () => {
   it('should know if it is at least two longer than any other snake', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
     const kingOfSnakes = isKingOfTheSnakes(snek, gameState.board)
@@ -309,13 +308,13 @@ describe('Battlesnake knows if it is king snake', () => {
 
 describe('Longest snake function tester', () => {
   it('should return the longest, closest snake other than itself', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 2}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 2}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 2}, {x: 5, y: 2}, {x: 5, y: 2}], "101", "", "")
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 2}, {x: 5, y: 2}, {x: 5, y: 2}], "30", "", "")
     gameState.board.snakes.push(otherSnek2)
 
     const longestSnake = getLongestSnake(snek, gameState.board.snakes)
@@ -330,13 +329,13 @@ describe('Kiss of death tests', () => {
     // s1 h1 x h x h2 s2
     // t1 x  t s x x  t2
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 3, y: 3}, {x: 3, y: 2}, {x: 2, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 3, y: 3}, {x: 3, y: 2}, {x: 2, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 3}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 3}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving up
@@ -344,13 +343,13 @@ describe('Kiss of death tests', () => {
   })
   it('chooses a kiss of death cell over a snake body if those are the sole options', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 1}, {x: 6, y: 1}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 1}, {x: 6, y: 1}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
 
       let moveResponse : MoveResponse = move(gameState)
@@ -361,13 +360,13 @@ describe('Kiss of death tests', () => {
   // while I still think this test is valid, lookahead has it failing. I think the situation is just really bad, & snek is doomed on proximate turns anyway.
   it.skip('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 3, y: 5}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 3, y: 5}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up") // up is certain death to otherSnek2, but left or down are 50% death to otherSnek
@@ -378,25 +377,24 @@ describe('Kiss of death tests', () => {
     // x h s  x  s1
     // x x s  t  t1
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 4, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 4, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up") // left & bottom shove me in a corner, but don't result in a kiss of death
     }
   })
   it('avoids future kisses of death choices', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 2, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 2, y: 4}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 3, y: 7}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 5, y: 9}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 7, y: 8}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 5, y: 7}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 3, y: 7}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 5, y: 9}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 7, y: 8}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 5, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 0, y: 6}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 2, y: 7}, {x: 2, y: 8}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 0, y: 6}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 2, y: 7}, {x: 2, y: 8}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
 
       let moveResponse : MoveResponse = move(gameState)
@@ -408,25 +406,24 @@ describe('Kiss of death tests', () => {
     // x h s  x  t1
     // x x s  t  x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 9, y: 9}, {x: 9, y: 8}, {x: 9, y: 7}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 9, y: 9}, {x: 9, y: 8}, {x: 9, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
     }
   })
   it('does not avoid a tie kiss of death if in a duel', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 5, y: 5}] // put food in the center so snakes have a good reason to collide
@@ -437,10 +434,10 @@ describe('Kiss of death tests', () => {
   })
   it('does not avoid a tie kiss of death if in a duel if it saves my life', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 2, y: 5}, {x: 3, y: 5}, {x: 3, y: 6}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 6, y: 10}, {x: 6, y: 10}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 2, y: 5}, {x: 3, y: 5}, {x: 3, y: 6}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 6, y: 10}, {x: 6, y: 10}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 9, y: 0}, {x: 10, y: 0}, {x: 10, y: 5}, {x: 10, y: 8}]
@@ -454,12 +451,12 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).toBe("right") // left traps us in sauce, bottom traps us in sauce a couple turns later. Right threatens tie, but is also not sauce, our best option
     }
   })
-  it.only('avoids a tie kiss of death in a duel if it thinks it can do better', () => {
+  it('avoids a tie kiss of death in a duel if it thinks it can do better', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 9, y: 3}, {x: 9, y: 2}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 5, y: 0}, {x: 4, y: 0}, {x: 3, y: 0}, {x: 2, y: 0}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 9, y: 3}, {x: 9, y: 2}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 5, y: 0}, {x: 4, y: 0}, {x: 3, y: 0}, {x: 2, y: 0}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 0, y: 6}, {x: 0, y: 9}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 4, y: 10}, {x: 10, y: 10}]
@@ -488,10 +485,10 @@ describe('Snake should seek out a kiss of murder', () => {
     // s1 h1 x
     // x  x  x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 1}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 1}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("down") // left murder isn't likely to land & puts us in a 0move, down murder is obvious
@@ -502,10 +499,10 @@ describe('Snake should seek out a kiss of murder', () => {
 describe('Snake should seek out a kiss of murder in the borderlands', () => {
   it('seeks out murder even on the outskirts of town', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}, {x: 5, y: 10}, {x: 5, y: 9}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}, {x: 5, y: 10}, {x: 5, y: 9}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // should try to murder the snake by going either left or down
@@ -516,10 +513,10 @@ describe('Snake should seek out a kiss of murder in the borderlands', () => {
 describe('Snake should account for possible kisses after it moves', () => {
   it('avoids moving towards a cell that would result in kisses of death', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 10}, {x: 3, y: 10}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 10}, {x: 3, y: 10}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 5, y: 8}, {x: 7, y: 5}]
@@ -539,13 +536,13 @@ describe('King snake should seek out next longest snake', () => {
     // x  x  x s s  s t
     // t1 h1 x x x  x x
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}], "30", "", "")
       const gameState = createGameState(snek)
 
-      // const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 4, y: 1}, {x:4, y: 2}, {x: 4, y: 3}], "101", "", "")
+      // const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 4, y: 1}, {x:4, y: 2}, {x: 4, y: 3}], "30", "", "")
       // gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 6, y: 7}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 6, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
 
       let moveResponse : MoveResponse = move(gameState)
@@ -566,26 +563,26 @@ describe('Snake should not attempt to murder in a square that will likely immedi
   // x x x x x x x x x x c
   it('prioritizes kill moves in safer tiles', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 7, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}, {x: 7, y: 8}, {x: 7, y: 9}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 9, y: 9}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 7, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}, {x: 7, y: 8}, {x: 7, y: 9}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 9, y: 9}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 2}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("right") // snek can eat otherSnek2 at right or down, but going right will result in certain death unless otherSnek2 stupidly goes up
     }
   })
   it('does not attempt a kill in a cell where its prey can escape by chasing another snake tail', () => {
-    const snek = new Battlesnake("snek", "snek", 90, [{x: 7, y: 7}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 90, [{x: 7, y: 7}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}], "30", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 8, y: 9}, {x: 9, y: 9}, {x: 10, y: 9}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 8, y: 9}, {x: 9, y: 9}, {x: 10, y: 9}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
     gameState.board.snakes.push(otherSnek2)
     let moveResponse : MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // as above, otherSnek should never go left, so snek should never close itself in by trying to eat it going down
@@ -596,10 +593,10 @@ describe('Snake should not attempt to murder in a square that will likely immedi
 describe('Snake should try to murder another snake of equivalent length if it has just eaten', () => {
   it('will murder after it has grown one length', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 2}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       let allowedMoves : string[] = ["right", "down"]
@@ -620,13 +617,13 @@ describe('Snake should not try to murder another snake of one less length if tha
   // x x x x x x x x x x x
   it('will equal the other snake length after the other snake grows', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "101", "", "") // otherSnek so snek doesn't think this is a duel where collisions are acceptable
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "") // otherSnek so snek doesn't think this is a duel where collisions are acceptable
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 3}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 3}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
 
       let moveResponse : MoveResponse = move(gameState)
@@ -647,10 +644,10 @@ describe('Snake should not try to eat a snake of identical length if it just ate
   // x x x x x x x x x x x
   it('will go up or right to avoid a chicken situation', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 7, y: 5}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 7, y: 5}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 4, y: 8}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 4, y: 8}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("left")
@@ -660,14 +657,14 @@ describe('Snake should not try to eat a snake of identical length if it just ate
 
 describe('Cloned game state should not have any references left to original game state', () => {
   it('should contain identical values which can be changed without changing the original', () => {
-    const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
 
     gameState.board.hazards = [{x:0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 9, y: 5}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 4}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 9, y: 5}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 4}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
     const clone = cloneGameState(gameState)
@@ -748,7 +745,7 @@ describe('Cloned game state should not have any references left to original game
     clone.board.snakes[1].squad = "cloneSquid"
 
     expect(gameState.board.snakes[0].name).toBe("snek")
-    expect(gameState.board.snakes[0].latency).toBe("101")
+    expect(gameState.board.snakes[0].latency).toBe("30")
     expect(gameState.board.snakes[1].body.length).toBe(6)
     expect(gameState.board.snakes[1].squad).toBe("")
 
@@ -778,14 +775,14 @@ describe('Cloned game state should not have any references left to original game
 
 describe('Cloned game state should be identical to source game state', () => {
   it('should have the same snakes, rulesets, etc', () => {
-    const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
 
     gameState.board.hazards = [{x:0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 9, y: 5}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 4}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 9, y: 5}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 4}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
     const clone = cloneGameState(gameState)
@@ -826,7 +823,7 @@ describe('Cloned game state should be identical to source game state', () => {
     expect(gameState.board.hazards[1].x).toBe(0)
 
     expect(clone.board.snakes[0].name).toBe("snek")
-    expect(clone.board.snakes[0].latency).toBe("101")
+    expect(clone.board.snakes[0].latency).toBe("30")
     expect(clone.board.snakes[1].body.length).toBe(6)
     expect(clone.board.snakes[1].squad).toBe("")
 
@@ -843,7 +840,7 @@ describe('Cloned game state should be identical to source game state', () => {
 
 describe('Moving a snake results in changes to body, head, health', () => {
   it('should have correct body and health after moving', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
@@ -873,7 +870,7 @@ describe('Moving a snake results in changes to body, head, health', () => {
 
 describe('Moving a snake into hazard results in changes to body, head, health', () => {
   it('should have correct body and health after moving into hazard', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
@@ -903,7 +900,7 @@ describe('Moving a snake into hazard results in changes to body, head, health', 
 
 describe('Moving a snake into food results in changes to body, head, health', () => {
   it('should have correct body and health after moving into food', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 2, y: 3}, {x: 6, y: 6}]
@@ -937,7 +934,7 @@ describe('Moving a snake into food results in changes to body, head, health', ()
 
 describe('Moving a snake from food results in changes to body, head, health', () => {
   it('should have correct body and health after moving from food', () => {
-    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
@@ -969,11 +966,11 @@ describe('Moving a snake from food results in changes to body, head, health', ()
 
 describe('Evaluate a doomed snake and an undoomed snake', () => {
     it('should rank the undoomed move higher', () => {
-        const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "101", "", "")
+        const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
         
         const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "101", "", "")
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "30", "", "")
         gameState.board.snakes.push(otherSnek)
         
         let evalSnek = evaluate(gameState, snek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
@@ -986,11 +983,11 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
 describe('Snake should avoid food when king snake', () => {
   it('does not choose food if better options exist while king snake', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 5, y: 4}]
@@ -1008,11 +1005,11 @@ describe('Snake should avoid food when king snake', () => {
 describe('Snake should not try for a maybe kill if it leads it to certain doom', () => {
   it('does not chase after a snake it cannot catch', () => {
       for (let i = 0; i < 3; i++) {
-        const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 2, y: 5}], "101", "", "")
+        const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}, {x: 2, y: 5}], "30", "", "")
       
         const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 10, y: 8}], "101", "", "")
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 10, y: 8}], "30", "", "")
         gameState.board.snakes.push(otherSnek)
 
         gameState.board.food = [{x: 6, y: 5}, {x: 0, y: 6}, {x: 7, y: 1}]
@@ -1025,11 +1022,11 @@ describe('Snake should not try for a maybe kill if it leads it to certain doom',
 describe('Snake should not seek food through hazard if not hazard route exists', () => {
   it('does not path through hazard when possible', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 45, [{x: 8, y: 3}, {x: 8, y: 2}, {x: 7, y: 2}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 45, [{x: 8, y: 3}, {x: 8, y: 2}, {x: 7, y: 2}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 4, y: 6}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 4, y: 6}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 4, y: 3}, {x: 1, y: 6}, {x: 1, y: 8}, {x: 5, y: 10}, {x: 10, y: 10}, {x: 9, y: 6}]
@@ -1047,11 +1044,11 @@ describe('Snake should not seek food through hazard if not hazard route exists',
 describe('Snake should not seek kill through hazard if not hazard route exists', () => {
   it('does not path through hazard when possible', () => { // skipping, no longer valid as we predict snake moves away & we don't consider down as good a prospect as right, even considering hazard
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 10, [{x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 10, [{x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 8, y: 0}, {x: 7, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 8, y: 0}, {x: 7, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       createHazardRow(gameState.board, 10)
@@ -1069,11 +1066,11 @@ describe('Snake should not seek kill through hazard if not hazard route exists',
 describe('Snake should exit hazard when it can do so safely', () => {
   it('does not travel through hazard longer than necessary', () => {
       for (let i = 0; i < 3; i++) {
-        const snek = new Battlesnake("snek", "snek", 40, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "101", "", "")
+        const snek = new Battlesnake("snek", "snek", 40, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "30", "", "")
       
         const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 3, y: 5}], "101", "", "")
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 3, y: 5}], "30", "", "")
         gameState.board.snakes.push(otherSnek)
 
         createHazardRow(gameState.board, 10)
@@ -1092,11 +1089,11 @@ describe('Snake should exit hazard when it can do so safely', () => {
 describe('Snake should not enter hazard when it does not need to', () => {
   it('does not travel through hazard when another viable option exists', () => {
       for (let i = 0; i < 3; i++) {
-        const snek = new Battlesnake("snek", "snek", 20, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}], "101", "", "")
+        const snek = new Battlesnake("snek", "snek", 20, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}], "30", "", "")
       
         const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 1}, {x: 7, y: 1}, {x: 7, y: 2}, {x: 7, y: 3}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 3, y: 3}, {x: 3, y: 4}, {x: 4, y: 4}], "101", "", "")
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 1}, {x: 7, y: 1}, {x: 7, y: 2}, {x: 7, y: 3}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 3, y: 3}, {x: 3, y: 4}, {x: 4, y: 4}], "30", "", "")
         gameState.board.snakes.push(otherSnek)
 
         createHazardRow(gameState.board, 0)
@@ -1110,10 +1107,10 @@ describe('Snake should not enter hazard when it does not need to', () => {
 
 describe('Can accurately get adjacency to hazard', () => {
   it('knows when hazards are adjacent to a coordinate and without a snake', () => {
-    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("snek", "snek", 100, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+    const otherSnek = new Battlesnake("snek", "snek", 100, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
     gameState.board.food = [{x: 5, y: 5}, {x: 6, y: 6}]
@@ -1145,7 +1142,7 @@ describe('Can accurately get adjacency to hazard', () => {
     expect(isInOrAdjacentToHazard({x: 3, y: 5}, board2d, gameState)).toBe(true)
     expect(isInOrAdjacentToHazard({x: 3, y: 10}, board2d, gameState)).toBe(true)
 
-    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d, gameState)).toBe(false) // is adjacent to a hazard, but that hazard has a snake, so don't consider it a hazard
+    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d, gameState)).toBe(true) // is adjacent to a hazard, but that hazard has a snake, so STILL consider it a hazard
 
     expect(isInOrAdjacentToHazard({x: 11, y: 10}, board2d, gameState)).toBe(false) // doesn't exist & thus has no neighbors, even if it is numerically one away from it
 
@@ -1157,11 +1154,11 @@ describe('Can accurately get adjacency to hazard', () => {
 describe('Snake should cut other snakes off', () => {
   it('travels straight into the wall, then turns away to kill a larger snake', () => {
       for (let i = 0; i < 3; i++) {
-        const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y : 4}], "101", "", "")
+        const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y : 4}], "30", "", "")
       
         const gameState = createGameState(snek)
 
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "101", "", "")
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
         gameState.board.snakes.push(otherSnek)
         let moveResponse: MoveResponse = move(gameState)
         const allowedMoves = ["left", "up"]
@@ -1170,11 +1167,11 @@ describe('Snake should cut other snakes off', () => {
   })
   it('travels straight into the wall, then turns away to kill a larger snake even with me', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 9}, {x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 9}, {x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // Up will cut otherSnek off, effectively killing it
@@ -1182,11 +1179,11 @@ describe('Snake should cut other snakes off', () => {
   })
   it('travels straight into the wall, then turns away to kill a larger snake one behind me', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 1, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // Up will cut otherSnek off, effectively killing it
@@ -1194,15 +1191,15 @@ describe('Snake should cut other snakes off', () => {
   })
   it('turns towards the smaller snake and goes for the kill', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       // add another larger snake so snek doesn't think it's king snake & navigate towards otherSnek for that reason
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 30, [{x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 6}, {x: 10, y: 7}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 30, [{x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 6}, {x: 10, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("left") // Left will send us towards the smaller snake, going for the kill.
@@ -1210,11 +1207,11 @@ describe('Snake should cut other snakes off', () => {
   })
   it('having cut a snake off, let it die if it will grow to my size rather than go after it', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 1, y: 2}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 1, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       
       gameState.board.food = [{x: 0, y: 7}]
@@ -1227,7 +1224,7 @@ describe('Snake should cut other snakes off', () => {
 describe('Snake should not enter spaces without a clear escape route', () => {
   it('does not enter a space enclosed by itself', () => {
       for (let i = 0; i < 3; i++) {
-        const snek = new Battlesnake("snek", "snek", 50, [{x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 6}, {x: 8, y: 4}, {x: 7, y: 4}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}], "101", "", "")
+        const snek = new Battlesnake("snek", "snek", 50, [{x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 6}, {x: 8, y: 4}, {x: 7, y: 4}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}], "30", "", "")
       
         const gameState = createGameState(snek)
 
@@ -1238,11 +1235,11 @@ describe('Snake should not enter spaces without a clear escape route', () => {
   })
   it('does not enter a space enclosed by another snake', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 9, y: 8}, {x: 9, y: 9}, {x: 8, y: 9}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 9, y: 8}, {x: 9, y: 9}, {x: 8, y: 9}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 0, y: 0}, {x: 2, y: 5}, {x: 9, y: 10}]
@@ -1252,11 +1249,11 @@ describe('Snake should not enter spaces without a clear escape route', () => {
   })
   it('does not chase a snake into a corner trap', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 10}, {x: 2, y: 9}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 10}, {x: 2, y: 9}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 0, y: 0}, {x: 2, y: 5}, {x: 9, y: 10}]
@@ -1266,11 +1263,11 @@ describe('Snake should not enter spaces without a clear escape route', () => {
   })
   it('does not walk into a single space with no exit', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 2, y: 5}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 2, y: 5}], "30", "", "")
     
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 3, y: 6}, {x: 2, y: 6}, {x: 2, y:7}, {x: 3, y: 7}, {x: 3, y: 8}, {x: 3, y: 9}, {x: 3, y: 10}, {x:4, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 3, y: 6}, {x: 2, y: 6}, {x: 2, y:7}, {x: 3, y: 7}, {x: 3, y: 8}, {x: 3, y: 9}, {x: 3, y: 10}, {x:4, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 4, y: 6}]
@@ -1280,7 +1277,7 @@ describe('Snake should not enter spaces without a clear escape route', () => {
   })
   it('does not move into a corner that will kill it several moves later', () => {
     for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}], "30", "", "")
     
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
@@ -1291,20 +1288,20 @@ describe('Snake should not enter spaces without a clear escape route', () => {
 
 describe('updateGameState tests', () => {
   it('updates game state to kill & remove snakes that have starved', () => {
-      const snek = new Battlesnake("snek", "snek", 10, [{x: 9, y: 10}, {x: 9, y: 9}, {x: 9, y: 8}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 10, [{x: 9, y: 10}, {x: 9, y: 9}, {x: 9, y: 8}], "30", "", "")
       
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 5, y: 8}, {x: 5, y: 7}, {x: 5, y: 6}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 92, [{x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}], "101", "", "")
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 92, [{x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}], "30", "", "")
       gameState.board.snakes.push(otherSnek2)
 
-      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 5, [{x: 2, y: 7}, {x: 2, y: 8}, {x: 3, y: 8}], "101", "", "")
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 5, [{x: 2, y: 7}, {x: 2, y: 8}, {x: 3, y: 8}], "30", "", "")
       gameState.board.snakes.push(otherSnek3)
 
-      const otherSnek4 = new Battlesnake("otherSnek4", "otherSnek4", 1, [{x: 10, y: 0}, {x: 9, y: 0}, {x: 8, y: 0}], "101", "", "")
+      const otherSnek4 = new Battlesnake("otherSnek4", "otherSnek4", 1, [{x: 10, y: 0}, {x: 9, y: 0}, {x: 8, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek4)
 
       createHazardRow(gameState.board, 10)
@@ -1338,11 +1335,11 @@ describe('updateGameState tests', () => {
       expect(gameState.board.snakes[2].body[2].y).toBe(8)
   })
   it('updates game state to remove food that has been eaten and update snake tail lengths for those that have eaten', () => {
-    const snek = new Battlesnake("snek", "snek", 10, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 10, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}], "30", "", "")
     
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 9}], "101", "", "") // snake has just eaten
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 9}], "30", "", "") // snake has just eaten
     gameState.board.snakes.push(otherSnek)
 
     gameState.board.food = [{x: 5, y: 6}, {x: 5, y: 4}]
@@ -1386,35 +1383,35 @@ describe('updateGameState tests', () => {
     expect(gameState.board.food[0].y).toBe(4)
   })
   it('updates game state to kill & remove snakes that have collided head-to-head', () => {
-    const snek = new Battlesnake("snek", "snek", 92, [{x: 10, y: 8}, {x: 10, y: 9}, {x: 10, y: 10}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 92, [{x: 10, y: 8}, {x: 10, y: 9}, {x: 10, y: 10}], "30", "", "")
     
     const gameState = createGameState(snek)
 
-    const snekOpponent = new Battlesnake("snekOpponent", "snekOpponent", 92, [{x: 10, y: 6}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 10, y: 3}], "101", "", "")
+    const snekOpponent = new Battlesnake("snekOpponent", "snekOpponent", 92, [{x: 10, y: 6}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 10, y: 3}], "30", "", "")
     gameState.board.snakes.push(snekOpponent)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 8}, {x: 8, y: 9}, {x: 8, y: 10}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 8}, {x: 8, y: 9}, {x: 8, y: 10}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const otherSnekOpponent = new Battlesnake("otherSnekOpponent", "otherSnekOpponent", 1, [{x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}], "101", "", "")
+    const otherSnekOpponent = new Battlesnake("otherSnekOpponent", "otherSnekOpponent", 1, [{x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}], "30", "", "")
     gameState.board.snakes.push(otherSnekOpponent)
 
-    const hazardSnek = new Battlesnake("hazardSnek", "hazardSnek", 92, [{x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}], "101", "", "")
+    const hazardSnek = new Battlesnake("hazardSnek", "hazardSnek", 92, [{x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}], "30", "", "")
     gameState.board.snakes.push(hazardSnek)
 
-    const hazardSnekOpponent = new Battlesnake("hazardSnekOpponent", "hazardSnekOpponent", 10, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}], "101", "", "")
+    const hazardSnekOpponent = new Battlesnake("hazardSnekOpponent", "hazardSnekOpponent", 10, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}], "30", "", "")
     gameState.board.snakes.push(hazardSnekOpponent)
 
-    const newSnek = new Battlesnake("newSnek", "newSnek", 100, [{x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 10}, {x: 6, y: 10}], "101", "", "") // just eaten
+    const newSnek = new Battlesnake("newSnek", "newSnek", 100, [{x: 6, y: 8}, {x: 6, y: 9}, {x: 6, y: 10}, {x: 6, y: 10}], "30", "", "") // just eaten
     gameState.board.snakes.push(newSnek)
 
-    const newSnekOpponent = new Battlesnake("newSnekOpponent", "newSnekOpponent", 92, [{x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}], "101", "", "")
+    const newSnekOpponent = new Battlesnake("newSnekOpponent", "newSnekOpponent", 92, [{x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}], "30", "", "")
     gameState.board.snakes.push(newSnekOpponent)
     
-    const lastSnek = new Battlesnake("lastSnek", "lastSnek", 92, [{x: 4, y: 8}, {x: 4, y: 9}, {x: 4, y: 10}], "101", "", "")
+    const lastSnek = new Battlesnake("lastSnek", "lastSnek", 92, [{x: 4, y: 8}, {x: 4, y: 9}, {x: 4, y: 10}], "30", "", "")
     gameState.board.snakes.push(lastSnek)
 
-    const lastSnekOpponent = new Battlesnake("lastSnekOpponent", "lastSnekOpponent", 92, [{x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}], "101", "", "")
+    const lastSnekOpponent = new Battlesnake("lastSnekOpponent", "lastSnekOpponent", 92, [{x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}], "30", "", "")
     gameState.board.snakes.push(lastSnekOpponent)
 
     createHazardColumn(gameState.board, 0)
@@ -1463,26 +1460,26 @@ describe('updateGameState tests', () => {
     expect(gameState.board.snakes[3].body[2].y).toBe(9)
   })
   it('updates game state to kill & remove snakes that collided with another snake body', () => {
-    const snek = new Battlesnake("snek", "snek", 10, [{x: 9, y: 10}, {x: 9, y: 9}, {x: 9, y: 8}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 10, [{x: 9, y: 10}, {x: 9, y: 9}, {x: 9, y: 8}], "30", "", "")
     
     const gameState = createGameState(snek)
 
-    const snekOpponent = new Battlesnake("snekOpponent", "snekOpponent", 92, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 10, y: 8}], "101", "", "")
+    const snekOpponent = new Battlesnake("snekOpponent", "snekOpponent", 92, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 10, y: 8}], "30", "", "")
     gameState.board.snakes.push(snekOpponent)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 1, y: 9}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 1, y: 9}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
-    const hazardSnek = new Battlesnake("hazardSnek", "hazardSnek", 5, [{x: 3, y: 0}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "101", "", "")
+    const hazardSnek = new Battlesnake("hazardSnek", "hazardSnek", 5, [{x: 3, y: 0}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     gameState.board.snakes.push(hazardSnek)
 
-    const hazardSnekOpponent = new Battlesnake("hazardSnekOpponent", "hazardSnekOpponent", 100, [{x: 4, y: 0}, {x: 5, y: 0}, {x: 6, y: 0}, {x: 6, y: 0}], "101", "", "")
+    const hazardSnekOpponent = new Battlesnake("hazardSnekOpponent", "hazardSnekOpponent", 100, [{x: 4, y: 0}, {x: 5, y: 0}, {x: 6, y: 0}, {x: 6, y: 0}], "30", "", "")
     gameState.board.snakes.push(hazardSnekOpponent)
 
-    const starvingSnek = new Battlesnake("starvingSnek", "starvingSnek", 1, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}], "101", "", "")
+    const starvingSnek = new Battlesnake("starvingSnek", "starvingSnek", 1, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}], "30", "", "")
     gameState.board.snakes.push(starvingSnek)
 
-    const starvingSnekOpponent = new Battlesnake("starvingSnekOpponent", "starvingSnekOpponent", 90, [{x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}], "101", "", "")
+    const starvingSnekOpponent = new Battlesnake("starvingSnekOpponent", "starvingSnekOpponent", 90, [{x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}], "30", "", "")
     gameState.board.snakes.push(starvingSnekOpponent)
 
     createHazardRow(gameState.board, 0)
@@ -1526,10 +1523,10 @@ describe('updateGameState tests', () => {
 describe('Food prioritization and acquisition', () => {
   it('acquires food when healthy and adjacent to it', () => {
       for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
@@ -1540,10 +1537,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('acquires food when starving and adjacent to it', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 5, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 5, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
@@ -1554,10 +1551,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('ignores food when adjacent to it but hunting another snake', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
@@ -1568,10 +1565,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('avoids food when significantly larger than other snakes', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}, {x: 8, y: 1}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 2, y: 3}, {x: 6, y: 6}]
@@ -1582,10 +1579,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('does not avoid food in order to hunt another snake', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 3, y: 8}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 3, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 9, y: 7}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 9, y: 7}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 9, y: 8}, {x: 10, y: 10}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 1, y: 9}, {x: 0, y: 6}, {x: 2, y: 2}]
@@ -1596,10 +1593,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('seeks out food under normal competitive circumstances', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 8, y: 5}]
@@ -1610,7 +1607,7 @@ describe('Food prioritization and acquisition', () => {
   })
   it('does not seek out food under normal solo circumstances', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
       gameState.board.food = [{x: 9, y: 5}]
@@ -1621,10 +1618,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('acquires food even along walls', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 0, y: 1}]
@@ -1635,10 +1632,10 @@ describe('Food prioritization and acquisition', () => {
   })
   it('acquires food even in corners', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 0, y: 0}]
@@ -1650,10 +1647,10 @@ describe('Food prioritization and acquisition', () => {
   // as lookahead gets longer, may need to skip this test as snek thinks it can go for multiple food instead of just the one
   it('acquires food even if more food exists in another direction', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+      const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 6, y: 5}, {x: 3, y: 4}, {x: 3, y: 6}, {x: 2, y: 5}]
@@ -1666,10 +1663,10 @@ describe('Food prioritization and acquisition', () => {
 
 describe('move gameState tests', () => {
   it('does not modify a gameState after calculating a move', () => {
-    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "101", "", "")
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
     const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "101", "", "")
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
 
     gameState.board.food = [{x: 6, y: 5}, {x: 4, y: 4}]
