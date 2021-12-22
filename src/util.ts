@@ -1055,8 +1055,14 @@ export function lookaheadDeterminator(gameState: GameState) {
         return 0
       case 2:
         return 6
-      default:
-        return 5
+      case 3:
+        return 6
+      default: // 4 or more
+        if (gameState.game.timeout < 500) {
+          return 4
+        } else {
+          return 5
+        } 
     }
   }
 }
