@@ -17,6 +17,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
+  const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
 
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
@@ -28,6 +29,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalSolo: number = 1000
   const evalWallPenalty: number = -5 //-25
   const evalHazardWallPenalty: number = -3 // small penalty, but hazard walls may turn into hazard at any moment, so don't stay too close
+  const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
@@ -35,7 +37,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const eval3Moves = isOriginalSnake? 4 : 40
   const eval4Moves = isOriginalSnake? 6 : 60
   const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
-  const evalHealthStep = 1
+  const evalHealthStep = 2
   const evalHealthTierDifference = 10
   const evalHealth7 = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealth6 = evalHealth7 - evalHealthTierDifference // 75 - 10 = 65
@@ -47,6 +49,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   const evalHealthStarved = evalNoMe // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
+  const evalLengthMult = 2
   const starvingHealth = 10 // below this, we are starving
   let priorHealth: number = 0
   if (_priorHealth === undefined && myself !== undefined) {
@@ -54,9 +57,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   } else if (_priorHealth !== undefined) {
     priorHealth = _priorHealth
   }
-  if (priorHealth < starvingHealth) { // starving snakes must get food, but non-starving snake eval scores get high scores from food near them. Use this to offset those high scores
-    evalHasEaten = 1000 // food scores can get pretty high!
-  } else if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
+  if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
   } else if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
@@ -150,7 +151,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
-    let hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
     let validHazardTurns = myself.health / (hazardDamage + 1)
     if (myself.health <= 0) {
       buildLogString(`HealthStarved, adding ${evalHealthStarved}`)
@@ -271,6 +271,17 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
     evaluation = evaluation + evalHazardWallPenalty
   }
+
+  // penalize spaces that ARE hazard
+  let myCell = board2d.getCell(myself.head)
+  if (myCell !== undefined) {
+    buildLogString(`hazard space penalty, add ${evalHazardPenalty}`)
+    evaluation = evaluation + evalHazardPenalty
+  }
+
+  // general snake length metric. More long more good
+  buildLogString(`snake length reward, add ${evalLengthMult * myself.length}`)
+  evaluation = evaluation + evalLengthMult * myself.length
 
   // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
   availableMoves = kissOfMurderState === KissOfMurderState.kissOfMurderCertainty ? availableMoves + 1 : availableMoves
