@@ -476,6 +476,22 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("right") // snek has multiple move options & much more health in a hazard-filled board. Don't go for the tie right, make otherSnek play it out
     }
   })
+  it('avoids a tie kiss of death in a duel if it thinks it can cut the snake off instead', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 7}, {x: 2, y: 7}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 0, y: 6}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 7, y: 8}, {x: 9, y: 0}]
+
+      gameState.game.ruleset.settings.hazardDamagePerTurn = 0
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // snek can tie by going left, but will cut otherSnek off in a few turns by going up, should prefer that
+    }
+  })
   it('avoids kisses of death even if it will die in a few turns anyway', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
     const gameState = createGameState(snek)
@@ -1277,6 +1293,23 @@ describe('Snake should not enter spaces without a clear escape route', () => {
       expect(moveResponse.move).toBe("down") // Up has three spaces available, fully enclosed by my otherSnek's body. Will die after two turns.
     }
   })
+  it('navigates an enclosed space effectively', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 10}, {x: 2, y: 10}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 3, y: 0}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 6, y: 10}, {x: 5, y: 10}, {x: 5, y: 9}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.game.ruleset.settings.hazardDamagePerTurn = 0
+
+      gameState.board.food = [{x: 0, y: 0}, {x: 2, y: 2}, {x: 0, y: 3}, {x: 0, y: 10}, {x: 1, y: 10}, {x: 7, y: 7}, {x: 9, y: 4}, {x: 10, y: 0}, {x: 10, y: 1}]
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // Down limits our space enough that we won't be able to escape through otherSnek's tail
+    }
+  })
   it('does not chase a snake into a corner trap', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 2, y: 10}, {x: 2, y: 9}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}], "30", "", "")
@@ -1608,7 +1641,7 @@ describe('Food prioritization and acquisition', () => {
       expect(moveResponse.move).not.toBe("up") // want to hunt snake above us, but will avoid food while doing so
     }
   })
-  it('does not avoid food in order to hunt another snake', () => {
+  it.only('does not avoid food in order to hunt another snake', () => {
     for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 3, y: 8}], "30", "", "")
       const gameState = createGameState(snek)

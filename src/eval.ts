@@ -274,7 +274,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
-  if (myCell !== undefined) {
+  if (myCell !== undefined && myCell.hazard) {
     buildLogString(`hazard space penalty, add ${evalHazardPenalty}`)
     evaluation = evaluation + evalHazardPenalty
   }
