@@ -1014,6 +1014,11 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
   return {kissOfDeathState: kissOfDeathState, kissOfMurderState: kissOfMurderState}
 }
 
+// for use with testing & dumb lookaheadDeterminator
+function isLocalSnake(snake: Battlesnake) : boolean {
+  return ["Test Snake Please Ignore", "snek"].includes(snake.name)
+}
+
 function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
   let timeout = gameState.game.timeout
   let defaultLatency = gameState.you.name === "Test Snake Please Ignore" ? 150 : 30 // default latency of 30 for prod snakes, 150 for local snake
@@ -1034,7 +1039,7 @@ function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
     return lookahead
   }
 
-  if (numSnakes < 2) {
+  if (numSnakes < 1) {
     return 0 // with one or no snakes there's no meaningful calqs for us to do anyway, return lookahead of 0
   }
   if (numSnakes > 2) {
@@ -1046,7 +1051,7 @@ function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
 
 // dumber lookahead determinator to account for weaker CPU of Linode server
 export function lookaheadDeterminator(gameState: GameState) {
-  if (gameState.you.name === "Test Snake Please Ignore") {
+  if (isLocalSnake(gameState.you)) {
     return lookaheadDeterminatorNonCpuBound(gameState)
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
@@ -1058,8 +1063,9 @@ export function lookaheadDeterminator(gameState: GameState) {
     } else {
       switch (gameState.board.snakes.length) {
         case 0:
-        case 1:
           return 0
+        case 1:
+          return 6
         case 2:
           return 6
         case 3:
