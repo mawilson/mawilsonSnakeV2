@@ -14,22 +14,22 @@ const lookaheadWeight = 0.1
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    const response: InfoResponse = {
-        apiversion: "1",
-        author: "waryferryman",
-        color: "#ff9900", // #ff9900
-        head: "tiger-king", //"tiger-king",
-        tail: "mystic-moon" //"mystic-moon"
-    }
+    // const response: InfoResponse = {
+    //     apiversion: "1",
+    //     author: "waryferryman",
+    //     color: "#ff9900", // #ff9900
+    //     head: "tiger-king", //"tiger-king",
+    //     tail: "mystic-moon" //"mystic-moon"
+    // }
 
     // Test Snake
-    // const response: InfoResponse = {
-    //   apiversion: "1",
-    //   author: "waryferryman",
-    //   color: "#ff9900", // #ff9900
-    //   head: "trans-rights-scarf", //"tiger-king",
-    //   tail: "comet" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+      apiversion: "1",
+      author: "waryferryman",
+      color: "#ff9900", // #ff9900
+      head: "trans-rights-scarf", //"tiger-king",
+      tail: "comet" //"mystic-moon"
+    }
 
     return response
 }
@@ -47,6 +47,10 @@ export function end(gameState: GameState): void {
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState, priorHealth?: number) : MoveWithEval {
+  let stateContainsMe: boolean = gameState.board.snakes.find(function findSnake(snake) {
+    return snake.id === myself.id
+  })
+  
   let board2d = new Board2d(gameState.board)
   let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
@@ -57,9 +61,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   let kissStatesThisState: KissStates = determineKissStates(gameState, myself, board2d)
 
-  if (availableMoves.length < 1) { // if there are no available moves, return an direction & the evaluation for this state
+  if (!stateContainsMe || (availableMoves.length < 1)) { // if myself is dead or there are no available moves, return a direction & the evaluation for this state
     if (lookahead !== undefined) {
-      evalThisState = evalThisState * (lookahead + 1) // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
+      let evalMultiplier: number = 0
+      // final result for a lookahead of 4 should look like: evalThisState * (1.0 + 1.1 + 1.2 + 1.3 + 1.4). 4 lookahead means four future moves, plus this one.
+      for (let i: number = 0; i <= lookahead; i++) { // need to apply weights for skipped lookahead steps, as well as this one
+        evalMultiplier = evalMultiplier + 1 + lookaheadWeight * i
+      }
+      evalThisState = evalThisState * evalMultiplier // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
     }
     return new MoveWithEval(undefined, evalThisState)
   } 
@@ -95,9 +104,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return snake.id === myself.id
     })
 
-    if (newSelf instanceof Battlesnake) {
+    if (newSelf !== undefined) {
       let otherSnakes: Battlesnake[] = newGameState.board.snakes.filter(function filterMeOut(snake) {
-        return newSelf instanceof Battlesnake && (snake.id !== newSelf.id)
+        return newSelf !== undefined && (snake.id !== newSelf.id)
       })
 
       let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
@@ -135,13 +144,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health))
       }
 
-      // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
-      if (evalState.score !== undefined && lookahead !== undefined) {
-        let evalWeight : number = 1
-        evalWeight = evalWeight + lookaheadWeight * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
-        evalState.score = evalState.score * evalWeight
-      }
-
       //let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (newSelf.health < 10))
       //logToFile(consoleWriteStream, `eval for ${newSelf.name} at (${newSelf.head.x},${newSelf.head.y}): ${evalState}`)
       //logToFile(consoleWriteStream, `prior best move: ${bestMove}, best move eval: ${bestMoveEval}`)
@@ -167,6 +169,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     }
   })
 
+  // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
+  if (lookahead !== undefined) {
+    let evalWeight : number = 1
+    evalWeight = evalWeight + lookaheadWeight * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
+    evalThisState = evalThisState * evalWeight
+  }
+
   if (bestMove.score !== undefined) {
     logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
     bestMove.score = bestMove.score + evalThisState
@@ -174,6 +183,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
     bestMove.score = evalThisState
   }
+
   return bestMove
 }
 

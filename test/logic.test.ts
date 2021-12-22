@@ -476,6 +476,36 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("right") // snek has multiple move options & much more health in a hazard-filled board. Don't go for the tie right, make otherSnek play it out
     }
   })
+  it('avoids kisses of death even if it will die in a few turns anyway', () => {
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}, {x: 10, y: 7}, {x: 10, y: 8}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 4, y: 8}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.board.food = [{x: 7, y: 4}, {x: 9, y: 6}]
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("up") // otherSnek 'must' move here, & it will eat us if we do too. We will get shoved into a corner in four turns anyway, but don't just walk into otherSnek
+  })
+  it('avoids kisses of death that it can avoid even if they have food', () => {
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 5, y: 4}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 25, [{x: 3, y: 6}, {x: 2, y: 6}, {x: 2, y: 5}, {x: 1, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 25, [{x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}, {x: 10, y: 6}], "30", "", "")
+    gameState.board.snakes.push(otherSnek3)
+
+    gameState.board.food = [{x: 4, y: 4}]
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("up") // otherSnek has every reason to take the food, & if we go there we'll be eaten
+  })
 })
 
 describe('Snake should seek out a kiss of murder', () => {
@@ -1275,13 +1305,14 @@ describe('Snake should not enter spaces without a clear escape route', () => {
       expect(moveResponse.move).toBe("up") // Down means insta-death, this should be a no-brainer
     }
   })
-  it('does not move into a corner that will kill it several moves later', () => {
+  it('does not move into a space enclosed by itself version two', () => {
+    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}], "30", "", "")
     
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up") // down moves us away from a corner & towards two possible moves, but dooms us after three moves. Up offers freedom in a few turns.
+      expect(moveResponse.move).toBe("up") // down is death in four turns, up is freedom
     }
   })
 })
