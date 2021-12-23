@@ -18,6 +18,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+  const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
 
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
@@ -65,9 +66,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
-  const evalPriorKissOfDeath3To1Avoidance = 0
-  const evalPriorKissOfDeath3To2Avoidance = 0
-  const evalPriorKissOfDeath2To1Avoidance = 0
+  const evalPriorKissOfDeath3To1Avoidance = -30 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
+  const evalPriorKissOfDeath3To2Avoidance = -7 // this one is better as we at least still had options after avoiding the kiss
+  const evalPriorKissOfDeath2To1Avoidance = -30
   const evalPriorKissOfDeathNo = 0
   const evalPriorKissOfMurderCertainty = 80 // we can kill a snake, this is probably a good thing
   const evalPriorKissOfMurderMaybe = 40 // we can kill a snake, but they have at least one escape route or 50/50
@@ -100,11 +101,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let evaluation = evalBase
 
   if (gameState.board.snakes.length === 0) {
-    logToFile(evalWriteStream, `no snakes, return ${evalNoSnakes}`)
     return evalNoSnakes // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (!(myself instanceof Battlesnake)) {
-    logToFile(evalWriteStream, `no myself snake, return ${evalNoMe}`)
     return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
     //evaluation = evaluation + evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
@@ -194,8 +193,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, possibleMoves)
   let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
   let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-  //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
-  //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
   let kissStates = kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
@@ -312,7 +309,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
     let longestSnake = getLongestSnake(myself, otherSnakes)
-    let snakeDelta = snakeLengthDelta(myself, gameState.board)
     if (!(snakeDelta === 2 && snakeHasEaten(myself, futureSight))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
       if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
         let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
@@ -434,11 +430,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   buildLogString(`final evaluation: ${evaluation}`)
-  logToFile(evalWriteStream, `eval log: ${logString}
-`)
-//   if (myself.id === gameState.you.id) {
-//     logToFile(evalWriteStream, `eval log: ${logString}
+//   logToFile(evalWriteStream, `eval log: ${logString}
 // `)
-//   }
   return evaluation
 }

@@ -94,7 +94,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
   }
 
-  //logToFile(consoleWriteStream, `availableMoves for ${myself.name}: ${availableMoves}`)
   availableMoves.forEach(function evaluateMove(move) {
     let newGameState = cloneGameState(gameState)
     let newBoard2d = new Board2d(newGameState.board)
@@ -144,9 +143,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health))
       }
 
-      //let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (newSelf.health < 10))
-      //logToFile(consoleWriteStream, `eval for ${newSelf.name} at (${newSelf.head.x},${newSelf.head.y}): ${evalState}`)
-      //logToFile(consoleWriteStream, `prior best move: ${bestMove}, best move eval: ${bestMoveEval}`)
       if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
         bestMove.direction = move
         bestMove.score = evalState.score
@@ -190,6 +186,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   futureSight = lookaheadDeterminator(gameState)
+  consoleWriteStream.write(`lookahead on turn ${gameState.turn}: ${futureSight}
+`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: directionToString(chosenMoveDirection)}

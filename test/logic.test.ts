@@ -1278,7 +1278,6 @@ describe('Snake cutoff tests', () => {
     }
   })
   it('avoids cutoff cells against other snakes before going in the cutoff direction', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 1, y: 7}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
     
@@ -1323,7 +1322,6 @@ describe('Snake should not enter spaces without a clear escape route', () => {
     }
   })
   it('navigates an enclosed space effectively', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 10}, {x: 2, y: 10}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 3, y: 0}], "30", "", "")
     
@@ -1368,13 +1366,28 @@ describe('Snake should not enter spaces without a clear escape route', () => {
     }
   })
   it('does not move into a space enclosed by itself version two', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 0, y: 9}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 2}], "30", "", "")
     
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // down is death in four turns, up is freedom
+    }
+  })
+  // because of PossibleMoves adjustment for duel otherSnakes, this fails. Can't get otherSnake to go right at the moment, so skipping
+  it.skip('does not walk into a space that will soon have no exit', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 2, y: 4}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 3, y: 1}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 3, y: 5}]
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // Left brings us closer to otherSnek & likely traps us in with him if he moves where he ought to, escape right
     }
   })
 })

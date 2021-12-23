@@ -587,7 +587,6 @@ export class MoveNeighbors {
         availableMoves.disableMove(validMoves[0]);
       }
     }
-    //logToFile(consoleWriteStream, `huntingChanceDirections: ${availableMoves}`)
     return availableMoves;
   }
 }

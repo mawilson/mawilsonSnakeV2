@@ -4,9 +4,9 @@ import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, Mo
 import { evaluate } from "./eval"
 
 export function logToFile(file: WriteStream, str: string) {
-  // console.log(str)
-  // file.write(`${str}
-  // `)
+  console.log(str)
+  file.write(`${str}
+  `)
 }
 
 let consoleWriteStream = createWriteStream("consoleLogs_util.txt", {
@@ -21,7 +21,6 @@ export function getRandomInt(min: number, max: number) : number {
 
 export function getRandomMove(moves: Direction[]) : Direction {
   let randomMove : Direction = moves[getRandomInt(0, moves.length)]
-  //logToFile(consoleWriteStream, `of available moves ${moves.toString()}, choosing random move ${randomMove}`)
   return randomMove
 }
 
@@ -31,7 +30,6 @@ export function coordsEqual(c1: Coord, c2: Coord): boolean {
 
 // returns true if snake health is max, indicating it ate this turn
 export function snakeHasEaten(snake: Battlesnake, lookahead?: number) : boolean {
-  //logToFile(`snakeHasEaten: snake at (${snake.head.x},${snake.head.y}) length: ${snake.length}; body length: ${snake.body.length}; snake health: ${snake.health}`)
   if (lookahead !== undefined) {
     return ((snake.health + lookahead) >= 100) && snake.length > 3
   } else {
@@ -94,9 +92,6 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
     }
   }
 
-  //logToFile(consoleWriteStream, `cells surrounding (${coord.x},${coord.y}) for ${me.id}`)
-  //surroundingCells.forEach(cell => cell.logSelf(me.id))
-
   return surroundingCells
 }
 
@@ -125,7 +120,6 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   let len : number = 0
   let distToMe : number = 0
 
-  //logToFile(consoleWriteStream, `getLongestSnake logic for snake at (${me.head.x},${me.head.y})`)
   if (snakes.length === 0) {
     return me
   } else if (snakes.length === 1) {
@@ -133,7 +127,6 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
   }
   snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
-      //logToFile(consoleWriteStream, `snake len: ${len}, distToMe: ${distToMe}`)
       if (snake.length > len) {
         len = snake.length
         longestSnakeIndex = idx
@@ -147,8 +140,6 @@ export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battle
       }
     }
   })
-  //logToFile(consoleWriteStream, `longestSnakeIndex: ${longestSnakeIndex}, snakes length: ${snakes.length}`)
-  //logToFile(consoleWriteStream, `final snake len: ${len}, distToMe: ${distToMe}, coords of head: (${snakes[longestSnakeIndex].head.x},${snakes[longestSnakeIndex].head.y})`)
   return snakes[longestSnakeIndex]
 }
 
@@ -335,7 +326,6 @@ export function getDefaultMove(gameState: GameState, snake: Battlesnake) : Direc
 
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
-  //logToFile(consoleWriteStream, `moveSnake snake before move: ${snakeToString(snake)}`)
   let move : Direction = _move === undefined ? getDefaultMove(gameState, snake) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
@@ -361,7 +351,6 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     logToFile(consoleWriteStream, `failed to move snake ${snake.name} at (${snake.head.x},${snake.head.y}) towards ${move}, trying towards ${newDir} instead`)
     moveSnake(gameState, snake, board2d, newDir) // at least one of the directions will always be on the game board & not be our neck, so this should never infinitely recurse
   }
-  //logToFile(consoleWriteStream, `moveSnake snake after move: ${snakeToString(snake)}`)
 }
 
 // for moving a snake without actually moving it. Reduces its tail without reducing its length, duplicating its head instead
@@ -461,9 +450,7 @@ export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
     let newCell = board.getCell(newCoord)
     if (newCell instanceof BoardCell) {
       if (newCell.snakeCell instanceof SnakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
-        //logToFile(consoleWriteStream, `snakeCell at (${newCell.coord.x},${newCell.coord.y}) is a tail: ${newCell.snakeCell.isTail} and has eaten: ${snakeHasEaten(newCell.snakeCell.snake)} and is greater than length 3: ${newCell.snakeCell.snake.length >= 3}`)
         if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake) && !coordsEqual(newCoord, newCell.snakeCell.snake.body[1])) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move. Third check is to ensure the tail is not also the neck - this only applies for turns 0 & 1, when the snake has not yet expanded out to its full starting length of 3
-          //logToFile(consoleWriteStream, `can chase tail at (${newCell.coord.x},${newCell.coord.y})`)
           return true
         } else { // cannot move into any other body part
           return false
@@ -586,7 +573,6 @@ export function findMoveNeighbors(gameState: GameState, me: Battlesnake, board2d
     let newCoord : Coord = new Coord(myHead.x - 1, myHead.y)
     kissMoves.leftNeighbors = getSurroundingCells(newCoord, board2d, Direction.Right)
   }
-  //logToFile(evalWriteStream, `findMoveNeighbors for snake at (${me.head.x},${me.head.y}): upLength, downLength, leftLength, rightLength: ${kissMoves.upNeighbors.length}, ${kissMoves.downNeighbors.length}, ${kissMoves.leftNeighbors.length}, ${kissMoves.rightNeighbors.length}`)
   return kissMoves
 }
 
@@ -721,7 +707,6 @@ export function findFood(depth: number, food: Coord[], snakeHead : Coord) : { [k
   food.forEach(function addFood(foodUnit) {
     let dist = getDistance(snakeHead, foodUnit)
   
-    //logToFile(consoleWriteStream, `findFood dist: ${dist} for foodUnit (${foodUnit.x},${foodUnit.y})`)
     if (dist <= depth) {
       if (!foundFood[dist]) {
         foundFood[dist] = []
@@ -825,10 +810,8 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
   let moves : Moves = new Moves(true, true, true, true)
 
   checkForSnakesHealthAndWalls(myself, gameState, board2d, moves)
-  //logToFile(consoleWriteStream, `possible moves after checkForSnakesAndWalls: ${possibleMoves}`)
 
   let availableMoves : Direction[] = moves.validMoves()
-  //logToFile(consoleWriteStream, `moves after checking for snakes, health, & walls: ${moves}`)
   if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
     moves.up = true
     moves.down = true
@@ -836,8 +819,6 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
     moves.right = true
     checkForHealth(myself, gameState, board2d, moves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
     checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
-    //logToFile(consoleWriteStream, `snakeMoves after checking for just health & walls: ${snakeMoves}`)
-    //logToFile(consoleWriteStream, `availableMoves after reassignment: ${availableMoves.toString()}`)
   }
   return moves
 }
@@ -983,8 +964,6 @@ export function determineKissStates(gameState: GameState, myself: Battlesnake, b
   let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
   let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
   let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-  //logToFile(evalWriteStream, `kissOfMurderMoves: ${kissOfMurderMoves.toString()}`)
-  //logToFile(evalWriteStream, `kissOfDeathMoves: ${kissOfDeathMoves.toString()}`)
 
   return kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 }
@@ -1029,10 +1008,10 @@ function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
   let timeLeft: number = timeout - latency - comfortMargin
 
   function _lookaheadDeterminator(penalty: number) {
-    let lookahead: number = 1 // base lookahead of 1, assume we can do at least this
+    let lookahead: number = 0 // base lookahead of 1, assume we can do at least this
 
     // for jaguar, with a latency of 30 & penalty of 20, this would give us a lookahead of 8, with a 90ms penalty for the 8th lookahead
-    // for test snake, with a latency of 150& penalty of 20, this would give us a lookahead of 7, with a 80ms penalty for the 7th lookahead
+    // for test snake, with a latency of 150 & penalty of 20, this would give us a lookahead of 7, with a 80ms penalty for the 7th lookahead
     for (let j: number = timeLeft; j >= 0; j = j - penalty - (lookahead * 10)) { // 1st lookahead free. 40ms for second, 50ms for third, etc.
       lookahead = lookahead + 1
     }
@@ -1051,7 +1030,11 @@ function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
 
 // dumber lookahead determinator to account for weaker CPU of Linode server
 export function lookaheadDeterminator(gameState: GameState) {
-  if (isLocalSnake(gameState.you)) {
+  if (gameState.turn === 0) {
+    return 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
+  } else if (gameState.turn < 3) {
+    return 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
+  }else if (isLocalSnake(gameState.you)) {
     return lookaheadDeterminatorNonCpuBound(gameState)
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
@@ -1084,16 +1067,12 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
 
   function cutoffLeftEdge(): boolean {
     if (snake.head.x === 0) { // if they are on the left edge
-      //logToFile(evalWriteStream, `snake is at 0`)
       if (myself.head.x === 1 || myself.head.x === 0) { // if I am next to them on the left edge
-        //logToFile(evalWriteStream, `myself is at 1`)
         if (myself.head.y >= snake.head.y && getSnakeDirection(snake) === Direction.Up) { // if I am above snake, & it is moving up
-          //logToFile(evalWriteStream, `myself is above or level with snake, & snake is moving up`)
           let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head - TODO: Make this snake's NECK after moving otherSnakes prior to evaluate
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
             cutoffCell = board2d.getCell({x: 1, y: snake.head.y - 1}) // cell one to the right of snake's head & one below
           }
-          //logToFile(evalWriteStream, `cutoffCell snakeCell is myself: ${cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id}`)
           if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
             let myselfIsLonger = myself.length > snake.length // if my snake is longer
             if (myselfIsLonger) {
@@ -1306,7 +1285,6 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
     return false
   }
 
-  //logToFile(evalWriteStream, `investigating ${snakeToString(snake)} for cutoff`)
   if (cutoffLeftEdge() || cutoffRightEdge() || cutoffBottomEdge() || cutoffTopEdge()) {
     return true
   } else {
