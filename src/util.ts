@@ -553,41 +553,48 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
 export function findMoveNeighbors(gameState: GameState, me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
   let myHead = me.head
   let isDuel = gameState.you.id === me.id && gameState.board.snakes.length === 2 // only treat as a duel if 2 snakes are left & the snake is myself. Assumes other snakes will continue to avoid ties if possible
-  let kissMoves : MoveNeighbors = new MoveNeighbors(me, isDuel) // pass in argument for whether it's a duel or not
+  
+  let upNeighbors: BoardCell[] | undefined = undefined
+  let downNeighbors: BoardCell[] | undefined = undefined
+  let leftNeighbors: BoardCell[] | undefined = undefined
+  let rightNeighbors: BoardCell[] | undefined = undefined
+
   if (moves.up) {
     let newCoord : Coord = new Coord(myHead.x, myHead.y + 1)
-    kissMoves.upNeighbors = getSurroundingCells(newCoord, board2d, Direction.Down)    
+    upNeighbors = getSurroundingCells(newCoord, board2d, Direction.Down)    
   }
 
   if (moves.down) {
     let newCoord : Coord = new Coord(myHead.x, myHead.y - 1)
-    kissMoves.downNeighbors = getSurroundingCells(newCoord, board2d, Direction.Up)
-  }
-
-  if (moves.right) {
-    let newCoord : Coord = new Coord(myHead.x + 1, myHead.y)
-    kissMoves.rightNeighbors = getSurroundingCells(newCoord, board2d, Direction.Left)
+    downNeighbors = getSurroundingCells(newCoord, board2d, Direction.Up)
   }
 
   if (moves.left) {
     let newCoord : Coord = new Coord(myHead.x - 1, myHead.y)
-    kissMoves.leftNeighbors = getSurroundingCells(newCoord, board2d, Direction.Right)
+    leftNeighbors = getSurroundingCells(newCoord, board2d, Direction.Right)
   }
+
+  if (moves.right) {
+    let newCoord : Coord = new Coord(myHead.x + 1, myHead.y)
+    rightNeighbors = getSurroundingCells(newCoord, board2d, Direction.Left)
+  }
+  let kissMoves : MoveNeighbors = new MoveNeighbors(me, isDuel, upNeighbors, downNeighbors, leftNeighbors, rightNeighbors) // pass in argument for whether it's a duel or not
+
   return kissMoves
 }
 
 export function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : Direction[] {
   let murderMoves : Direction[] = []
-  if (kissMoves.huntingAtUp()) {
+  if (kissMoves.huntingAtUp) {
     murderMoves.push(Direction.Up)
   }
-  if (kissMoves.huntingAtDown()) {
+  if (kissMoves.huntingAtDown) {
     murderMoves.push(Direction.Down)
   }
-  if (kissMoves.huntingAtLeft()) {
+  if (kissMoves.huntingAtLeft) {
     murderMoves.push(Direction.Left)
   }
-  if (kissMoves.huntingAtRight()) {
+  if (kissMoves.huntingAtRight) {
     murderMoves.push(Direction.Right)
   }
   return murderMoves
@@ -595,71 +602,19 @@ export function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves
 
 export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : Direction[] {
   let deathMoves : Direction[] = []
-  if (kissMoves.huntedAtUp()) {
+  if (kissMoves.huntedAtUp) {
     deathMoves.push(Direction.Up)
   }
-  if (kissMoves.huntedAtDown()) {
+  if (kissMoves.huntedAtDown) {
     deathMoves.push(Direction.Down)
   }
-  if (kissMoves.huntedAtLeft()) {
+  if (kissMoves.huntedAtLeft) {
     deathMoves.push(Direction.Left)
   }
-  if (kissMoves.huntedAtRight()) {
+  if (kissMoves.huntedAtRight) {
     deathMoves.push(Direction.Right)
   }
   return deathMoves
-}
-
-export function getKissOfDeathState(moveNeighbors: MoveNeighbors, kissOfDeathMoves: Direction[], possibleMoves: Moves) : KissOfDeathState {
-  let validMoves : Direction[] = possibleMoves.validMoves()
-  let kissOfDeathState : KissOfDeathState = KissOfDeathState.kissOfDeathNo
-  switch (kissOfDeathMoves.length) {
-    case 3: // all three available moves may result in my demise
-      // in this scenario, at least two snakes must be involved in order to cut off all of my options. Assuming that a murder snake will murder if it can, we want to eliminate any move option that is the only one that snake can reach
-      let huntingChanceDirections : Moves = moveNeighbors.huntingChanceDirections()
-      let huntedDirections = huntingChanceDirections.invalidMoves()
-      if (huntedDirections.length !== 3) { // two of the directions offer us a chance
-        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-        kissOfDeathState = KissOfDeathState.kissOfDeathMaybe
-        huntedDirections.forEach(function disableDir(dir) {
-          possibleMoves.disableMove(dir)
-        })
-      } else { // they all seem like certain death - maybe we'll get lucky & a snake won't take the free kill. It is a clusterfuck at this point, after all
-        //buildLogString(`KissOfDeathCertainty, adding ${evalKissOfDeathCertainty}`)
-        kissOfDeathState = KissOfDeathState.kissOfDeathCertainty
-      }
-      break
-    case 2:
-      if (validMoves.length === 3) { // in this case, two moves give us a 50/50 kiss of death, but the third is fine. This isn't ideal, but isn't a terrible evaluation
-        //buildLogString(`KissOfDeath3To1Avoidance, adding ${evalKissOfDeath3To1Avoidance}`)
-        kissOfDeathState = KissOfDeathState.kissOfDeath3To1Avoidance
-        possibleMoves.disableMove(kissOfDeathMoves[0])
-        possibleMoves.disableMove(kissOfDeathMoves[1])
-      } else { // this means a 50/50
-        //buildLogString(`KissOfDeathMaybe, adding ${evalKissOfDeathMaybe}`)
-        kissOfDeathState = KissOfDeathState.kissOfDeathMaybe
-      }
-      break
-    case 1:
-      if (possibleMoves.hasOtherMoves(kissOfDeathMoves[0])) {
-        if (validMoves.length === 3) {
-          //buildLogString(`KissOfDeath3To2Avoidance, adding ${evalKissOfDeath3To2Avoidance}`)
-          kissOfDeathState = KissOfDeathState.kissOfDeath3To2Avoidance
-          possibleMoves.disableMove(kissOfDeathMoves[0])
-        } else { // we know validMoves can't be of length 1, else that would be a kiss cell
-          //buildLogString(`KissOfDeath2To1Avoidance, adding ${evalKissOfDeath2To1Avoidance}`)
-          kissOfDeathState = KissOfDeathState.kissOfDeath2To1Avoidance
-        }
-      } else {
-        kissOfDeathState = KissOfDeathState.kissOfDeathCertainty
-      }
-      break
-    default: // no kissOfDeathMoves nearby, this is good
-      //buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
-      kissOfDeathState = KissOfDeathState.kissOfDeathNo
-      break
-  }
-  return kissOfDeathState
 }
 
 export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d, snakeKing: boolean) : number {
@@ -770,7 +725,7 @@ export function createHazardRow(board: Board, height: number) {
   }
 }
 
-// gets self and surrounding cells & checks them for hazards, returning true if it finds any. Ignores spaces with snakes! Not beneficial to check for that.
+// gets self and surrounding cells & checks them for hazards, returning true if it finds any.
 export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, gameState : GameState) : boolean {  
   if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
     return false
@@ -778,6 +733,27 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, gameState
   let selfCell = board2d.getCell(coord)
   if (!(selfCell instanceof BoardCell)) {
     return false // return false for cells outside of board2d's bounds
+  }
+  if (coord.x === 0 || coord.y === 0 || (coord.x === board2d.width - 1) || (coord.y === board2d.height - 1)) {
+    return true // edges are always adjacent to hazard, unless coord is outside of bounds
+  }
+  let neighbors = getSurroundingCells(coord, board2d)
+  let hazardCell = neighbors.find(function checkForHazard(neighbor) {
+    return neighbor.hazard
+  })
+  return hazardCell !== undefined
+}
+
+// gets self and surrounding cells & checks them for hazards, returning true if it finds any. Returns false for spaces that are themselves hazard
+export function isAdjacentToHazard(coord: Coord, board2d: Board2d, gameState : GameState) : boolean {  
+  if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
+    return false
+  }
+  let selfCell = board2d.getCell(coord)
+  if (!(selfCell instanceof BoardCell)) {
+    return false // return false for cells outside of board2d's bounds
+  } else if (selfCell.hazard) { // return false for cells which are themselves hazard
+    return false
   }
   if (coord.x === 0 || coord.y === 0 || (coord.x === board2d.width - 1) || (coord.y === board2d.height - 1)) {
     return true // edges are always adjacent to hazard, unless coord is outside of bounds
@@ -826,7 +802,7 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
-export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, deathMoves : Direction[], killMoves : Direction[], moves: Moves, board2d: Board2d) : KissStates {
+export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeighbors: MoveNeighbors, deathMoves : Direction[], killMoves : Direction[], moves: Moves, board2d: Board2d) : KissStates {
   let validMoves = moves.validMoves()
   let states = new KissStates()
   function setKissOfDeathDirectionState(dir : Direction, state: KissOfDeathState) : void {
@@ -870,10 +846,19 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
     case 1: // if one move results in a kissOfDeath, penalize that move in evaluate
     validMoves.forEach(function setMoveState(move: Direction) {
         if (move === deathMoves[0]) {
+          let predator: Battlesnake | undefined = moveNeighbors.getPredator(move) // get the snake that is stalking me for this direction
           if (huntedDirections.includes(move)) {
-            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
+            if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertaintyMutual)
+            } else {
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
+            }
           } else {
-            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
+            if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybeMutual)
+            } else {
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
+            }
           }
         } else{
           if (validMoves.length === 3) {
@@ -886,11 +871,20 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
       break
     case 2: // if two moves result in a kiss of death, penalize those moves in evaluate
       validMoves.forEach(function setMoveState(move: Direction) {
+        let predator: Battlesnake | undefined = moveNeighbors.getPredator(move) // get the snake that is stalking me for this direction
         if (move === deathMoves[0] || move === deathMoves[1]) {
           if (huntedDirections.includes(move)) { // this direction spells certain death
-            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
+            if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertaintyMutual)
+            } else {
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
+            }
           } else { // this direction spells possible death
-            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
+            if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybeMutual)
+            } else {
+              setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
+            }         
           }
         } else { // this direction does not have any kiss of death cells
           setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeath3To1Avoidance)
@@ -899,10 +893,19 @@ export function kissDecider(gameState: GameState, moveNeighbors: MoveNeighbors, 
       break
     case 3: // if all three moves may cause my demise, penalize those moves in evaluate
       validMoves.forEach(function setMoveState(move: Direction) {
+        let predator: Battlesnake | undefined = moveNeighbors.getPredator(move) // get the snake that is stalking me for this direction
         if (huntedDirections.includes(move)) { // this direction spells certain death
-          setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
+          if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertaintyMutual)
+          } else {
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathCertainty)
+          }        
         } else { // this direction spells possible death
-          setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
+          if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybeMutual)
+          } else {
+            setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
+          }        
         }
       })
       break
@@ -965,7 +968,7 @@ export function determineKissStates(gameState: GameState, myself: Battlesnake, b
   let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
   let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
 
-  return kissDecider(gameState, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
+  return kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 }
 
 // given a set of neighboring cells & their kiss states, return the appropriate kiss states per the direction given
