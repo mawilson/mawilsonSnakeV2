@@ -32,7 +32,9 @@ export function directionToString(dir: Direction | undefined) {
 export enum KissOfDeathState {
   kissOfDeathNo,
   kissOfDeathMaybe,
+  kissOfDeathMaybeMutual,
   kissOfDeathCertainty,
+  kissOfDeathCertaintyMutual,
   kissOfDeath3To2Avoidance,
   kissOfDeath3To1Avoidance,
   kissOfDeath2To1Avoidance
@@ -385,15 +387,30 @@ export class MoveNeighbors {
   downNeighbors: BoardCell[] = [];
   leftNeighbors: BoardCell[] = [];
   rightNeighbors: BoardCell[] = [];
+
+  huntedAtUp: boolean = false
+  huntingAtUp: boolean= false
+  huntedAtDown: boolean = false
+  huntingAtDown: boolean = false
+  huntingAtLeft: boolean = false
+  huntedAtLeft: boolean = false
+  huntingAtRight: boolean = false
+  huntedAtRight: boolean = false
+
   huntingSnakes : { [key: string]: Moves; } = {}; // object containing snakes trying to eat me. Each key is an id, each value a Moves object. Moves objects represent the moves I WENT TOWARDS, not the place the hunting snake came from. This is so that I can actually do something with the information - namely, disable a move direction if it's the only one a hunting snake can reach
   isDuel: boolean;
   
+  upPredator: Battlesnake | undefined = undefined
+  downPredator: Battlesnake | undefined = undefined
+  leftPredator: Battlesnake | undefined = undefined
+  rightPredator: Battlesnake | undefined = undefined
+
   upPrey: Battlesnake | undefined = undefined
   downPrey: Battlesnake | undefined = undefined
   leftPrey: Battlesnake | undefined = undefined
   rightPrey: Battlesnake | undefined = undefined
 
-  constructor(me: Battlesnake, isDuel: boolean, upNeighbors?: BoardCell[], downNeighbors?: BoardCell[], leftNeighbors?: BoardCell[], rightNeighbors?: BoardCell[]) {
+  constructor(me: Battlesnake, isDuel: boolean, upNeighbors: BoardCell[] | undefined, downNeighbors: BoardCell[] | undefined, leftNeighbors: BoardCell[] | undefined, rightNeighbors: BoardCell[] | undefined) {
     this.me = me;
     if (typeof upNeighbors !== "undefined") {
       this.upNeighbors = upNeighbors;
@@ -407,11 +424,24 @@ export class MoveNeighbors {
     if (typeof rightNeighbors !== "undefined") {
       this.rightNeighbors = rightNeighbors;
     }
+    this.upPredator = undefined
+    this.downPredator = undefined
+    this.leftPredator = undefined
+    this.rightPredator = undefined
     this.upPrey = undefined;
     this.downPrey = undefined;
     this.leftPrey = undefined;
     this.rightPrey = undefined;
     this.isDuel = isDuel;
+
+    this.huntedAtUp = this._huntedAtUp()
+    this.huntingAtUp = this._huntingAtUp()
+    this.huntedAtDown = this._huntedAtDown()
+    this.huntingAtDown = this._huntingAtDown()
+    this.huntedAtLeft = this._huntedAtLeft()
+    this.huntingAtLeft = this._huntingAtLeft()
+    this.huntedAtRight = this._huntedAtRight()
+    this.huntingAtRight = this._huntingAtRight()
   }
 
   // considers ties as larger snakes if in a duel. Returns true if the snake in the cell is larger than myself
@@ -436,13 +466,14 @@ export class MoveNeighbors {
 
   // returns true if some upNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
-  huntedAtUp() : boolean {
+  private _huntedAtUp() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.upNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
-        if (_this.huntingSnakes[cell.snakeCell.snake.id]){
+        _this.upPredator = cell.snakeCell.snake
+        if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].up = true;
         } else {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(true, false, false, false);
@@ -454,7 +485,7 @@ export class MoveNeighbors {
   
 
   // returns true if upNeighbors exist, but no upNeighbor snake exists of equal or longer length than me
-  huntingAtUp() : boolean {
+  private _huntingAtUp() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let upNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
@@ -473,13 +504,14 @@ export class MoveNeighbors {
 
   // returns true if some downNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
-  huntedAtDown() : boolean {
+  private _huntedAtDown() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.downNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
-        if (_this.huntingSnakes[cell.snakeCell.snake.id]){
+        _this.downPredator = cell.snakeCell.snake
+        if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].down = true;
         } else {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(false, true, false, false);
@@ -490,7 +522,7 @@ export class MoveNeighbors {
   }
   
   // returns true if downNeighbors exist, but no downNeighbor snake exists of equal or longer length than me
-  huntingAtDown() : boolean {
+  private _huntingAtDown() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let downNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
@@ -509,13 +541,14 @@ export class MoveNeighbors {
 
   // returns true if some leftNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
-  huntedAtLeft() : boolean {
+  private _huntedAtLeft() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
-        if (_this.huntingSnakes[cell.snakeCell.snake.id]){
+        _this.leftPredator = cell.snakeCell.snake
+        if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].left = true;
         } else {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(false, false, false, true);
@@ -526,7 +559,7 @@ export class MoveNeighbors {
   }
   
   // returns true if leftNeighbors exist, but no leftNeighbor snake exists of equal or longer length than me
-  huntingAtLeft() : boolean {
+  private _huntingAtLeft() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let leftNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
@@ -545,13 +578,14 @@ export class MoveNeighbors {
 
   // returns true if some rightNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
-  huntedAtRight() : boolean {
+  private _huntedAtRight() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
         biggerSnake = true;
-        if (_this.huntingSnakes[cell.snakeCell.snake.id]){
+        _this.rightPredator = cell.snakeCell.snake
+        if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].right = true;
         } else {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(false, false, true, false);
@@ -562,7 +596,7 @@ export class MoveNeighbors {
   }
   
   // returns true if rightNeighbors exist, but no rightNeighbor snake exists of equal or longer length than me
-  huntingAtRight() : boolean {
+  private _huntingAtRight() : boolean {
     let _this = this; // forEach function will have its own this, don't muddle them
     let rightNeighborSnakes : number = 0
     let biggerSnake : boolean = true;
@@ -579,6 +613,7 @@ export class MoveNeighbors {
     return rightNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
+  // returns Moves where a direction which is a kissOfDeathCertainty is false, otherwise true
   huntingChanceDirections() : Moves {
     let availableMoves = new Moves(true, true, true, true);
     for (const [id, moves] of Object.entries(this.huntingSnakes)) {
@@ -588,6 +623,68 @@ export class MoveNeighbors {
       }
     }
     return availableMoves;
+  }
+
+  // returns the predator battlesnake from the corresponding direction, if it exists
+  getPredator(dir: Direction): Battlesnake | undefined {
+    switch (dir) {
+      case Direction.Up:
+        return this.upPredator
+      case Direction.Down:
+        return this.downPredator
+      case Direction.Right:
+        return this.rightPredator
+      case Direction.Left:
+        return this.leftPredator
+      default:
+        return undefined
+    }
+  }
+  
+  // returns the prey battlesnake from the corresponding direction, if it exists
+  getPrey(dir: Direction): Battlesnake | undefined {
+    switch (dir) {
+      case Direction.Up:
+        return this.upPrey
+      case Direction.Down:
+        return this.downPrey
+      case Direction.Right:
+        return this.rightPrey
+      case Direction.Left:
+        return this.leftPrey
+      default:
+        return undefined
+    }
+  }
+
+  // for a set of Moves, returns the largest predator snake, if any, amongst the valid move directions of predators. Ties go to the first found, in up-down-right-left order
+  getLargestPredator(moves: Moves) : Battlesnake | undefined {
+    let snake: Battlesnake | undefined = undefined
+    if (moves.up && this.upPredator !== undefined) { // if up is a valid move, check its predator
+      snake = this.upPredator // snake is not yet defined & downPredator is, assign it to downPredator
+    }
+    if (moves.down && this.downPredator !== undefined) { // if down is a valid move, check its predator
+      if (snake === undefined) {
+        snake = this.downPredator // if snake is not yet defined & downPredator is, assign it to downPredator
+      } else if (this.downPredator.length > snake.length) { // both snakes are defined, compare lengths & assign downPredator if it's larger
+        snake = this.downPredator
+      }
+    }
+    if (moves.right && this.rightPredator !== undefined) { // if right is a valid move, check its predator
+      if (snake === undefined) {
+        snake = this.rightPredator // if snake is not yet defined & rightPredator is, assign it to rightPredator
+      } else if (this.rightPredator.length > snake.length) { // both snakes are defined, compare lengths & assign rightPredator if it's larger
+        snake = this.rightPredator
+      }
+    }
+    if (moves.left && this.leftPredator !== undefined) { // if left is a valid move, check its predator
+      if (snake === undefined) {
+        snake = this.leftPredator // if snake is not yet defined & leftPredator is, assign it to leftPredator
+      } else if (this.leftPredator.length > snake.length) { // both snakes are defined, compare lengths & assign leftPredator if it's larger
+        snake = this.leftPredator
+      }
+    }
+    return snake
   }
 }
 
@@ -614,7 +711,8 @@ export class KissStates {
 
   // given a set of moves, returns true if any of the moves that are true have a state of "kissOfDeathNo"
   canAvoidPossibleDeath(moves: Moves): boolean {
-    let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance]
+    // including kiss of death maybe & certainty mutual, as opposing snakes are likely to avoid this kill
+    let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance, KissOfDeathState.kissOfDeathMaybeMutual, KissOfDeathState.kissOfDeathCertaintyMutual]
     if (moves.validMoves().length === 0) {
       return true // snake is doomed, but not due to kisses of death
     } else if (moves.up && goodStates.includes(this.kissOfDeathState.up)) {
@@ -631,6 +729,7 @@ export class KissStates {
   }
 
   // given a set of moves, returns true if any of the moves that are true do not have a state of "kissOfDeathCertainty"
+  // deliberate omission of kissOfDeathCertaintyMutual, which is likely to be avoided by predator snakes
   canAvoidCertainDeath(moves: Moves): boolean {
     if (moves.validMoves().length === 0) {
       return true // snake is doomed, but not due to kisses of death
