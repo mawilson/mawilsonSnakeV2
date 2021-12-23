@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board } from "./types"
-import { logToFile, getRelativeDirection, coordsEqual } from "./util"
+import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -99,14 +99,16 @@ export class Battlesnake implements IBattlesnake {
 }
 
 export class SnakeCell {
-  snake: Battlesnake;
-  isHead: boolean;
-  isTail: boolean;
+  snake: Battlesnake
+  isHead: boolean
+  isTail: boolean
+  hasEaten: boolean
 
   constructor(snake: Battlesnake, head: boolean, tail: boolean) {
-    this.snake = snake;
-    this.isHead = head;
-    this.isTail = tail;
+    this.snake = snake
+    this.isHead = head
+    this.isTail = tail
+    this.hasEaten = snakeHasEaten(snake)
   }
 }
 
@@ -412,6 +414,7 @@ export class MoveNeighbors {
     this.isDuel = isDuel;
   }
 
+  // considers ties as larger snakes if in a duel. Returns true if the snake in the cell is larger than myself
   isSnakeCellLarger(cell: BoardCell): boolean {
     if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) { // if cell has a snake
       if (cell.snakeCell.snake.length >= this.me.length && !this.isDuel) { // if that snake is larger or equal than me, & we're not dueling
@@ -419,6 +422,14 @@ export class MoveNeighbors {
       } else if (cell.snakeCell.snake.length > this.me.length && this.isDuel) { // if that snake is larger than me, & we're dueling
         return true
       }
+    }
+    return false // snake either doesn't exist, or isn't larger/tied depending on isDuel
+  }
+
+  // always considers ties to be a larger snake. Returns true if the snake in the cell is larger than myself
+  isSnakeCellLargerOrTied(cell: BoardCell): boolean {
+    if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= this.me.length) { // if cell has a snake & that snake is larger or tied with me
+      return true
     }
     return false // snake either doesn't exist, or isn't larger/tied depending on isDuel
   }
@@ -450,7 +461,7 @@ export class MoveNeighbors {
     this.upNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         upNeighborSnakes = upNeighborSnakes + 1;
-        if (_this.isSnakeCellLarger(cell)) {
+        if (_this.isSnakeCellLargerOrTied(cell)) {
           biggerSnake = false;
         } else {
           _this.upPrey = cell.snakeCell.snake;
@@ -486,7 +497,7 @@ export class MoveNeighbors {
     this.downNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         downNeighborSnakes = downNeighborSnakes + 1;
-        if (_this.isSnakeCellLarger(cell)) {
+        if (_this.isSnakeCellLargerOrTied(cell)) {
           biggerSnake = false;
         } else {
           _this.downPrey = cell.snakeCell.snake;
@@ -522,7 +533,7 @@ export class MoveNeighbors {
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         leftNeighborSnakes = leftNeighborSnakes + 1;
-        if (_this.isSnakeCellLarger(cell)) {
+        if (_this.isSnakeCellLargerOrTied(cell)) {
           biggerSnake = false;
         } else {
           _this.leftPrey = cell.snakeCell.snake;
@@ -558,7 +569,7 @@ export class MoveNeighbors {
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         rightNeighborSnakes = rightNeighborSnakes + 1;
-        if (_this.isSnakeCellLarger(cell)) {
+        if (_this.isSnakeCellLargerOrTied(cell)) {
           biggerSnake = false;
         } else {
           _this.rightPrey = cell.snakeCell.snake;
@@ -576,7 +587,6 @@ export class MoveNeighbors {
         availableMoves.disableMove(validMoves[0]);
       }
     }
-    //logToFile(consoleWriteStream, `huntingChanceDirections: ${availableMoves}`)
     return availableMoves;
   }
 }

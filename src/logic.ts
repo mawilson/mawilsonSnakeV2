@@ -94,7 +94,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
   }
 
-  //logToFile(consoleWriteStream, `availableMoves for ${myself.name}: ${availableMoves}`)
   availableMoves.forEach(function evaluateMove(move) {
     let newGameState = cloneGameState(gameState)
     let newBoard2d = new Board2d(newGameState.board)
@@ -144,9 +143,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health))
       }
 
-      //let evalState: number = evaluate(newGameState, newSelf, kissOfDeathState, kissOfMurderState, (newSelf.health < 10))
-      //logToFile(consoleWriteStream, `eval for ${newSelf.name} at (${newSelf.head.x},${newSelf.head.y}): ${evalState}`)
-      //logToFile(consoleWriteStream, `prior best move: ${bestMove}, best move eval: ${bestMoveEval}`)
       if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
         bestMove.direction = move
         bestMove.score = evalState.score
@@ -177,10 +173,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   }
 
   if (bestMove.score !== undefined) {
-    logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
+    //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
     bestMove.score = bestMove.score + evalThisState
   } else {
-    logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
+    //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
     bestMove.score = evalThisState
   }
 
