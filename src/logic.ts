@@ -14,22 +14,22 @@ const lookaheadWeight = 0.1
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    // const response: InfoResponse = {
-    //     apiversion: "1",
-    //     author: "waryferryman",
-    //     color: "#ff9900", // #ff9900
-    //     head: "tiger-king", //"tiger-king",
-    //     tail: "mystic-moon" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#ff9900", // #ff9900
+        head: "tiger-king", //"tiger-king",
+        tail: "mystic-moon" //"mystic-moon"
+    }
 
     // Test Snake
-    const response: InfoResponse = {
-      apiversion: "1",
-      author: "waryferryman",
-      color: "#ff9900", // #ff9900
-      head: "trans-rights-scarf", //"tiger-king",
-      tail: "comet" //"mystic-moon"
-    }
+    // const response: InfoResponse = {
+    //   apiversion: "1",
+    //   author: "waryferryman",
+    //   color: "#ff9900", // #ff9900
+    //   head: "trans-rights-scarf", //"tiger-king",
+    //   tail: "comet" //"mystic-moon"
+    // }
 
     return response
 }
@@ -173,10 +173,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   }
 
   if (bestMove.score !== undefined) {
-    logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
+    //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
     bestMove.score = bestMove.score + evalThisState
   } else {
-    logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
+    //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
     bestMove.score = evalThisState
   }
 
@@ -186,8 +186,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   futureSight = lookaheadDeterminator(gameState)
-  consoleWriteStream.write(`lookahead on turn ${gameState.turn}: ${futureSight}
-`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: directionToString(chosenMoveDirection)}

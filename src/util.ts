@@ -1048,9 +1048,9 @@ export function lookaheadDeterminator(gameState: GameState) {
         case 0:
           return 0
         case 1:
-          return 6
+          return 8
         case 2:
-          return 6
+          return 7
         case 3:
           return 6
         default: // 4 or more

@@ -47,6 +47,91 @@ export function createGameState(me: Battlesnake): GameState {
   }
 }
 
+// tests whose use case may still be valid, but which can no longer be effectively tested when different lookaheads are in place
+describe('Tests deprecated by lookahead', () => {
+  // with a lookahead there are many factors that might push the snake elsewhere. Need to either scrap or design a better test
+  it.skip('should attempt to eat another snake given the opportunity', () => {
+    // x  x  x t2 s2 s2 x
+    // x  x  x x x  h2 x
+    // x  x  h s x  x x
+    // x  x  x s s  s t
+    // t1 h1 x x x  x x
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      // const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 4, y: 1}, {x:4, y: 2}, {x: 4, y: 3}], "30", "", "")
+      // gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 6, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // chase after otherSnek2 by going up. Lookahead made snek consistently seek otherSnek, so stopped adding him
+    }
+  })
+
+  // may no longer go for the kill if looking ahead, the nudge may not be enough
+  it.skip('will murder snake of one fewer length after it has grown one length', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+      let moveResponse : MoveResponse = move(gameState)
+      let allowedMoves : string[] = ["right", "down"]
+      expect(allowedMoves).toContain(moveResponse.move)
+    }
+  })
+
+  it.skip('does not choose food if better options exist while king snake', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 5, y: 4}]
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // we should be king snake here & say no to food while still navigating toward otherSnek
+    }
+  })
+
+  it.skip('avoids food when significantly larger than other snakes', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 2, y: 3}, {x: 6, y: 6}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // want to hunt snake above us, but will avoid food while doing so
+    }
+  })
+
+  // as lookahead gets longer, may need to skip this test as snek thinks it can go for multiple food instead of just the one
+  it.skip('acquires food even if more food exists in another direction', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 6, y: 5}, {x: 3, y: 4}, {x: 3, y: 6}, {x: 2, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // food is immediately adjacent to the right, but more food is nearby left. Should still get the immediate food
+    }
+  })
+})
+
 describe('Battlesnake API Version', () => {
     it('should be api version 1', () => {
         const result = info()
@@ -357,8 +442,8 @@ describe('Kiss of death tests', () => {
       expect(allowedMoves).toContain(moveResponse.move)
     }
   })
-  // while I still think this test is valid, lookahead has it failing. I think the situation is just really bad, & snek is doomed on proximate turns anyway.
-  it.skip('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
+  // while I still think this test is valid, lookahead may have it failing. I think the situation is just really bad, & snek is doomed on proximate turns anyway.
+  it('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
@@ -573,30 +658,6 @@ describe('Snake should account for possible kisses after it moves', () => {
   })
 })
 
-// with a lookahead there are many factors that might push the snake elsewhere. Need to either scrap or design a better test
-describe('King snake should seek out next longest snake', () => {
-  it.skip('should attempt to eat another snake given the opportunity', () => {
-    // x  x  x t2 s2 s2 x
-    // x  x  x x x  h2 x
-    // x  x  h s x  x x
-    // x  x  x s s  s t
-    // t1 h1 x x x  x x
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      // const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 4, y: 1}, {x:4, y: 2}, {x: 4, y: 3}], "30", "", "")
-      // gameState.board.snakes.push(otherSnek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 8, y: 6}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 6, y: 7}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
-
-      let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up") // chase after otherSnek2 by going up. Lookahead made snek consistently seek otherSnek, so stopped adding him
-    }
-  })
-})
-
 describe('Snake should not attempt to murder in a square that will likely immediately get it killed', () => {
   // x x x x x x x b b b x
   // x x x t s x x b x u x
@@ -632,22 +693,6 @@ describe('Snake should not attempt to murder in a square that will likely immedi
     gameState.board.snakes.push(otherSnek2)
     let moveResponse : MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // as above, otherSnek should never go left, so snek should never close itself in by trying to eat it going down
-  })
-})
-
-// may no longer go for the kill if looking ahead, the nudge may not be enough
-describe('Snake should try to murder another snake of equivalent length if it has just eaten', () => {
-  it('will murder after it has grown one length', () => {
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 10, y: 4}, {x: 10, y: 3}, {x: 10, y: 2}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
-      let moveResponse : MoveResponse = move(gameState)
-      let allowedMoves : string[] = ["right", "down"]
-      expect(allowedMoves).toContain(moveResponse.move)
-    }
   })
 })
 
@@ -1026,23 +1071,6 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
     })
 })
 
-describe('Snake should avoid food when king snake', () => {
-  it('does not choose food if better options exist while king snake', () => {
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 4, y: 10}], "30", "", "")
-    
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 5, y: 4}]
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("left") // we should be king snake here & say no to food while still navigating toward otherSnek
-    }
-  })
-})
-
 // TODO
 // kiss of death selector - chooses kiss of death cell with higher evaluation score
 // tests for seeking open space
@@ -1088,7 +1116,7 @@ describe('Snake should not seek food through hazard if not hazard route exists',
 })
 
 describe('Snake should not seek kill through hazard if not hazard route exists', () => {
-  it('does not path through hazard when possible', () => { // skipping, no longer valid as we predict snake moves away & we don't consider down as good a prospect as right, even considering hazard
+  it('does not path through hazard when possible', () => { // maybe no longer valid as we predict snake moves away & we don't consider down as good a prospect as right, even considering hazard
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 10, [{x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}], "30", "", "")
     
@@ -1376,7 +1404,6 @@ describe('Snake should not enter spaces without a clear escape route', () => {
   })
   // because of PossibleMoves adjustment for duel otherSnakes, this fails. Can't get otherSnake to go right at the moment, so skipping
   it.skip('does not walk into a space that will soon have no exit', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}], "30", "", "")
     
@@ -1669,21 +1696,8 @@ describe('Food prioritization and acquisition', () => {
       expect(moveResponse.move).not.toBe("down") // food is left, but we're king snake, should be hunting otherSnek & not food
     }
   })
-  it('avoids food when significantly larger than other snakes', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 2, y: 3}, {x: 6, y: 6}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).not.toBe("up") // want to hunt snake above us, but will avoid food while doing so
-    }
-  })
-  it('does not avoid food in order to hunt another snake', () => {
+  it.only('does not avoid food in order to hunt another snake', () => {
+    debugger
     for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 3, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
@@ -1748,21 +1762,6 @@ describe('Food prioritization and acquisition', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("left") // food is straight left, should seek it out even in a corner
-    }
-  })
-  // as lookahead gets longer, may need to skip this test as snek thinks it can go for multiple food instead of just the one
-  it('acquires food even if more food exists in another direction', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 6, y: 5}, {x: 3, y: 4}, {x: 3, y: 6}, {x: 2, y: 5}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("right") // food is immediately adjacent to the right, but more food is nearby left. Should still get the immediate food
     }
   })
 })
