@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board } from "./types"
-import { logToFile, getRelativeDirection, coordsEqual } from "./util"
+import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -99,14 +99,16 @@ export class Battlesnake implements IBattlesnake {
 }
 
 export class SnakeCell {
-  snake: Battlesnake;
-  isHead: boolean;
-  isTail: boolean;
+  snake: Battlesnake
+  isHead: boolean
+  isTail: boolean
+  hasEaten: boolean
 
   constructor(snake: Battlesnake, head: boolean, tail: boolean) {
-    this.snake = snake;
-    this.isHead = head;
-    this.isTail = tail;
+    this.snake = snake
+    this.isHead = head
+    this.isTail = tail
+    this.hasEaten = snakeHasEaten(snake)
   }
 }
 
