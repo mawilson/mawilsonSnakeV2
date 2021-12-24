@@ -74,8 +74,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalPriorKissOfDeath3To2Avoidance = -7 // this one is better as we at least still had options after avoiding the kiss
   const evalPriorKissOfDeath2To1Avoidance = -30
   const evalPriorKissOfDeathNo = 0
-  const evalPriorKissOfMurderCertainty = 80 // we can kill a snake, this is probably a good thing
-  const evalPriorKissOfMurderMaybe = 40 // we can kill a snake, but they have at least one escape route or 50/50
+  const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
+  const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
+  const evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance)
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
   const evalKissOfDeathCertaintyMutual = -200 // another snake will have to kamikaze to his us here, but it's still risky
@@ -86,7 +87,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKissOfDeath2To1Avoidance = 0
   const evalKissOfDeathNo = 0
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
-  const evalKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
+  const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
+  const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
   const duelSnakeHealthThreshold = hazardDamage > 0? 50 : 10
   let evalFoodVal = 2
   if (isDuel && otherSnakes[0].health < duelSnakeHealthThreshold) { // care a bit more about food to try to starve the other snake out
@@ -238,6 +240,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   } else if (kissStates.canCommitPossibleMurder(possibleMoves)) {
     buildLogString(`Possible kiss of murder nearby, adding ${evalKissOfMurderMaybe}`)
     evaluation = evaluation + evalKissOfMurderMaybe
+  } else if (kissStates.canCommitUnlikelyMurder(possibleMoves)) {
+    buildLogString(`Unlikely kiss of murder nearby, adding ${evalKissOfMurderAvoidance}`)
+    evaluation = evaluation + evalKissOfMurderAvoidance
   } else {
     buildLogString(`No kisses of murder nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
@@ -291,6 +296,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     case KissOfMurderState.kissOfMurderMaybe:
       buildLogString(`KissOfMurderMaybe, adding ${evalPriorKissOfMurderMaybe}`)
       evaluation = evaluation + evalPriorKissOfMurderMaybe
+      break
+    case KissOfMurderState.kissOfMurderAvoidance:
+      buildLogString(`KissOfMurderAvoidance, adding ${evalPriorKissOfMurderAvoidance}`)
+      evaluation = evaluation + evalPriorKissOfMurderAvoidance
       break
     case KissOfMurderState.kissOfMurderNo:
     default:

@@ -43,6 +43,7 @@ export enum KissOfDeathState {
 export enum KissOfMurderState {
   kissOfMurderNo,
   kissOfMurderMaybe,
+  kissOfMurderAvoidance,
   kissOfMurderCertainty
 }
 
@@ -686,6 +687,30 @@ export class MoveNeighbors {
     }
     return snake
   }
+
+  // looks at all prey & returns true if snake exists in prey more than once, i.e., I can kill that snake from more than one direction. False otherwise.
+  isMurderChanceSnake(snake: Battlesnake) : boolean {
+    let isPreyFound: boolean = false
+    if (this.upPrey !== undefined && this.upPrey.id === snake.id) {
+      isPreyFound = true
+    }
+    if (this.rightPrey !== undefined && this.rightPrey.id === snake.id) {
+      if (isPreyFound) { // snake is prey from both up & right, meaning it's a 50/50 kill (still need to check if it has a third available move)
+        return true
+      }
+    }
+    if (this.leftPrey !== undefined && this.leftPrey.id === snake.id) {
+      if (isPreyFound) { // snake is prey from two of up, right, left, meaning it's a 50/50 kill (still need to check if it has a third available move)
+        return true
+      }
+    }
+    if (this.downPrey !== undefined && this.downPrey.id === snake.id) {
+      if (isPreyFound) { // snake is prey from two of up, right, left, or down, meaning it's a 50/50 kill (still need to check if it has a third available move)
+        return true
+      }
+    }
+    return false
+  }
 }
 
 // valid states for kissOfDeath: kissOfDeathNo, kissOfDeathMaybe, kissOfDeathCertainty, kissOfDeath3To2Avoidance, kissOfDeath3To1Avoidance, kissOfDeath2To1Avoidance
@@ -742,6 +767,21 @@ export class KissStates {
     } else if (moves.right && this.kissOfDeathState.right !== KissOfDeathState.kissOfDeathCertainty) {
       return true
     } else { // all valid options in moves will lead to certain death
+      return false
+    }
+  }
+
+  // given a set of moves, returns true if any of the moves that are true may be able to kill if their prey chooses not to avoid it
+  canCommitUnlikelyMurder(moves: Moves): boolean {
+    if (moves.up && this.kissOfMurderState.up === KissOfMurderState.kissOfMurderAvoidance) {
+      return true
+    } else if (moves.down && this.kissOfMurderState.down === KissOfMurderState.kissOfMurderAvoidance) {
+      return true
+    } else if (moves.left && this.kissOfMurderState.left === KissOfMurderState.kissOfMurderAvoidance) {
+      return true
+    } else if (moves.right && this.kissOfMurderState.right === KissOfMurderState.kissOfMurderAvoidance) {
+      return true
+    } else {
       return false
     }
   }

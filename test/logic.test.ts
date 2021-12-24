@@ -607,8 +607,8 @@ describe('Kiss of death tests', () => {
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("up") // otherSnek has every reason to take the food, & if we go there we'll be eaten
   })
-  it('given no other choice, prioritizes kiss of death from ties over kisses from non-ties', () => {
-    for (let i = 0; i < 3; i++) {
+  it.only('given no other choice, prioritizes kiss of death from ties over kisses from non-ties', () => {
+    for (let i = 0; i < 10; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}], "30", "", "")
       const gameState = createGameState(snek)
 
@@ -628,7 +628,7 @@ describe('Kiss of death tests', () => {
   })
 })
 
-describe('Snake should seek out a kiss of murder', () => {
+describe('Kiss of murder tests', () => {
   it('should attempt to eat another snake given the opportunity', () => {
     // t  s  s
     // t1 x  h
@@ -644,9 +644,7 @@ describe('Snake should seek out a kiss of murder', () => {
       expect(moveResponse.move).toBe("down") // left murder isn't likely to land & puts us in a 0move, down murder is obvious
     }
   })
-})
 
-describe('Snake should seek out a kiss of murder in the borderlands', () => {
   it('seeks out murder even on the outskirts of town', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}], "30", "", "")
@@ -656,6 +654,17 @@ describe('Snake should seek out a kiss of murder in the borderlands', () => {
       gameState.board.snakes.push(otherSnek)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // should try to murder the snake by going either left or down
+    }
+  })
+  it('does not seek out a murder of avoidance if it leads it into a bad situation', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 3, y: 7}, {x: 2, y: 7}, {x: 1, y: 7}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 2}, {x: 4, y: 2}, {x: 4, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 9, y: 3}, {x: 9, y: 2}, {x: 9, y: 1}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 7, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // up quickly leads us into a rotten situation where we are cut off in the corner & die. Don't chase otherSnek there
     }
   })
 })
