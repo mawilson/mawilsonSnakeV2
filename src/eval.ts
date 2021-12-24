@@ -19,6 +19,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const board2d = new Board2d(gameState.board)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
+  const isDuel: boolean = gameState.board.snakes.length === 2
 
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
@@ -28,10 +29,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 1000
-  const evalWallPenalty: number = -5 //-25
+  const evalWallPenalty: number = isDuel? -10 : -5 //-25
   const evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
+  const evalCenterDistancePenalty: number = isDuel? -3 : -1
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
@@ -72,8 +74,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalPriorKissOfDeath3To2Avoidance = -7 // this one is better as we at least still had options after avoiding the kiss
   const evalPriorKissOfDeath2To1Avoidance = -30
   const evalPriorKissOfDeathNo = 0
-  const evalPriorKissOfMurderCertainty = 80 // we can kill a snake, this is probably a good thing
-  const evalPriorKissOfMurderMaybe = 40 // we can kill a snake, but they have at least one escape route or 50/50
+  const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
+  const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
+  const evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance)
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
   const evalKissOfDeathCertaintyMutual = -200 // another snake will have to kamikaze to his us here, but it's still risky
@@ -84,8 +87,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKissOfDeath2To1Avoidance = 0
   const evalKissOfDeathNo = 0
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
-  const evalKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
-  const evalFoodVal = 2
+  const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
+  const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
+  const duelSnakeHealthThreshold = hazardDamage > 0? 50 : 10
+  let evalFoodVal = 2
+  if (isDuel && otherSnakes[0].health < duelSnakeHealthThreshold) { // care a bit more about food to try to starve the other snake out
+    evalFoodVal = 3
+  } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
+    evalFoodVal = 1
+  }
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalCutoffReward = 35
@@ -139,13 +149,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const centerX = (gameState.board.width - 1) / 2
   const centerY = (gameState.board.height - 1) / 2
 
-  const xDiff = -Math.abs(myself.head.x - centerX)
-  const yDiff = -Math.abs(myself.head.y - centerY)
+  const xDiff = Math.abs(myself.head.x - centerX)
+  const yDiff = Math.abs(myself.head.y - centerY)
 
-  buildLogString(`adding xDiff ${xDiff}`)
-  evaluation = evaluation + xDiff
-  buildLogString(`adding yDiff ${yDiff}`)
-  evaluation = evaluation + yDiff
+  buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
+  evaluation = evaluation + xDiff * evalCenterDistancePenalty
+  buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
+  evaluation = evaluation + yDiff * evalCenterDistancePenalty
   
   // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
   const possibleMoves = new Moves(true, true, true, true)
@@ -200,13 +210,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
-  if (kissStates.canAvoidPossibleDeath(possibleMoves)) {
+  if (kissStates.canAvoidPossibleDeath(possibleMoves)) { // death is avoidable for at least one possible move
     buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
-  } else if (kissStates.canAvoidCertainDeath(possibleMoves)) {
+  } else if (kissStates.canAvoidCertainDeath(possibleMoves)) { // death has a chance of being avoidable for at least one possible move
     // this is a bit of a mess. Basically: get the predator who has a chance of cells to kill me at (huntingChanceDirections call) rather than the ones who can only do so in one cell
-    let largestPredator: Battlesnake | undefined = moveNeighbors.getLargestPredator(moveNeighbors.huntingChanceDirections())
-    if (largestPredator !== undefined && largestPredator.length === myself.length) {
+    let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(moveNeighbors.huntingChanceDirections())
+    if (smallestPredator !== undefined && smallestPredator.length === myself.length) {
       buildLogString(`Need to deal with possible mutual kisses of death nearby, adding ${evalKissOfDeathMaybeMutual}`)
       evaluation = evaluation + evalKissOfDeathMaybe
     } else {
@@ -214,9 +224,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       evaluation = evaluation + evalKissOfDeathMaybe
     }
   } else {
-    let largestPredator: Battlesnake | undefined = moveNeighbors.getLargestPredator(possibleMoves)
-    if (largestPredator !== undefined && largestPredator.length === myself.length) {
-      buildLogString(`Only kisses of death nearby, adding ${evalKissOfDeathCertaintyMutual}`)
+    let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(possibleMoves)
+    if (smallestPredator !== undefined && smallestPredator.length === myself.length) {
+      buildLogString(`Only kisses of death nearby, but one is mutual, adding ${evalKissOfDeathCertaintyMutual}`)
       evaluation = evaluation + evalKissOfDeathCertaintyMutual
     } else {
       buildLogString(`Only kisses of death nearby, adding ${evalKissOfDeathCertainty}`)
@@ -230,6 +240,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   } else if (kissStates.canCommitPossibleMurder(possibleMoves)) {
     buildLogString(`Possible kiss of murder nearby, adding ${evalKissOfMurderMaybe}`)
     evaluation = evaluation + evalKissOfMurderMaybe
+  } else if (kissStates.canCommitUnlikelyMurder(possibleMoves)) {
+    buildLogString(`Unlikely kiss of murder nearby, adding ${evalKissOfMurderAvoidance}`)
+    evaluation = evaluation + evalKissOfMurderAvoidance
   } else {
     buildLogString(`No kisses of murder nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
@@ -283,6 +296,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     case KissOfMurderState.kissOfMurderMaybe:
       buildLogString(`KissOfMurderMaybe, adding ${evalPriorKissOfMurderMaybe}`)
       evaluation = evaluation + evalPriorKissOfMurderMaybe
+      break
+    case KissOfMurderState.kissOfMurderAvoidance:
+      buildLogString(`KissOfMurderAvoidance, adding ${evalPriorKissOfMurderAvoidance}`)
+      evaluation = evaluation + evalPriorKissOfMurderAvoidance
       break
     case KissOfMurderState.kissOfMurderNo:
     default:
@@ -397,7 +414,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const numCells: number = board2d.height * board2d.width
   const safeCellPercentage: number = (safeCells * 100) / numCells
 
-  if (safeCellPercentage < evalTailChasePercentage) {
+  if (safeCellPercentage < evalTailChasePercentage || (isDuel && snakeDelta < 0)) {
     let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
     buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
     evaluation = evaluation + (evalTailChase * tailDist)

@@ -794,7 +794,9 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
     moves.left = true
     moves.right = true
     checkForHealth(myself, gameState, board2d, moves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
-    checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
+    if (moves.validMoves().length > 1) { // if there are more than one available snakecells to pick from, disable our own neck
+      checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
+    }
   }
   return moves
 }
@@ -919,40 +921,84 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
       case Direction.Up:
         if (typeof moveNeighbors.upPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.upPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
-          } else {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+          let preyValidMoves = preyMoves.validMoves().length
+          switch(preyValidMoves) {
+            case 1: // prey has only one valid place to go, & we can kill it there
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
+              break
+            case 2: // prey has two valid places to go, we may be able to kill it at either (Maybe), we may not (2to1Avoidance)
+              if (moveNeighbors.isMurderChanceSnake(moveNeighbors.upPrey)) { // we can kill it at both places
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+              } else { // we can kill it at one direction, but it will likely escape in the other direction
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
+              break
+            case 3: // prey has three valid places to go, it is likely to avoid us this turn
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              break
           }
         }
         break
       case Direction.Down:
         if (typeof moveNeighbors.downPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.downPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
-          } else {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+          let preyValidMoves = preyMoves.validMoves().length
+          switch(preyValidMoves) {
+            case 1: // prey has only one valid place to go, & we can kill it there
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
+              break
+            case 2: // prey has two valid places to go, we may be able to kill it at either (Maybe), we may not (2to1Avoidance)
+              if (moveNeighbors.isMurderChanceSnake(moveNeighbors.downPrey)) { // we can kill it at both places
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+              } else { // we can kill it at one direction, but it will likely escape in the other direction
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
+              break
+            case 3: // prey has three valid places to go, it is likely to avoid us this turn
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              break
           }
         }
         break
       case Direction.Left:
         if (typeof moveNeighbors.leftPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.leftPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
-          } else {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+          let preyValidMoves = preyMoves.validMoves().length
+          switch(preyValidMoves) {
+            case 1: // prey has only one valid place to go, & we can kill it there
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
+              break
+            case 2: // prey has two valid places to go, we may be able to kill it at either (Maybe), we may not (2to1Avoidance)
+              if (moveNeighbors.isMurderChanceSnake(moveNeighbors.leftPrey)) { // we can kill it at both places
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+              } else { // we can kill it at one direction, but it will likely escape in the other direction
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
+              break
+            case 3: // prey has three valid places to go, it is likely to avoid us this turn
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              break
           }
         }
         break
       default: //case Direction.Right:
         if (typeof moveNeighbors.rightPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.rightPrey, gameState, board2d, preyMoves)
-          if (preyMoves.validMoves().length === 1) {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
-          } else {
-            setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+          let preyValidMoves = preyMoves.validMoves().length
+          switch(preyValidMoves) {
+            case 1: // prey has only one valid place to go, & we can kill it there
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
+              break
+            case 2: // prey has two valid places to go, we may be able to kill it at either (Maybe), we may not (2to1Avoidance)
+              if (moveNeighbors.isMurderChanceSnake(moveNeighbors.rightPrey)) { // we can kill it at both places
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
+              } else { // we can kill it at one direction, but it will likely escape in the other direction
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
+              break
+            case 3: // prey has three valid places to go, it is likely to avoid us this turn
+              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              break
           }
         }
         break
