@@ -19,6 +19,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const board2d = new Board2d(gameState.board)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
+  const isDuel: boolean = gameState.board.snakes.length === 2
 
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
@@ -28,10 +29,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 1000
-  const evalWallPenalty: number = -5 //-25
+  const evalWallPenalty: number = isDuel? -10 : -5 //-25
   const evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
+  const evalCenterDistancePenalty: number = isDuel? -3 : -1
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
@@ -85,7 +87,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKissOfDeathNo = 0
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but they have at least one escape route or 50/50
-  const evalFoodVal = 2
+  const duelSnakeHealthThreshold = hazardDamage > 0? 50 : 10
+  let evalFoodVal = 2
+  if (isDuel && otherSnakes[0].health < duelSnakeHealthThreshold) { // care a bit more about food to try to starve the other snake out
+    evalFoodVal = 3
+  } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
+    evalFoodVal = 1
+  }
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalCutoffReward = 35
@@ -139,13 +147,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const centerX = (gameState.board.width - 1) / 2
   const centerY = (gameState.board.height - 1) / 2
 
-  const xDiff = -Math.abs(myself.head.x - centerX)
-  const yDiff = -Math.abs(myself.head.y - centerY)
+  const xDiff = Math.abs(myself.head.x - centerX)
+  const yDiff = Math.abs(myself.head.y - centerY)
 
-  buildLogString(`adding xDiff ${xDiff}`)
-  evaluation = evaluation + xDiff
-  buildLogString(`adding yDiff ${yDiff}`)
-  evaluation = evaluation + yDiff
+  buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
+  evaluation = evaluation + xDiff * evalCenterDistancePenalty
+  buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
+  evaluation = evaluation + yDiff * evalCenterDistancePenalty
   
   // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
   const possibleMoves = new Moves(true, true, true, true)
@@ -397,7 +405,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const numCells: number = board2d.height * board2d.width
   const safeCellPercentage: number = (safeCells * 100) / numCells
 
-  if (safeCellPercentage < evalTailChasePercentage) {
+  if (safeCellPercentage < evalTailChasePercentage || (isDuel && snakeDelta < 0)) {
     let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
     buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
     evaluation = evaluation + (evalTailChase * tailDist)

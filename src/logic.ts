@@ -14,22 +14,22 @@ const lookaheadWeight = 0.1
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    const response: InfoResponse = {
-        apiversion: "1",
-        author: "waryferryman",
-        color: "#ff9900", // #ff9900
-        head: "tiger-king", //"tiger-king",
-        tail: "mystic-moon" //"mystic-moon"
-    }
+    // const response: InfoResponse = {
+    //     apiversion: "1",
+    //     author: "waryferryman",
+    //     color: "#ff9900", // #ff9900
+    //     head: "tiger-king", //"tiger-king",
+    //     tail: "mystic-moon" //"mystic-moon"
+    // }
 
     // Test Snake
-    // const response: InfoResponse = {
-    //   apiversion: "1",
-    //   author: "waryferryman",
-    //   color: "#ff9900", // #ff9900
-    //   head: "trans-rights-scarf", //"tiger-king",
-    //   tail: "comet" //"mystic-moon"
-    // }
+    const response: InfoResponse = {
+      apiversion: "1",
+      author: "waryferryman",
+      color: "#ff9900", // #ff9900
+      head: "trans-rights-scarf", //"tiger-king",
+      tail: "comet" //"mystic-moon"
+    }
 
     return response
 }
@@ -186,6 +186,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   futureSight = lookaheadDeterminator(gameState)
+  //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: directionToString(chosenMoveDirection)}

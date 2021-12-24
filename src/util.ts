@@ -794,7 +794,9 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
     moves.left = true
     moves.right = true
     checkForHealth(myself, gameState, board2d, moves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
-    checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
+    if (moves.validMoves().length > 1) { // if there are more than one available snakecells to pick from, disable our own neck
+      checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
+    }
   }
   return moves
 }
