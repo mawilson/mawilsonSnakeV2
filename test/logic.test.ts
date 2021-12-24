@@ -130,6 +130,27 @@ describe('Tests deprecated by lookahead', () => {
       expect(moveResponse.move).toBe("right") // food is immediately adjacent to the right, but more food is nearby left. Should still get the immediate food
     }
   })
+
+  // not sure how to test this in a situation where there's a clear move. If on turn 31 the priorKissOfDeathState is KissOfDeathCertaintyMutual, it's fine
+  it.skip('given no other choice, prioritizes kisses of death from ties over kisses from non-ties', () => {
+    debugger
+    for (let i = 0; i < 10; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}], "30", "", "") // same length as snek, not likely to go for kill
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 25, [{x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 10, y: 5}], "30", "", "") // larger than snek, likely to go for kill
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 25, [{x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}], "30", "", "") // larger than snek, likely to go for kill
+      gameState.board.snakes.push(otherSnek3)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // snek ought to know that otherSnek is the least likely to go for the kill
+    }
+  })
 })
 
 describe('Battlesnake API Version', () => {
@@ -606,25 +627,6 @@ describe('Kiss of death tests', () => {
 
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("up") // otherSnek has every reason to take the food, & if we go there we'll be eaten
-  })
-  it.only('given no other choice, prioritizes kiss of death from ties over kisses from non-ties', () => {
-    for (let i = 0; i < 10; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}], "30", "", "") // same length as snek, not likely to go for kill
-      gameState.board.snakes.push(otherSnek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 25, [{x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 10, y: 5}], "30", "", "") // larger than snek, likely to go for kill
-      gameState.board.snakes.push(otherSnek2)
-
-      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 25, [{x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 5, y: 10}], "30", "", "") // larger than snek, likely to go for kill
-      gameState.board.snakes.push(otherSnek3)
-
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("left") // snek ought to know that otherSnek is the least likely to go for the kill
-    }
   })
 })
 

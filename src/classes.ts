@@ -658,8 +658,8 @@ export class MoveNeighbors {
     }
   }
 
-  // for a set of Moves, returns the largest predator snake, if any, amongst the valid move directions of predators. Ties go to the first found, in up-down-right-left order
-  getLargestPredator(moves: Moves) : Battlesnake | undefined {
+  // for a set of Moves, returns the smallest predator snake, if any, amongst the valid move directions of predators. Ties go to the first found, in up-down-right-left order
+  getSmallestPredator(moves: Moves) : Battlesnake | undefined {
     let snake: Battlesnake | undefined = undefined
     if (moves.up && this.upPredator !== undefined) { // if up is a valid move, check its predator
       snake = this.upPredator // snake is not yet defined & downPredator is, assign it to downPredator
@@ -667,21 +667,21 @@ export class MoveNeighbors {
     if (moves.down && this.downPredator !== undefined) { // if down is a valid move, check its predator
       if (snake === undefined) {
         snake = this.downPredator // if snake is not yet defined & downPredator is, assign it to downPredator
-      } else if (this.downPredator.length > snake.length) { // both snakes are defined, compare lengths & assign downPredator if it's larger
+      } else if (this.downPredator.length < snake.length) { // both snakes are defined, compare lengths & assign downPredator if it's smaller
         snake = this.downPredator
       }
     }
     if (moves.right && this.rightPredator !== undefined) { // if right is a valid move, check its predator
       if (snake === undefined) {
         snake = this.rightPredator // if snake is not yet defined & rightPredator is, assign it to rightPredator
-      } else if (this.rightPredator.length > snake.length) { // both snakes are defined, compare lengths & assign rightPredator if it's larger
+      } else if (this.rightPredator.length < snake.length) { // both snakes are defined, compare lengths & assign rightPredator if it's smaller
         snake = this.rightPredator
       }
     }
     if (moves.left && this.leftPredator !== undefined) { // if left is a valid move, check its predator
       if (snake === undefined) {
         snake = this.leftPredator // if snake is not yet defined & leftPredator is, assign it to leftPredator
-      } else if (this.leftPredator.length > snake.length) { // both snakes are defined, compare lengths & assign leftPredator if it's larger
+      } else if (this.leftPredator.length < snake.length) { // both snakes are defined, compare lengths & assign leftPredator if it's smaller
         snake = this.leftPredator
       }
     }
@@ -734,10 +734,10 @@ export class KissStates {
     this.kissOfMurderState = {up: KissOfMurderState.kissOfMurderNo, down: KissOfMurderState.kissOfMurderNo, left: KissOfMurderState.kissOfMurderNo, right: KissOfMurderState.kissOfMurderNo};
   }
 
-  // given a set of moves, returns true if any of the moves that are true have a state of "kissOfDeathNo"
+  // given a set of moves, returns true if any of the moves that are true have a state of "kissOfDeathNo" or an avoidance state
   canAvoidPossibleDeath(moves: Moves): boolean {
-    // including kiss of death maybe & certainty mutual, as opposing snakes are likely to avoid this kill
-    let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance, KissOfDeathState.kissOfDeathMaybeMutual, KissOfDeathState.kissOfDeathCertaintyMutual]
+    // not including kiss of death maybe & certainty mutual, as opposing snakes are likely to avoid this kill, as those are still possible deaths
+    let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance]
     if (moves.validMoves().length === 0) {
       return true // snake is doomed, but not due to kisses of death
     } else if (moves.up && goodStates.includes(this.kissOfDeathState.up)) {
@@ -753,18 +753,19 @@ export class KissStates {
     }
   }
 
-  // given a set of moves, returns true if any of the moves that are true do not have a state of "kissOfDeathCertainty"
+  // given a set of moves, returns true if any of the moves that are true do not have a state of "kissOfDeathCertainty" or "kissOfDeathCertaintyMutual"
   // deliberate omission of kissOfDeathCertaintyMutual, which is likely to be avoided by predator snakes
   canAvoidCertainDeath(moves: Moves): boolean {
+    let badStates: KissOfDeathState[] = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual]
     if (moves.validMoves().length === 0) {
       return true // snake is doomed, but not due to kisses of death
-    } else if (moves.up && this.kissOfDeathState.up !== KissOfDeathState.kissOfDeathCertainty) {
+    } else if (moves.up && !badStates.includes(this.kissOfDeathState.up)) {
       return true
-    } else if (moves.down && this.kissOfDeathState.down !== KissOfDeathState.kissOfDeathCertainty) {
+    } else if (moves.down && !badStates.includes(this.kissOfDeathState.down)) {
       return true
-    } else if (moves.left && this.kissOfDeathState.left !== KissOfDeathState.kissOfDeathCertainty) {
+    } else if (moves.left && !badStates.includes(this.kissOfDeathState.left)) {
       return true
-    } else if (moves.right && this.kissOfDeathState.right !== KissOfDeathState.kissOfDeathCertainty) {
+    } else if (moves.right && !badStates.includes(this.kissOfDeathState.right)) {
       return true
     } else { // all valid options in moves will lead to certain death
       return false

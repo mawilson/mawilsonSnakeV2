@@ -210,13 +210,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
 
-  if (kissStates.canAvoidPossibleDeath(possibleMoves)) {
+  if (kissStates.canAvoidPossibleDeath(possibleMoves)) { // death is avoidable for at least one possible move
     buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
-  } else if (kissStates.canAvoidCertainDeath(possibleMoves)) {
+  } else if (kissStates.canAvoidCertainDeath(possibleMoves)) { // death has a chance of being avoidable for at least one possible move
     // this is a bit of a mess. Basically: get the predator who has a chance of cells to kill me at (huntingChanceDirections call) rather than the ones who can only do so in one cell
-    let largestPredator: Battlesnake | undefined = moveNeighbors.getLargestPredator(moveNeighbors.huntingChanceDirections())
-    if (largestPredator !== undefined && largestPredator.length === myself.length) {
+    let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(moveNeighbors.huntingChanceDirections())
+    if (smallestPredator !== undefined && smallestPredator.length === myself.length) {
       buildLogString(`Need to deal with possible mutual kisses of death nearby, adding ${evalKissOfDeathMaybeMutual}`)
       evaluation = evaluation + evalKissOfDeathMaybe
     } else {
@@ -224,9 +224,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       evaluation = evaluation + evalKissOfDeathMaybe
     }
   } else {
-    let largestPredator: Battlesnake | undefined = moveNeighbors.getLargestPredator(possibleMoves)
-    if (largestPredator !== undefined && largestPredator.length === myself.length) {
-      buildLogString(`Only kisses of death nearby, adding ${evalKissOfDeathCertaintyMutual}`)
+    let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(possibleMoves)
+    if (smallestPredator !== undefined && smallestPredator.length === myself.length) {
+      buildLogString(`Only kisses of death nearby, but one is mutual, adding ${evalKissOfDeathCertaintyMutual}`)
       evaluation = evaluation + evalKissOfDeathCertaintyMutual
     } else {
       buildLogString(`Only kisses of death nearby, adding ${evalKissOfDeathCertainty}`)
