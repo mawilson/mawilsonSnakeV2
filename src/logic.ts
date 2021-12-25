@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates } from "./classes"
-import { logToFile, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator } from "./util"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual } from "./util"
 import { evaluate } from "./eval"
 
 import { createWriteStream } from 'fs'
@@ -26,9 +26,9 @@ export function info(): InfoResponse {
     // const response: InfoResponse = {
     //   apiversion: "1",
     //   author: "waryferryman",
-    //   color: "#ff9900", // #ff9900
-    //   head: "trans-rights-scarf", //"tiger-king",
-    //   tail: "comet" //"mystic-moon"
+    //   color: "#CF5476", // #ff9900
+    //   head: "lantern-fish", // "trans-rights-scarf",
+    //   tail: "fat-rattle" // "comet"
     // }
 
     return response
@@ -47,6 +47,8 @@ export function end(gameState: GameState): void {
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState, priorHealth?: number) : MoveWithEval {
+  //let outOfTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
+  
   let stateContainsMe: boolean = gameState.board.snakes.find(function findSnake(snake) {
     return snake.id === myself.id
   })
@@ -120,6 +122,22 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
         otherSnakes.forEach(function mvsnk(snake) { // move each of the snakes at the same time, without updating gameState until each has moved
           if (moveSnakes[snake.id]) {
+            let newHead = getCoordAfterMove(snake.head, moveSnakes[snake.id].direction)
+            if (newGameState.board.snakes.length === 2) { // for a duel, let snake re-roll its move only if it's been killed by us & we're larger
+              if (coordsEqual(newHead, newGameState.you.head) && newGameState.you.length > snake.length) {
+                moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
+              }
+            } else if (coordsEqual(newHead, newGameState.you.head) && newGameState.you.length >= snake.length) { // for a non-duel, let snake re-roll its move only if it's been killed by us in a hug or a murder
+              moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
+
+            }
+
+            // if (newGameState.board.snakes.length === 2 && coordsEqual(newHead, newGameState.you.head) && newGameState.you.length > snake.length) { // if this is true, this move would kill this otherSnake. We want to always assume otherSnakes live where possible (except for duels, where tying may be a good result), so let it pick again now that it knows where I move
+            //   moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
+            // } else if (coordsEqual(newHead, newGameState.you.head) && newGameState.you.length >= snake.length) { // for non-duels, want to reevaluate both tie & non-tie kisses of death
+            //   moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
+            // }
+
             moveSnake(newGameState, snake, board2d, moveSnakes[snake.id].direction)
           }
         })

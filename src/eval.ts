@@ -349,15 +349,19 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
+  let longestSnake = getLongestSnake(myself, otherSnakes)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
-    let longestSnake = getLongestSnake(myself, otherSnakes)
     if (!(snakeDelta === 2 && snakeHasEaten(myself, futureSight))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
       if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
-        let kingSnakeCalc = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
-        buildLogString(`kingSnake seeker, adding ${kingSnakeCalc}`)
-        evaluation = evaluation + kingSnakeCalc
+        let kingSnakeCalq = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
+        buildLogString(`kingSnake seeker, adding ${kingSnakeCalq}`)
+        evaluation = evaluation + kingSnakeCalq
       }
     }
+  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && myself.id !== gameState.you.id) { // for otherSnakes, add a small nudge away from king snakes
+    let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
+    buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
+    evaluation = evaluation + kingSnakeAvoidCalq
   }
 
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d, kingOfTheSnakes)
