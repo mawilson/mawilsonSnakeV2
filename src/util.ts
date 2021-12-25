@@ -42,7 +42,8 @@ export function getDistance(c1: Coord, c2: Coord) : number {
   return Math.abs(c1.x - c2.x) + Math.abs(c1.y - c2.y)
 }
 
-export function getCoordAfterMove(coord: Coord, move: Direction) : Coord {
+// returns coordinate after move has been applied to it. If move is undefined, returns the same coordinate.
+export function getCoordAfterMove(coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
   switch (move) {
     case Direction.Up:
@@ -54,8 +55,10 @@ export function getCoordAfterMove(coord: Coord, move: Direction) : Coord {
     case Direction.Left:
       newPosition.x = newPosition.x - 1
       break
-    default: // case Direction.Right:
+    case Direction.Right: // case Direction.Right:
       newPosition.x = newPosition.x + 1
+      break
+    default:
       break
   }
   return newPosition
@@ -552,7 +555,7 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
 
 export function findMoveNeighbors(gameState: GameState, me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
   let myHead = me.head
-  let isDuel = gameState.you.id === me.id && gameState.board.snakes.length === 2 // only treat as a duel if 2 snakes are left & the snake is myself. Assumes other snakes will continue to avoid ties if possible
+  let isDuel = gameState.board.snakes.length === 2 // only treat as a duel if 2 snakes are left. Assumes other snakes will also allow ties now that it's a duel
   
   let upNeighbors: BoardCell[] | undefined = undefined
   let downNeighbors: BoardCell[] | undefined = undefined
@@ -1097,13 +1100,13 @@ export function lookaheadDeterminator(gameState: GameState) {
         case 0:
           return 0
         case 1:
-          return 8
-        case 2:
           return 7
-        case 3:
+        case 2:
           return 6
+        case 3:
+          return 5
         default: // 4 or more
-          return 5 
+          return 4 
       }
     }
   }

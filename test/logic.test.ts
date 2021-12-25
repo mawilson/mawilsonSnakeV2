@@ -133,7 +133,6 @@ describe('Tests deprecated by lookahead', () => {
 
   // not sure how to test this in a situation where there's a clear move. If on turn 31 the priorKissOfDeathState is KissOfDeathCertaintyMutual, it's fine
   it.skip('given no other choice, prioritizes kisses of death from ties over kisses from non-ties', () => {
-    debugger
     for (let i = 0; i < 10; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}], "30", "", "")
       const gameState = createGameState(snek)
@@ -149,6 +148,19 @@ describe('Tests deprecated by lookahead', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("left") // snek ought to know that otherSnek is the least likely to go for the kill
+    }
+  })
+
+  // lookahead means this is no longer guaranteed, snek may choose to prolong until a better opportunity arises
+  it.skip('should attempt to eat another snake given the opportunity', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 1}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // left murder isn't likely to land & puts us in a 0move, down murder is obvious
     }
   })
 })
@@ -631,22 +643,6 @@ describe('Kiss of death tests', () => {
 })
 
 describe('Kiss of murder tests', () => {
-  it('should attempt to eat another snake given the opportunity', () => {
-    // t  s  s
-    // t1 x  h
-    // s1 h1 x
-    // x  x  x
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 1, y: 1}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-      let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("down") // left murder isn't likely to land & puts us in a 0move, down murder is obvious
-    }
-  })
-
   it('seeks out murder even on the outskirts of town', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 7, y: 8}, {x: 6, y: 8}, {x: 6, y: 7}], "30", "", "")
@@ -1447,6 +1443,22 @@ describe('Snake should not enter spaces without a clear escape route', () => {
       expect(moveResponse.move).toBe("right") // Left brings us closer to otherSnek & likely traps us in with him if he moves where he ought to, escape right
     }
   })
+  it('does not move into a space it thinks it can get a kill if guessing wrong will soon kill it', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 10, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 6}, {x: 7, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 8, y: 0}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 2, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      // const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 2, y: 6}, {x: 2, y: 7}, {x: 2, y: 8}, {x: 2, y: 9}, {x: 3, y: 9}, {x: 4, y: 9}, {x: 5, y: 9}, {x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10}], "30", "", "")
+      // gameState.board.snakes.push(otherSnek2) // so we don't treat it as a duel, otherwise not relevant to test
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // Down traps us if otherSnek doesn't go right towards us
+    }
+  })
 })
 
 describe('updateGameState tests', () => {
@@ -1727,7 +1739,6 @@ describe('Food prioritization and acquisition', () => {
     }
   })
   it('does not avoid food in order to hunt another snake', () => {
-    debugger
     for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 3, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
