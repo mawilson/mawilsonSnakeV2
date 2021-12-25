@@ -26,9 +26,9 @@ export function info(): InfoResponse {
     // const response: InfoResponse = {
     //   apiversion: "1",
     //   author: "waryferryman",
-    //   color: "#ff9900", // #ff9900
-    //   head: "trans-rights-scarf", //"tiger-king",
-    //   tail: "comet" //"mystic-moon"
+    //   color: "#CF5476", // #ff9900
+    //   head: "lantern-fish", // "trans-rights-scarf",
+    //   tail: "fat-rattle" // "comet"
     // }
 
     return response
