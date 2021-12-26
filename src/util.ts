@@ -545,12 +545,18 @@ export function checkForSnakesHealthAndWalls(me: Battlesnake, gameState: GameSta
 // checks how much time has elapsed since beginning of move function,
 // returns true if more than 50ms exists after latency
 export function checkTime(timeBeginning: number, gameState: GameState) : boolean {
-  let timeCurrent : number = Date.now(),
-      timeElapsed : number = timeCurrent - timeBeginning,
-      myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
-      timeLeft = gameState.game.timeout - timeElapsed - myLatency
-  console.log("turn: %d. Elapsed time: %d; latency: %d; time left: %d", gameState.turn, timeElapsed, myLatency, timeLeft)
-  return timeLeft > 50
+  let timeCurrent : number = Date.now()
+  let timeElapsed : number = timeCurrent - timeBeginning
+  //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
+  let myLatency = isLocalSnake(gameState.you)? 150 : 30
+  // comfort margin represents the time we want to leave ourselves to finish up calculations & return a value.
+  let comfortMargin: number = 20 // gameState.game.timeout / 10, or myLatency - not sure what's best
+  let timeLeft = gameState.game.timeout - timeElapsed - myLatency
+  let timeGood = timeLeft > comfortMargin
+  // if (!timeGood) {
+  //   logToFile(consoleWriteStream, `turn: ${gameState.turn}; Elapsed Time: ${timeElapsed}; Latency: ${myLatency}; Time Left: ${timeLeft}. Ran out of time.`)
+  // }
+  return timeGood
 }
 
 export function findMoveNeighbors(gameState: GameState, me: Battlesnake, board2d: Board2d, moves: Moves) : MoveNeighbors {
@@ -1047,7 +1053,7 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
 
 // for use with testing & dumb lookaheadDeterminator
 function isLocalSnake(snake: Battlesnake) : boolean {
-  return ["Test Snake Please Ignore", "snek"].includes(snake.name)
+  return ["Test Snake Please Ignore", "snek", "otherSnek", "otherSnek2", "otherSnek3"].includes(snake.name)
 }
 
 function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {

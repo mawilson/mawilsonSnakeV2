@@ -163,6 +163,21 @@ describe('Tests deprecated by lookahead', () => {
       expect(moveResponse.move).toBe("down") // left murder isn't likely to land & puts us in a 0move, down murder is obvious
     }
   })
+  // with lookahead, may no longer be valid - particularly may want to go up instead for future looping
+  it.skip('seeks out food under normal competitive circumstances', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 8, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // food is straight right, should seek it out
+    }
+  })
 })
 
 describe('Battlesnake API Version', () => {
@@ -178,8 +193,8 @@ describe('Battlesnake Moves', () => {
       // s s x
       // h t x
       for (let i = 0; i < 3; i++) {
-        const me = new Battlesnake("me", "me", 80, [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }], "30", "", "")
-        const gameState = createGameState(me)
+        const snek = new Battlesnake("snek", "snek", 80, [{ x: 2, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 0 }], "30", "", "")
+        const gameState = createGameState(snek)
         const moveResponse: MoveResponse = move(gameState)
         // In this state, we should NEVER move left.
         const allowedMoves = ["up", "down", "right"]
@@ -218,7 +233,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, 0)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now())
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
       expect(otherSnekMoveDir).toBe("left")
     }
@@ -230,7 +245,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, 0)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now())
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
       expect(otherSnekMoveDir).toBe("left")
     }
@@ -1750,20 +1765,6 @@ describe('Food prioritization and acquisition', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("down") // down is a kill cell, we shouldn't avoid it just because we're king snake & don't want to eat - that defeats the purpose of king snake
-    }
-  })
-  it('seeks out food under normal competitive circumstances', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 8, y: 5}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("right") // food is straight right, should seek it out
     }
   })
   it('does not seek out food under normal solo circumstances', () => {

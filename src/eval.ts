@@ -13,7 +13,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, _priorHealth?: number) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState) : number {
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
@@ -40,7 +40,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const eval3Moves = isOriginalSnake? 4 : 40
   const eval4Moves = isOriginalSnake? 6 : 60
   const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
-  const evalHealthStep = 2
+  const evalHealthStep = 3
   const evalHealthTierDifference = 10
   const evalHealth7 = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealth6 = evalHealth7 - evalHealthTierDifference // 75 - 10 = 65
@@ -53,13 +53,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHealthStarved = evalNoMe // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
-  const starvingHealth = 10 // below this, we are starving
-  let priorHealth: number = 0
-  if (_priorHealth === undefined && myself !== undefined) {
-    priorHealth = myself.health
-  } else if (_priorHealth !== undefined) {
-    priorHealth = _priorHealth
-  }
   if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
   } else if (gameState.board.snakes.length === 1) {

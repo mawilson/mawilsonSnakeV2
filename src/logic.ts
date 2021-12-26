@@ -47,9 +47,9 @@ export function end(gameState: GameState): void {
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState, priorHealth?: number) : MoveWithEval {
-  //let outOfTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
+  let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
   
-  let stateContainsMe: boolean = gameState.board.snakes.find(function findSnake(snake) {
+  let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
     return snake.id === myself.id
   })
   
@@ -59,11 +59,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let priorKissOfDeathState: KissOfDeathState = _priorKissOfDeathState === undefined ? KissOfDeathState.kissOfDeathNo : _priorKissOfDeathState
   let priorKissOfMurderState: KissOfMurderState = _priorKissOfMurderState === undefined ? KissOfMurderState.kissOfMurderNo : _priorKissOfMurderState
 
-  let evalThisState: number = evaluate(gameState, myself, priorKissOfDeathState, priorKissOfMurderState, priorHealth)
+  let evalThisState: number = evaluate(gameState, myself, priorKissOfDeathState, priorKissOfMurderState)
 
   let kissStatesThisState: KissStates = determineKissStates(gameState, myself, board2d)
 
-  if (!stateContainsMe || (availableMoves.length < 1)) { // if myself is dead or there are no available moves, return a direction & the evaluation for this state
+  if (!stillHaveTime || !stateContainsMe || (availableMoves.length < 1)) { // if out of time, myself is dead or there are no available moves, return a direction & the evaluation for this state
     if (lookahead !== undefined) {
       let evalMultiplier: number = 0
       // final result for a lookahead of 4 should look like: evalThisState * (1.0 + 1.1 + 1.2 + 1.3 + 1.4). 4 lookahead means four future moves, plus this one.
@@ -72,17 +72,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
       evalThisState = evalThisState * evalMultiplier // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
     }
-    return new MoveWithEval(undefined, evalThisState)
+    let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
+    return new MoveWithEval(defaultDir, evalThisState)
   } 
-  // can't skip evaluating even if it's just one move, because we need to know that move's eval score
-  //else if (availableMoves.length === 1) {
-  //  return {dir: availableMoves[0], eval: undefined}
-  //}
 
   // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
   let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)
-  //let bestMove : string | undefined = undefined
-  //let bestMoveEval : number | undefined = undefined
 
   // can determine each otherSnake's moves just once as it won't differ for each availableMove for myself
   let moveSnakes : { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
@@ -92,7 +87,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
     otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
       moveSnakes[snake.id] = decideMove(gameState, snake, startTime) // decide best move for other snakes according to current data
-      //moveSnakes[snake.id] = _move(newGameState, startTime, snake)
     })
   }
 
@@ -112,13 +106,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
 
-      if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place
-        // move all snakes on board - newSelf according to availableMoves, otherSnakes according to their own _move result
-        
-        
+      if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place        
         moveSnake(newGameState, newSelf, newBoard2d, move) // move newSelf to available move
-        // determine kiss states before moving other snakes - we want to see what our neighbors would look like after we moved somewhere, which we won't see if we've already moved our neighbors
-        //kissStates = determineKissStateForDirection(move, kissStatesThisState)
 
         otherSnakes.forEach(function mvsnk(snake) { // move each of the snakes at the same time, without updating gameState until each has moved
           if (moveSnakes[snake.id]) {
@@ -132,19 +121,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
             }
 
-            // if (newGameState.board.snakes.length === 2 && coordsEqual(newHead, newGameState.you.head) && newGameState.you.length > snake.length) { // if this is true, this move would kill this otherSnake. We want to always assume otherSnakes live where possible (except for duels, where tying may be a good result), so let it pick again now that it knows where I move
-            //   moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
-            // } else if (coordsEqual(newHead, newGameState.you.head) && newGameState.you.length >= snake.length) { // for non-duels, want to reevaluate both tie & non-tie kisses of death
-            //   moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
-            // }
-
             moveSnake(newGameState, snake, board2d, moveSnakes[snake.id].direction)
           }
         })
         updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
       } else { // for other snakes, still need to be able to move self to a new position to evaluate it
         moveSnake(newGameState, newSelf, newBoard2d, move) // move newSelf to available move
-        //kissStates = determineKissStateForDirection(move, kissStatesThisState)
 
         // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
         otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
@@ -158,7 +140,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
         evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health) // This is the recursive case!!!
       } else { // base case, just run the eval
-        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health))
+        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState))
       }
 
       if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
