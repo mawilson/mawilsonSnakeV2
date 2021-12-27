@@ -1,5 +1,5 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates } from "./classes"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls } from "./classes"
 import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual } from "./util"
 import { evaluate } from "./eval"
 
@@ -8,7 +8,7 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-export var futureSight : number = 4
+export var futureSight : number = 4 // this can't be global, that's not parallel
 const lookaheadWeight = 0.1
 
 export function info(): InfoResponse {
@@ -46,7 +46,7 @@ export function end(gameState: GameState): void {
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState, priorHealth?: number) : MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState, priorHealth?: number) : MoveWithEval {
   let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
   
   let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
@@ -59,7 +59,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let priorKissOfDeathState: KissOfDeathState = _priorKissOfDeathState === undefined ? KissOfDeathState.kissOfDeathNo : _priorKissOfDeathState
   let priorKissOfMurderState: KissOfMurderState = _priorKissOfMurderState === undefined ? KissOfMurderState.kissOfMurderNo : _priorKissOfMurderState
 
-  let evalThisState: number = evaluate(gameState, myself, priorKissOfDeathState, priorKissOfMurderState)
+  let evalThisState: number = evaluate(gameState, myself, hazardWalls, priorKissOfDeathState, priorKissOfMurderState)
 
   let kissStatesThisState: KissStates = determineKissStates(gameState, myself, board2d)
 
@@ -86,7 +86,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return snake.id !== gameState.you.id
     })
     otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
-      moveSnakes[snake.id] = decideMove(gameState, snake, startTime) // decide best move for other snakes according to current data
+      moveSnakes[snake.id] = decideMove(gameState, snake, startTime, hazardWalls) // decide best move for other snakes according to current data
     })
   }
 
@@ -114,10 +114,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             let newHead = getCoordAfterMove(snake.head, moveSnakes[snake.id].direction)
             if (newGameState.board.snakes.length === 2) { // for a duel, let snake re-roll its move only if it's been killed by us & we're larger
               if (coordsEqual(newHead, newGameState.you.head) && newGameState.you.length > snake.length) {
-                moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
+                moveSnakes[snake.id] = decideMove(newGameState, snake, startTime, hazardWalls) // may be dangerous to put another decideMove in here, but it should be a rare case
               }
             } else if (coordsEqual(newHead, newGameState.you.head) && newGameState.you.length >= snake.length) { // for a non-duel, let snake re-roll its move only if it's been killed by us in a hug or a murder
-              moveSnakes[snake.id] = decideMove(newGameState, snake, startTime) // may be dangerous to put another decideMove in here, but it should be a rare case
+              moveSnakes[snake.id] = decideMove(newGameState, snake, startTime, hazardWalls) // may be dangerous to put another decideMove in here, but it should be a rare case
 
             }
 
@@ -138,9 +138,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       
       let evalState: MoveWithEval
       if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-        evalState = decideMove(newGameState, newSelf, startTime, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health) // This is the recursive case!!!
+        evalState = decideMove(newGameState, newSelf, startTime, hazardWalls, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState, myself.health) // This is the recursive case!!!
       } else { // base case, just run the eval
-        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissStates.kissOfDeathState, kissStates.kissOfMurderState))
+        evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, hazardWalls, kissStates.kissOfDeathState, kissStates.kissOfMurderState))
       }
 
       if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
@@ -161,7 +161,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     } else { // if newSelf isn't defined, I have died, evaluate the state without me
       bestMove.direction = move
-      bestMove.score = evaluate(newGameState, newSelf, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
+      bestMove.score = evaluate(newGameState, newSelf, hazardWalls, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
     }
   })
 
@@ -185,9 +185,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
-  futureSight = lookaheadDeterminator(gameState)
+  let futureSight: number = lookaheadDeterminator(gameState)
+  let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   return {move: directionToString(chosenMoveDirection)}
 }

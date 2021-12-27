@@ -1,5 +1,5 @@
 
-import { ICoord, IBattlesnake, Board } from "./types"
+import { ICoord, IBattlesnake, Board, GameState } from "./types"
 import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -254,6 +254,76 @@ export class Board2d {
       return cell.snakeCell ? cell.snakeCell.snake.id === inputSnake.id : false;
     } else {
       return false;
+    }
+  }
+}
+
+// an object representing the left, top, right, & bottom hazard boundaries of a board. Will need adjustment if inverted hazard is ever a thing
+export class HazardWalls {
+  up: number | undefined = undefined
+  down: number | undefined = undefined
+  left: number | undefined = undefined
+  right: number | undefined = undefined
+
+  constructor(gameState: GameState) {
+    let _this = this
+
+    if (gameState.game.ruleset.settings.hazardDamagePerTurn > 0) { // if hazard does not exist, we can just leave the walls undefined
+      let xValues: { [key: number]: number} = {} // need to count up all hazards & determine if walls exist if gameState.board.height number of cells exist at that x value
+      let yValues: { [key: number]: number} = {} // likewise, but for board.width at that y value
+
+      let board2d: Board2d = new Board2d(gameState.board)
+
+      for (let i: number = 0; i< board2d.width; i++) {
+        for (let j: number = 0; j < board2d.height; j++) { // iterate through each cell in board2d
+          let cell = board2d.getCell({x: i, y: j})
+          if (cell !== undefined && cell.hazard) { // if cell exists & has hazard, add its coordinates to the xValues & yValues objects
+            if (xValues[i] !== undefined) { // entry exists, increment it
+              xValues[i] = xValues[i] + 1
+            } else { // entry doesn't yet exist, create it & set to 1
+              xValues[i] = 1
+            }
+            if (yValues[j] !== undefined) {
+              yValues[j] = yValues[j] + 1
+            } else {
+              yValues[j] = 1
+            }
+          }
+        }
+      }
+
+      let hasXGap: boolean = false
+      for (let i: number = 0; i < gameState.board.width; i++) {
+        if (xValues[i] !== undefined && xValues[i] === gameState.board.height) { // there are as many x values at this width as the board is tall - this is a wall
+          if (hasXGap) { // have already found the left wall, now finding the right wall
+            _this.right = i
+            break // don't want to process anything after finding the right wall
+          } else { // have not found a gap yet, continue updating the left wall
+            _this.left = i
+            if (i === gameState.board.width - 1) {
+              _this.right = i // hazard runs the entire width, left edge is also right edge
+            }
+          }
+        } else {
+          hasXGap = true
+        }
+      }
+      let hasYGap: boolean = false
+      for (let j: number = 0; j < gameState.board.height; j++) {
+        if (yValues[j] !== undefined && yValues[j] === gameState.board.width) { // there are as many y values at this height as this board is long - this is a wall
+          if (hasYGap) { // have already found the down wall, now finding the up wall
+            _this.up = j
+            break // don't want to process anything after finding the up wall
+          } else { // have not found a gap yet, continue updating the down wall
+            _this.down = j
+            if (j === gameState.board.height - 1) {
+              _this.up = j // hazard runs the entire height, bottom edge is also top edge
+            }
+          }
+        } else {
+          hasYGap = true
+        }
+      }
     }
   }
 }

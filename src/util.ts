@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
 import { evaluate } from "./eval"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -720,14 +720,14 @@ export function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves
   }
 }
 
-// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which shouldn't matter, maybe
+// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which breaks HazardWalls constructor
 export function createHazardColumn(board: Board, width: number) {
   for (let i: number = 0; i < board.height; i++) {
     board.hazards.push({x: width, y: i})
   }
 }
 
-// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which shouldn't matter, maybe
+// primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which breaks HazardWalls constructor
 export function createHazardRow(board: Board, height: number) {
   for (let i: number = 0; i < board.width; i++) {
     board.hazards.push({x: i, y: height})
@@ -1108,11 +1108,11 @@ export function lookaheadDeterminator(gameState: GameState) {
         case 1:
           return 7
         case 2:
-          return 6
+          return 7
         case 3:
-          return 5
+          return 6
         default: // 4 or more
-          return 4 
+          return 5 
       }
     }
   }
@@ -1348,4 +1348,28 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
   } else {
     return false
   }
+}
+
+// calculates the center of the board when considering hazard. For a game without hazard, this will just be the center of the board
+export function calculateCenterWithHazard(gameState: GameState, hazardWalls: HazardWalls): {centerX: number, centerY: number} {
+  let leftEdge: number = hazardWalls.left === undefined? 0 : hazardWalls.left
+  let rightEdge: number = hazardWalls.right === undefined? gameState.board.width - 1 : hazardWalls.right
+  let bottomEdge: number = hazardWalls.down === undefined? 0 : hazardWalls.down
+  let topEdge: number = hazardWalls.up === undefined? gameState.board.height - 1: hazardWalls.up
+
+  let centerX = (leftEdge + rightEdge) / 2
+  let centerY = (bottomEdge + topEdge) / 2
+
+  if (centerX === gameState.board.width - 1) {
+    centerX = gameState.board.width / 2 // in the event that there is hazard across the width of the board, reset centerX to middle of board
+  }
+  if (centerY === gameState.board.height - 1) {
+    centerY = gameState.board.height / 2 // in the event that there is hazard across the height of the board, reset centerY to middle of board
+  }
+
+  // centers should always round down to an integer value
+  centerX = Math.floor(centerX)
+  centerY = Math.floor(centerY)
+
+  return {centerX: centerX, centerY: centerY}
 }

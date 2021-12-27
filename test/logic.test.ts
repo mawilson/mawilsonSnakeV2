@@ -1,7 +1,7 @@
 import { info, move, decideMove } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState } from '../src/classes'
-import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString } from '../src/util'
+import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls } from '../src/classes'
+import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard } from '../src/util'
 import { evaluate } from '../src/eval'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
@@ -233,7 +233,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now())
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState))
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
       expect(otherSnekMoveDir).toBe("left")
     }
@@ -245,7 +245,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now())
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState))
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
       expect(otherSnekMoveDir).toBe("left")
     }
@@ -1105,8 +1105,8 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 0}, {x: 0, y: 0}, {x: 0, y: 0}], "30", "", "")
         gameState.board.snakes.push(otherSnek)
         
-        let evalSnek = evaluate(gameState, snek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
-        let evalOtherSnek = evaluate(gameState, otherSnek, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
+        let evalSnek = evaluate(gameState, snek, new HazardWalls(gameState), KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
+        let evalOtherSnek = evaluate(gameState, otherSnek, new HazardWalls(gameState), KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
 
         expect(evalSnek).toBeGreaterThan(evalOtherSnek)
     })
@@ -1850,5 +1850,156 @@ describe('move gameState tests', () => {
     expect(gameState.board.hazards[1].y).toBe(10)
 
     expect(gameState.turn).toBe(30)
+  })
+})
+
+describe('hazard walls tests', () => {
+  it('can accurately map the left, right, top, & bottom hazard walls', () => {
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    createHazardRow(gameState.board, 0)
+    createHazardRow(gameState.board, 1)
+    createHazardRow(gameState.board, 2)
+    createHazardRow(gameState.board, 9)
+    createHazardRow(gameState.board, 10)
+
+    createHazardColumn(gameState.board, 0)
+    createHazardColumn(gameState.board, 1)
+    createHazardColumn(gameState.board, 2)
+    createHazardColumn(gameState.board, 3)
+    createHazardColumn(gameState.board, 4)
+    createHazardColumn(gameState.board, 5)
+    createHazardColumn(gameState.board, 6)
+
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
+
+    expect(hazardWalls.up).toBe(9)
+    expect(hazardWalls.down).toBe(2)
+    expect(hazardWalls.left).toBe(6)
+    expect(hazardWalls.right).toBe(undefined)
+  })
+  it('can accurately map the hazard walls in a game with no hazard', () => {
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
+
+    expect(hazardWalls.up).toBe(undefined)
+    expect(hazardWalls.down).toBe(undefined)
+    expect(hazardWalls.left).toBe(undefined)
+    expect(hazardWalls.right).toBe(undefined)
+  })
+  it('can accurately map the hazard walls in a game with only hazard', () => {
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    createHazardRow(gameState.board, 0)
+    createHazardRow(gameState.board, 1)
+    createHazardRow(gameState.board, 2)
+    createHazardRow(gameState.board, 3)
+    createHazardRow(gameState.board, 4)
+    createHazardRow(gameState.board, 5)
+    createHazardRow(gameState.board, 6)
+    createHazardRow(gameState.board, 7)
+    createHazardRow(gameState.board, 8)
+    createHazardRow(gameState.board, 9)
+    createHazardRow(gameState.board, 10)
+
+    createHazardColumn(gameState.board, 0)
+    createHazardColumn(gameState.board, 1)
+    createHazardColumn(gameState.board, 2)
+    createHazardColumn(gameState.board, 3)
+    createHazardColumn(gameState.board, 4)
+    createHazardColumn(gameState.board, 5)
+    createHazardColumn(gameState.board, 6)
+    createHazardColumn(gameState.board, 7)
+    createHazardColumn(gameState.board, 8)
+    createHazardColumn(gameState.board, 9)
+    createHazardColumn(gameState.board, 10)
+
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
+
+    expect(hazardWalls.up).toBe(10)
+    expect(hazardWalls.down).toBe(10)
+    expect(hazardWalls.left).toBe(10)
+    expect(hazardWalls.right).toBe(10)
+  })
+  it('can accurately determine the center of the board with hazard', () => {
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    createHazardRow(gameState.board, 0)
+    createHazardRow(gameState.board, 1)
+    createHazardRow(gameState.board, 2)
+    createHazardRow(gameState.board, 7)
+    createHazardRow(gameState.board, 8)
+    createHazardRow(gameState.board, 9)
+    createHazardRow(gameState.board, 10)
+
+    createHazardColumn(gameState.board, 0)
+    createHazardColumn(gameState.board, 7)
+    createHazardColumn(gameState.board, 8)
+    createHazardColumn(gameState.board, 9)
+    createHazardColumn(gameState.board, 10)
+
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+
+    expect(centers.centerX).toBe(3) // 0 for left hazard wall, 7 for right, makes (0 + 7) / 2 = 3 (rounded down)
+    expect(centers.centerY).toBe(4) // 2 for bottom hazard wall, 7 for top, makes (2 + 7) / 2 = 4 (rounded down)
+  })
+  it('can accurately determine the center of the board without hazard', () => {
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+
+    expect(centers.centerX).toBe(5)
+    expect(centers.centerY).toBe(5)
+  })
+  it('can accurately determine the center of the board with only hazard', () => {
+    const snek = new Battlesnake("snek", "snek", 30, [{x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    createHazardRow(gameState.board, 0)
+    createHazardRow(gameState.board, 1)
+    createHazardRow(gameState.board, 2)
+    createHazardRow(gameState.board, 3)
+    createHazardRow(gameState.board, 4)
+    createHazardRow(gameState.board, 5)
+    createHazardRow(gameState.board, 6)
+    createHazardRow(gameState.board, 7)
+    createHazardRow(gameState.board, 8)
+    createHazardRow(gameState.board, 9)
+    createHazardRow(gameState.board, 10)
+
+    createHazardColumn(gameState.board, 0)
+    createHazardColumn(gameState.board, 1)
+    createHazardColumn(gameState.board, 2)
+    createHazardColumn(gameState.board, 3)
+    createHazardColumn(gameState.board, 4)
+    createHazardColumn(gameState.board, 5)
+    createHazardColumn(gameState.board, 6)
+    createHazardColumn(gameState.board, 7)
+    createHazardColumn(gameState.board, 8)
+    createHazardColumn(gameState.board, 9)
+    createHazardColumn(gameState.board, 10)
+
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+
+    expect(centers.centerX).toBe(5)
+    expect(centers.centerY).toBe(5)
   })
 })

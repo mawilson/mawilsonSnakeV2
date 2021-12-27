@@ -1,7 +1,7 @@
 import { GameState } from "./types"
-import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard } from "./util"
 import { futureSight } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -13,7 +13,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, hazardWalls: HazardWalls, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState) : number {
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
@@ -93,7 +93,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalCutoffReward = 35
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
-  const evalTailChase = -4 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
+  const evalTailChase = -3 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
@@ -139,11 +139,12 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   // in addition to wall/corner penalty, give a bonus to being closer to center
-  const centerX = (gameState.board.width - 1) / 2
-  const centerY = (gameState.board.height - 1) / 2
+  const centers = calculateCenterWithHazard(gameState, hazardWalls)
+  // const centerX = (gameState.board.width - 1) / 2
+  // const centerY = (gameState.board.height - 1) / 2
 
-  const xDiff = Math.abs(myself.head.x - centerX)
-  const yDiff = Math.abs(myself.head.y - centerY)
+  const xDiff = Math.abs(myself.head.x - centers.centerX)
+  const yDiff = Math.abs(myself.head.y - centers.centerY)
 
   buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
   evaluation = evaluation + xDiff * evalCenterDistancePenalty
@@ -351,7 +352,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
         evaluation = evaluation + kingSnakeCalq
       }
     }
-  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && myself.id !== gameState.you.id) { // for otherSnakes, add a small nudge away from king snakes
+  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && !isOriginalSnake) { // for otherSnakes, add a small nudge away from king snakes
+    let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
+    buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
+    evaluation = evaluation + kingSnakeAvoidCalq
+  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && isOriginalSnake && isDuel) {
     let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
     buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
     evaluation = evaluation + kingSnakeAvoidCalq
