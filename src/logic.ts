@@ -14,22 +14,22 @@ const lookaheadWeight = 0.1
 export function info(): InfoResponse {
     console.log("INFO")
     // Jaguar
-    const response: InfoResponse = {
-        apiversion: "1",
-        author: "waryferryman",
-        color: "#ff9900", // #ff9900
-        head: "tiger-king", //"tiger-king",
-        tail: "mystic-moon" //"mystic-moon"
-    }
+    // const response: InfoResponse = {
+    //     apiversion: "1",
+    //     author: "waryferryman",
+    //     color: "#ff9900", // #ff9900
+    //     head: "tiger-king", //"tiger-king",
+    //     tail: "mystic-moon" //"mystic-moon"
+    // }
 
     // Test Snake
-    // const response: InfoResponse = {
-    //   apiversion: "1",
-    //   author: "waryferryman",
-    //   color: "#CF5476", // #ff9900
-    //   head: "lantern-fish", // "trans-rights-scarf",
-    //   tail: "fat-rattle" // "comet"
-    // }
+    const response: InfoResponse = {
+      apiversion: "1",
+      author: "waryferryman",
+      color: "#CF5476", // #ff9900
+      head: "lantern-fish", // "trans-rights-scarf",
+      tail: "fat-rattle" // "comet"
+    }
 
     return response
 }
@@ -159,10 +159,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           } // else don't replace bestMove
         } // evalState has no score, & bestMove does, we don't want to replace bestMove with evalState
       }
-    } else { // if newSelf isn't defined, I have died, evaluate the state without me
-      bestMove.direction = move
-      bestMove.score = evaluate(newGameState, newSelf, hazardWalls, KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
-    }
+    } // if newSelf isn't defined, I have died, will evaluate the state without me lower down
   })
 
   // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
