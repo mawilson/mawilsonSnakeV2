@@ -78,7 +78,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = isOriginalSnake? 4 : 40
   const eval4Moves = isOriginalSnake? 6 : 60
-  const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = 3
@@ -88,7 +87,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
-  if (snakeLengthDiff >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
+  if (snakeDelta >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
   } else if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
@@ -104,7 +103,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalPriorKissOfDeathNo = 0
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
-  const evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance)
+  const evalPriorKissOfMurderAvoidance = isOriginalSnake? -30 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 30
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -131,7 +130,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
   const evalTailChase = -3 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
-  
+
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
     if (logString === "") {
