@@ -2,18 +2,54 @@ import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard } from "./util"
-import { futureSight } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
 })
 
+// for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
+function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
+  const validHazardTurns = snake.health / (hazardDamage + 1)
+  const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
+  const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
+  const evalHealth6 = evalHealth7 - healthTierDifference // 75 - 10 = 65
+  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 65 - 10 - (1 * 1) = 54
+  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // 54 - 10 - (1 * 2) = 42
+  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // 42 - 10 - (1 * 3) = 29
+  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // 29 - 10 - (1 * 4) = 15
+  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) // 15 - 10 - (1 * 5) = 0
+  const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
+  let evaluation: number = 0
 
+  if (snake.health <= 0) {
+    evaluation = evaluation + evalHealthStarved
+  } else if (hazardDamage <= 5 && snake.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
+    evaluation = evaluation + evalHealth0
+  } else if (validHazardTurns > 6) {
+    evaluation = evaluation + evalHealth7
+  } else if (validHazardTurns > 5) {
+    evaluation = evaluation + evalHealth6
+  } else if (validHazardTurns > 4) {
+    evaluation = evaluation + evalHealth5
+  } else if (validHazardTurns > 3) {
+    evaluation = evaluation + evalHealth4
+  } else if (validHazardTurns > 2) {
+    evaluation = evaluation + evalHealth3     
+  } else if (validHazardTurns > 1) {
+    evaluation = evaluation + evalHealth2 
+  } else if (validHazardTurns > 0) {
+    evaluation = evaluation + evalHealth0
+  } else {
+    evaluation = evaluation + evalHealth0
+  }
+
+  return evaluation
+}
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, hazardWalls: HazardWalls, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, hazardWalls: HazardWalls, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, lookahead: number) : number {
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
@@ -25,10 +61,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   // values to tweak
   const evalBase: number = 500
-  const evalNoSnakes: number = 400 // no snakes can be legitimately good. Ties are fine, & is the other snake chickened, we may be better off. Consider 400 a moderately 'good' move.
+  const evalNoSnakes: number = 430 // no snakes can be legitimately good. Ties are fine, & if the other snake chickened, we may be better off. 430 is just enough to let 'does not avoid a tie kiss of death if in a duel'
   const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
-  const evalSolo: number = 1000
+  const evalSolo: number = 4000 // this means we've won. Won't be considered in games that were always solo
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
   const evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
@@ -40,22 +76,18 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const eval3Moves = isOriginalSnake? 4 : 40
   const eval4Moves = isOriginalSnake? 6 : 60
   const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
+  
+  const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = 3
   const evalHealthTierDifference = 10
-  const evalHealth7 = 75 // evalHealth tiers should differ in severity based on how hungry I am
-  const evalHealth6 = evalHealth7 - evalHealthTierDifference // 75 - 10 = 65
-  const evalHealth5 = evalHealth6 - evalHealthTierDifference - (evalHealthStep * 1) // 65 - 10 - (1 * 1) = 54
-  const evalHealth4 = evalHealth5 - evalHealthTierDifference - (evalHealthStep * 2) // 54 - 10 - (1 * 2) = 42
-  const evalHealth3 = evalHealth4 - evalHealthTierDifference - (evalHealthStep * 3) // 42 - 10 - (1 * 3) = 29
-  const evalHealth2 = evalHealth3 - evalHealthTierDifference - (evalHealthStep * 4) // 29 - 10 - (1 * 4) = 15
-  const evalHealth1 = evalHealth2 - evalHealthTierDifference - (evalHealthStep * 5) // 15 - 10 - (1 * 5) = 0
-  const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
-  const evalHealthStarved = evalNoMe // there is never a circumstance where starving is good, even other snake bodies are better than this
-  let evalHasEaten = evalHealth7 + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
+  const evalHealthEnemyThreshold = hazardDamage > 0? 50 : 10 // health level at which we start starving out a snake in a duel
+  const evalHealthEnemyReward = 50
+
+  let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
   if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
-  } else if (gameState.board.snakes.length === 1) {
+  } else if (gameState.board.snakes.length === 1 && myself && myself.health > 5) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
 
@@ -82,9 +114,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
-  const duelSnakeHealthThreshold = hazardDamage > 0? 50 : 10
   let evalFoodVal = 2
-  if (isDuel && otherSnakes[0].health < duelSnakeHealthThreshold) { // care a bit more about food to try to starve the other snake out
+
+  if (isDuel && otherSnakes[0].health < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = 3
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 1
@@ -110,13 +142,17 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   if (gameState.board.snakes.length === 0) {
     return evalNoSnakes // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
-  if (!(myself instanceof Battlesnake)) {
+  if (myself === undefined) {
     return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
     //evaluation = evaluation + evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
   if (otherSnakes.length === 0) {
-    buildLogString(`no other snakes, add ${evalSolo}`)
-    evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
+    if (gameState.game.ruleset.name === "solo") { // for solo games, we want to continue evaluating. For non-solo games, we've won, may be able to save evaluation time by returning now
+      buildLogString(`no other snakes, add ${evalSolo}`)
+      evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
+    } else {
+      return evalSolo
+    }
   } else {
     buildLogString(`other snakes are in game, multiply their number by evalSnakeCount & add to eval: ${evalSnakeCount} * ${otherSnakes.length}`)
     evaluation = evaluation + (evalSnakeCount * otherSnakes.length)
@@ -155,41 +191,30 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const possibleMoves = new Moves(true, true, true, true)
 
   // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself, futureSight)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
+  if (snakeHasEaten(myself, lookahead)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
-    let validHazardTurns = myself.health / (hazardDamage + 1)
-    if (myself.health <= 0) {
-      buildLogString(`HealthStarved, adding ${evalHealthStarved}`)
-      evaluation = evaluation + evalHealthStarved
-    } else if (hazardDamage <= 5 && myself.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
-      buildLogString(`Health0, adding ${evalHealth0}`)
-      evaluation = evaluation + evalHealth0
-    }else if (validHazardTurns > 6) {
-      buildLogString(`Health7, adding ${evalHealth7}`)
-      evaluation = evaluation + evalHealth7
-    } else if (validHazardTurns > 5) {
-      buildLogString(`Health6, adding ${evalHealth6}`)
-      evaluation = evaluation + evalHealth6
-    } else if (validHazardTurns > 4) {
-      buildLogString(`Health5, adding ${evalHealth5}`)
-      evaluation = evaluation + evalHealth5
-    } else if (validHazardTurns > 3) {
-      buildLogString(`Health4, adding ${evalHealth4}`)
-      evaluation = evaluation + evalHealth4
-    } else if (validHazardTurns > 2) {
-      buildLogString(`Health3, adding ${evalHealth3}`)
-      evaluation = evaluation + evalHealth3     
-    } else if (validHazardTurns > 1) {
-      buildLogString(`Health2, adding ${evalHealth2}`)
-      evaluation = evaluation + evalHealth2 
-    } else if (validHazardTurns > 0) {
-      buildLogString(`Health1, adding ${evalHealth0}`)
-      evaluation = evaluation + evalHealth0
-    } else {
-      buildLogString(`Health0, adding ${evalHealth0}`)
-      evaluation = evaluation + evalHealth0
+    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+    buildLogString(`Health eval for myself, adding ${healthEval}`)
+    evaluation = evaluation + healthEval
+  }
+
+  if (isDuel) { // if duelling, pay closer attention to enemy's health in an attempt to starve it out if possible
+    if (hazardDamage > 0) {
+      // calculate health eval with a lower tier difference & health step, which should result in a smaller variation based on this metric than our own health metric
+      // we don't want to base all of our movements on enemy health, just a small nudge if it's vulnerable towards eating its food
+      // note the value for starvationPenalty: -evalSolo. Want to give a reward equivalent to the reward for being the last snake if we actually do starve the other snake out.
+      let healthEval: number = determineHealthEval(otherSnakes[0], hazardDamage, evalHealthStep - 1, Math.floor(evalHealthTierDifference / 3), evalHealthBase, -evalSolo)
+      healthEval = -1 * healthEval // for otherSnake, we want this value to be lower, so need to reward by inverting it
+      buildLogString(`Health eval for duel opponent, adding ${healthEval}`)
+      evaluation = evaluation + healthEval // should be a positive value, higher for lower enemy snake health values, & very high if the enemy snake starved out
+    } else { // if no hazard, starvation is not likely, only try if they're really low
+      if (otherSnakes[0].health < evalHealthEnemyThreshold) {
+        let healthEval: number = evalHealthEnemyReward // if health threshold is 10, this will be 45 at health 9, 40 at 8, 35 at 7, etc., down to 5 at 1
+        buildLogString(`Health eval for non-duel opponent, adding ${healthEval}`)
+        evaluation = evaluation + healthEval // should be a positive value to reward Jaguar for keeping his opponent low on health for longer periods of time
+      }
     }
   }
 
@@ -345,7 +370,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
   let longestSnake = getLongestSnake(myself, otherSnakes)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
-    if (!(snakeDelta === 2 && snakeHasEaten(myself, futureSight))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
+    if (!(snakeDelta === 2 && snakeHasEaten(myself, lookahead))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
       if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
         let kingSnakeCalq = getDistance(myself.head, longestSnake.head) * evalKingSnakeStep // lower distances are better, evalKingSnakeStep should be negative
         buildLogString(`kingSnake seeker, adding ${kingSnakeCalq}`)
@@ -370,7 +395,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   let foodCalc : number = 0
   for (let i: number = 1; i <= foodSearchDepth; i++) {
     foodToHunt = nearbyFood[i]
-    if (snakeHasEaten(myself, futureSight)) {
+    if (snakeHasEaten(myself, lookahead)) {
       // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
       if (foodToHunt) {
         foodToHunt.push(myself.head)

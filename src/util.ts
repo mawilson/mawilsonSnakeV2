@@ -550,12 +550,12 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
   //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
   let myLatency = isLocalSnake(gameState.you)? 150 : 30
   // comfort margin represents the time we want to leave ourselves to finish up calculations & return a value.
-  let comfortMargin: number = 20 // gameState.game.timeout / 10, or myLatency - not sure what's best
+  let comfortMargin: number = 40 // gameState.game.timeout / 10, or myLatency - not sure what's best
   let timeLeft = gameState.game.timeout - timeElapsed - myLatency
   let timeGood = timeLeft > comfortMargin
-  // if (!timeGood) {
-  //   logToFile(consoleWriteStream, `turn: ${gameState.turn}; Elapsed Time: ${timeElapsed}; Latency: ${myLatency}; Time Left: ${timeLeft}. Ran out of time.`)
-  // }
+  if (!timeGood) {
+    logToFile(consoleWriteStream, `turn: ${gameState.turn}; Elapsed Time: ${timeElapsed}; Latency: ${myLatency}; Time Left: ${timeLeft}. Ran out of time.`)
+  }
   return timeGood
 }
 
@@ -1092,8 +1092,8 @@ export function lookaheadDeterminator(gameState: GameState) {
     return 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 3) {
     return 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
-  }else if (isLocalSnake(gameState.you)) {
-    return lookaheadDeterminatorNonCpuBound(gameState)
+  // } else if (isLocalSnake(gameState.you)) {
+  //   return lookaheadDeterminatorNonCpuBound(gameState)
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
       if (gameState.board.snakes.length > 2) {
