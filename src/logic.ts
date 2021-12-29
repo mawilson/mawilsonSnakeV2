@@ -8,29 +8,33 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-let timesTaken: number[] = []
+let timesTaken: {[key: string]: number[]} = {}
 const lookaheadWeight = 0.1
+export const isDevelopment: boolean = true
 
 export function info(): InfoResponse {
     console.log("INFO")
-    // Jaguar
-    // const response: InfoResponse = {
-    //     apiversion: "1",
-    //     author: "waryferryman",
-    //     color: "#ff9900", // #ff9900
-    //     head: "tiger-king", //"tiger-king",
-    //     tail: "mystic-moon", //"mystic-moon",
-    //     version: "1.0.0"
-    // }
-
-    // Test Snake
-    const response: InfoResponse = {
-      apiversion: "1",
-      author: "waryferryman",
-      color: "#CF5476", // #ff9900
-      head: "lantern-fish", // "trans-rights-scarf",
-      tail: "fat-rattle", // "comet",
-      version: "1.0.0" //
+    let response: InfoResponse
+    if (isDevelopment) {
+      // Test Snake
+      response = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#CF5476", // #ff9900
+        head: "lantern-fish", // "trans-rights-scarf",
+        tail: "fat-rattle", // "comet",
+        version: "1.0.0" //
+      }
+    } else {
+      // Jaguar
+      response = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#ff9900", // #ff9900
+        head: "tiger-king", //"tiger-king",
+        tail: "mystic-moon", //"mystic-moon",
+        version: "1.0.0"
+      }
     }
 
     return response
@@ -64,7 +68,9 @@ function doSomeStats(timesTaken: number[]): void {
 }
 
 export function end(gameState: GameState): void {
-  doSomeStats(timesTaken)
+  if (isDevelopment && timesTaken[gameState.game.id] !== undefined) {
+    doSomeStats(timesTaken[gameState.game.id])
+  }
   console.log(`${gameState.game.id} END\n`)
 }
 
@@ -230,15 +236,17 @@ export function move(gameState: GameState): MoveResponse {
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
-  let timeTaken: number = Date.now() - timeBeginning
-  if (timesTaken !== undefined) {
-    if (timesTaken.length >= 50000) {
-      timesTaken.splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
+  if (isDevelopment) {
+    let timeTaken: number = Date.now() - timeBeginning
+    if (timesTaken[gameState.game.id] !== undefined) {
+      if (timesTaken[gameState.game.id].length >= 50000) {
+        timesTaken[gameState.game.id].splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
+      } else {
+        timesTaken[gameState.game.id].push(timeTaken)
+      }
     } else {
-      timesTaken.push(timeTaken)
+      timesTaken[gameState.game.id] = [timeTaken]
     }
-  } else {
-    timesTaken = [timeTaken]
   }
   
   return {move: directionToString(chosenMoveDirection)}
