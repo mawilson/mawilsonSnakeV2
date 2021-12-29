@@ -1019,16 +1019,6 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
   return states
 }
 
-// given a gamestate, snake, & board2d, return the kiss states of the neighboring cells
-export function determineKissStates(gameState: GameState, myself: Battlesnake, board2d: Board2d) : KissStates {
-  let moves : Moves = getAvailableMoves(gameState, myself, board2d)
-  let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
-  let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-  let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-
-  return kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
-}
-
 // given a set of neighboring cells & their kiss states, return the appropriate kiss states per the direction given
 export function determineKissStateForDirection(direction: Direction, kissStates: KissStates): {kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState} {
   let kissOfDeathState : KissOfDeathState

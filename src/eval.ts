@@ -1,7 +1,8 @@
 import { GameState } from "./types"
-import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
 import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard } from "./util"
+import { gameData } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -49,7 +50,7 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, hazardWalls: HazardWalls, kissOfDeathState: KissOfDeathState, kissOfMurderState: KissOfMurderState, lookahead: number) : number {
+export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, priorKissStates: KissStatesForEvaluate) : number {
   const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
   const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
   const board2d = new Board2d(gameState.board)
@@ -58,6 +59,8 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const isDuel: boolean = gameState.board.snakes.length === 2
 
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
+  const lookahead: number = gameData[gameState.game.id] && isOriginalSnake? gameData[gameState.game.id].lookahead : 0 // only originalSnake uses lookahead
+  const hazardWalls: HazardWalls = gameData[gameState.game.id]? gameData[gameState.game.id].hazardWalls : new HazardWalls()
 
   // values to tweak
   const evalBase: number = 500
@@ -85,9 +88,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
-  if (snakeLengthDiff >= 4 && kissOfMurderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
+  if (snakeLengthDiff >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
     evalHasEaten = -20
-  } else if (gameState.board.snakes.length === 1 && myself && myself.health > 5) {
+  } else if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
 
@@ -102,6 +105,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   const evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance)
+  const evalPriorKissOfMurderSelfBonus = 30
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
   const evalKissOfDeathCertaintyMutual = -200 // another snake will have to kamikaze to his us here, but it's still risky
@@ -270,7 +274,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   
   // for kisses from the previous move state
   // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
-  switch (kissOfDeathState) {
+  switch (priorKissStates.deathState) {
     case KissOfDeathState.kissOfDeathCertainty:
       buildLogString(`KissOfDeathCertainty, adding ${evalPriorKissOfDeathCertainty}`)
       evaluation = evaluation + evalPriorKissOfDeathCertainty
@@ -307,7 +311,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       break
   }
 
-  switch (kissOfMurderState) {
+  switch (priorKissStates.murderState) {
     case KissOfMurderState.kissOfMurderCertainty:
       buildLogString(`KissOfMurderCertainty, adding ${evalPriorKissOfMurderCertainty}`)
       evaluation = evaluation + evalPriorKissOfMurderCertainty
@@ -323,6 +327,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     case KissOfMurderState.kissOfMurderNo:
     default:
       break
+  }
+  // if this state's murder prey was my snake & it's not a duel, give a reward so I assume other snakes are out to get me
+  if (!isDuel && priorKissStates.prey !== undefined && priorKissStates.prey.id === gameState.you.id) {
+    buildLogString(`KissOfMurder prey was ${gameState.you.name}, adding ${evalPriorKissOfMurderSelfBonus}`)
+    evaluation = evaluation + evalPriorKissOfMurderSelfBonus
   }
 
   // penalize or rewards spaces next to hazard
@@ -343,7 +352,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   evaluation = evaluation + evalLengthMult * myself.length
 
   // if we're sure we're getting a kill, we're also sure that snake is dying, so we can increment our possible moves for evaluation purposes
-  availableMoves = kissOfMurderState === KissOfMurderState.kissOfMurderCertainty ? availableMoves + 1 : availableMoves
   switch(availableMoves) {
     case 0:
       buildLogString(`possibleMoves 0, add ${eval0Move}`)

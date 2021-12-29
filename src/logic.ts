@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStates, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual } from "./util"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual } from "./util"
 import { evaluate } from "./eval"
 
 import { createWriteStream } from 'fs'
@@ -8,9 +8,10 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-let timesTaken: {[key: string]: number[]} = {}
+//let timesTaken: {[key: string]: number[]} = {}
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
+export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
 
 export function info(): InfoResponse {
     console.log("INFO")
@@ -68,8 +69,11 @@ function doSomeStats(timesTaken: number[]): void {
 }
 
 export function end(gameState: GameState): void {
-  if (isDevelopment && timesTaken[gameState.game.id] !== undefined) {
-    doSomeStats(timesTaken[gameState.game.id])
+  if (isDevelopment && gameData[gameState.game.id].timesTaken !== undefined) {
+    doSomeStats(gameData[gameState.game.id].timesTaken)
+  }
+  if (gameData[gameState.game.id]) { // clean up game-specific data
+    delete gameData[gameState.game.id]
   }
   console.log(`${gameState.game.id} END\n`)
 }
@@ -79,7 +83,7 @@ export function end(gameState: GameState): void {
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, lookahead: number): MoveWithEval {
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: {priorKissOfDeathState: KissOfDeathState, priorKissOfMurderState: KissOfMurderState}): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
@@ -87,14 +91,20 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
     
     let board2d = new Board2d(gameState.board)
-    let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
-    let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.priorKissOfDeathState
-    let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.priorKissOfMurderState
+    let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
+    let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
+    let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
 
-    let evalThisState: number = evaluate(gameState, myself, hazardWalls, priorKissOfDeathState, priorKissOfMurderState, lookahead || 0)
+    let evalThisState: number = evaluate(gameState, myself, evaluateKisses)
 
-    let kissStatesThisState: KissStates = determineKissStates(gameState, myself, board2d)
+    let moves: Moves = getAvailableMoves(gameState, myself, board2d)
+    let availableMoves = moves.validMoves()
+    let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
+    let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
+    let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+  
+    let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
     if (!stillHaveTime) { // if we need to leave early due to time
@@ -182,11 +192,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         }
         
         let evalState: MoveWithEval
+        let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
         if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-          let kissArgs = {priorKissOfDeathState: kissStates.kissOfDeathState, priorKissOfMurderState: kissStates.kissOfMurderState}
           evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
         } else { // base case, just run the eval
-          evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, hazardWalls, kissStates.kissOfDeathState, kissStates.kissOfMurderState, lookahead || 0))
+          evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs))
         }
 
         if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
@@ -233,22 +243,33 @@ export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
+
+  if (gameData[gameState.game.id]) {
+    gameData[gameState.game.id].hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
+    gameData[gameState.game.id].lookahead = futureSight // replace gameData lookahead with latest copy
+  } else {
+    gameData[gameState.game.id] = {hazardWalls: hazardWalls, lookahead: futureSight, timesTaken: []} // create new gameData object if one does not yet exist
+  }
+
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
-  if (isDevelopment) {
-    let timeTaken: number = Date.now() - timeBeginning
-    if (timesTaken[gameState.game.id] !== undefined) {
-      if (timesTaken[gameState.game.id].length >= 50000) {
-        timesTaken[gameState.game.id].splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
+  if (gameData[gameState.game.id] && isDevelopment) {
+    if (isDevelopment) {
+      let timeTaken: number = Date.now() - timeBeginning
+      let timesTaken = gameData[gameState.game.id].timesTaken
+      if (timesTaken !== undefined) {
+        if (timesTaken.length >= 50000) {
+          timesTaken.splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
+        } else {
+          timesTaken.push(timeTaken)
+        }
       } else {
-        timesTaken[gameState.game.id].push(timeTaken)
+        timesTaken = [timeTaken]
       }
-    } else {
-      timesTaken[gameState.game.id] = [timeTaken]
     }
   }
-  
+
   return {move: directionToString(chosenMoveDirection)}
 }

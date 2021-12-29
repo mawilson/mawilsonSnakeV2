@@ -265,8 +265,16 @@ export class HazardWalls {
   left: number | undefined = undefined
   right: number | undefined = undefined
 
-  constructor(gameState: GameState) {
+  constructor(gameState?: GameState) {
     let _this = this
+
+    if (gameState === undefined) {
+      this.up = undefined
+      this.down = undefined
+      this.left = undefined
+      this.right = undefined
+      return
+    }
 
     if (gameState.game.ruleset.settings.hazardDamagePerTurn > 0) { // if hazard does not exist, we can just leave the walls undefined
       let xValues: { [key: number]: number} = {} // need to count up all hazards & determine if walls exist if gameState.board.height number of cells exist at that x value
@@ -885,6 +893,24 @@ export class KissStates {
       return true
     } else {
       return false
+    }
+  }
+}
+
+export class KissStatesForEvaluate {
+  deathState: KissOfDeathState
+  predator: Battlesnake | undefined
+  murderState: KissOfMurderState
+  prey: Battlesnake | undefined
+
+  constructor(deathState: KissOfDeathState, murderState: KissOfMurderState, predator?: Battlesnake, prey?: Battlesnake) {
+    this.deathState = deathState
+    this.murderState = murderState
+    if (predator !== undefined) {
+      this.predator = predator
+    }
+    if (prey !== undefined) {
+      this.prey = prey
     }
   }
 }
