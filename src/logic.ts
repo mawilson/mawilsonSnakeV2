@@ -10,7 +10,7 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
 
 let timesTaken: {[key: string]: number[]} = {}
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = true
+export const isDevelopment: boolean = false
 
 export function info(): InfoResponse {
     console.log("INFO")
