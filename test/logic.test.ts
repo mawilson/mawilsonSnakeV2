@@ -250,9 +250,6 @@ describe('BattleSnake can chase tail', () => {
       expect(otherSnekMoveDir).toBe("left")
     }
   })
-})
-
-describe('BattleSnake will not chase tail after eating', () => {
   it('should not chase its tail if it just ate', () => {
     // x x x
     // t x x
@@ -262,6 +259,21 @@ describe('BattleSnake will not chase tail after eating', () => {
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right")
+    }
+  })
+  it('should not enter a space it can only leave via tail if that snake will eat', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 6, y: 6}, {x: 6, y: 7}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 2, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 8, y: 2}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 4}, {x: 7, y: 2}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("left") // left will be trapped by otherSnek's tail if otherSnek gets the food at 7,2 like it should
     }
   })
 })
