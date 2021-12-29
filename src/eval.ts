@@ -69,7 +69,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
-  const evalCenterDistancePenalty: number = isDuel? -3 : -1
+  const evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move

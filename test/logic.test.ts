@@ -233,7 +233,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState))
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
       expect(otherSnekMoveDir).toBe("left")
     }
@@ -245,14 +245,11 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState))
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
       let otherSnekMoveDir = directionToString(otherSnekMove.direction)
       expect(otherSnekMoveDir).toBe("left")
     }
   })
-})
-
-describe('BattleSnake will not chase tail after eating', () => {
   it('should not chase its tail if it just ate', () => {
     // x x x
     // t x x
@@ -262,6 +259,20 @@ describe('BattleSnake will not chase tail after eating', () => {
       const gameState = createGameState(snek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right")
+    }
+  })
+  it('should not enter a space it can exclusively leave via tail if that snake will eat', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 6, y: 6}, {x: 6, y: 7}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 2, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 8, y: 2}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 4}, {x: 7, y: 2}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("left") // left will be trapped by otherSnek's tail if otherSnek gets the food at 7,2 like it should
     }
   })
 })
@@ -472,6 +483,28 @@ describe('Kiss of death tests', () => {
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // left & right should result in death kisses, leaving up
+    }
+  })
+  // good test case for otherSnakes always correctly choosing a kiss of death against me, otherwise snek may think otherSnakes would prioritize killing another snake
+  it('navigates away from a single kiss of death certainty towards freedom', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 2, y: 5}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 3, y: 3}, {x: 4, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 5, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 90, [{x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 90, [{x: 4, y: 0}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 6, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.board.food = [{x: 0, y: 0}]
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // down meets otherSnek & I am very small, left & up are both no kiss
     }
   })
   it('chooses a kiss of death cell over a snake body if those are the sole options', () => {

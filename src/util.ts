@@ -2,11 +2,14 @@ import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
 import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
 import { evaluate } from "./eval"
+import { isDevelopment } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
-  console.log(str)
-  file.write(`${str}
-  `)
+  if (isDevelopment) {
+    console.log(str)
+    file.write(`${str}
+`)
+  }
 }
 
 let consoleWriteStream = createWriteStream("consoleLogs_util.txt", {
@@ -548,7 +551,7 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
   let timeCurrent : number = Date.now()
   let timeElapsed : number = timeCurrent - timeBeginning
   //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
-  let myLatency = isLocalSnake(gameState.you)? 150 : 30
+  let myLatency = isDevelopment? 150 : 30
   // comfort margin represents the time we want to leave ourselves to finish up calculations & return a value.
   let comfortMargin: number = 40 // gameState.game.timeout / 10, or myLatency - not sure what's best
   let timeLeft = gameState.game.timeout - timeElapsed - myLatency
@@ -1049,11 +1052,6 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
       break
   }
   return {kissOfDeathState: kissOfDeathState, kissOfMurderState: kissOfMurderState}
-}
-
-// for use with testing & dumb lookaheadDeterminator
-function isLocalSnake(snake: Battlesnake) : boolean {
-  return ["Test Snake Please Ignore", "snek", "otherSnek", "otherSnek2", "otherSnek3"].includes(snake.name)
 }
 
 function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
