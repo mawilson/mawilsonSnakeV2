@@ -8,9 +8,8 @@ let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
   encoding: "utf8"
 })
 
-//let timesTaken: {[key: string]: number[]} = {}
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = true
+export const isDevelopment: boolean = false
 export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
 
 export function info(): InfoResponse {
