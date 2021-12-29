@@ -79,7 +79,7 @@ export function end(gameState: GameState): void {
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, lookahead: number): MoveWithEval {
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, _priorKissOfDeathState?: KissOfDeathState, _priorKissOfMurderState?: KissOfMurderState): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: {priorKissOfDeathState: KissOfDeathState, priorKissOfMurderState: KissOfMurderState}): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
@@ -89,8 +89,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let board2d = new Board2d(gameState.board)
     let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
 
-    let priorKissOfDeathState: KissOfDeathState = _priorKissOfDeathState === undefined ? KissOfDeathState.kissOfDeathNo : _priorKissOfDeathState
-    let priorKissOfMurderState: KissOfMurderState = _priorKissOfMurderState === undefined ? KissOfMurderState.kissOfMurderNo : _priorKissOfMurderState
+    let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.priorKissOfDeathState
+    let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.priorKissOfMurderState
 
     let evalThisState: number = evaluate(gameState, myself, hazardWalls, priorKissOfDeathState, priorKissOfMurderState, lookahead || 0)
 
@@ -183,7 +183,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         
         let evalState: MoveWithEval
         if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
-          evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissStates.kissOfDeathState, kissStates.kissOfMurderState) // This is the recursive case!!!
+          let kissArgs = {priorKissOfDeathState: kissStates.kissOfDeathState, priorKissOfMurderState: kissStates.kissOfMurderState}
+          evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
         } else { // base case, just run the eval
           evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, hazardWalls, kissStates.kissOfDeathState, kissStates.kissOfMurderState, lookahead || 0))
         }
