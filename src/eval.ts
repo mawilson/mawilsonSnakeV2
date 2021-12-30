@@ -98,9 +98,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalPriorKissOfDeathCertaintyMutual = -400 // another snake would have to kamikaze to hit us here, but it's still risky
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
   const evalPriorKissOfDeathMaybeMutual = -300 // this is less than a 50/50, but still bad. Our predator doesn't want to take this chance either & may avoid this, but may not if it can't
-  const evalPriorKissOfDeath3To1Avoidance = -30 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
-  const evalPriorKissOfDeath3To2Avoidance = -7 // this one is better as we at least still had options after avoiding the kiss
-  const evalPriorKissOfDeath2To1Avoidance = -30
+  const evalPriorKissOfDeath3To1Avoidance = 0 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
+  const evalPriorKissOfDeath3To2Avoidance = 0 // this one is better as we at least still had options after avoiding the kiss
+  const evalPriorKissOfDeath2To1Avoidance = 0
   const evalPriorKissOfDeathNo = 0
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
