@@ -65,7 +65,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   // values to tweak
   const evalBase: number = 500
-  const evalNoSnakes: number = 430 // no snakes can be legitimately good. Ties are fine, & if the other snake chickened, we may be better off. 430 is just enough to let 'does not avoid a tie kiss of death if in a duel'
+  const evalNoSnakes: number = 450 // no snakes can be legitimately good. Ties are fine, & if the other snake chickened, we may be better off. 430 is just enough to let 'does not avoid a tie kiss of death if in a duel'
   const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 4000 // this means we've won. Won't be considered in games that were always solo
@@ -128,7 +128,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalCutoffReward = 35
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
   const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
-  const evalTailChase = -3 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
+  const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`

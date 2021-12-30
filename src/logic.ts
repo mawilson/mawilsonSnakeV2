@@ -140,7 +140,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         return snake.id !== gameState.you.id
       })
       otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
-        moveSnakes[snake.id] = _decideMove(gameState, snake) // decide best move for other snakes according to current data
+        moveSnakes[snake.id] = _decideMove(gameState, snake, 1) // decide best move for other snakes according to current data
       })
     }
 
@@ -193,7 +193,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         
         let evalState: MoveWithEval
         let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
-        if ((newSelf.id === newGameState.you.id) && (lookahead !== undefined) && (lookahead > 0)) { // don't run evaluate at this level, run it at the next level
+        if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
           evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
         } else { // base case, just run the eval
           evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs))
@@ -284,6 +284,7 @@ export function move(gameState: GameState): MoveResponse {
     } else {
       timesTaken = [timeTaken]
     }
+    checkTime(timeBeginning, gameState, true)
   }
 
   return {move: directionToString(chosenMoveDirection)}

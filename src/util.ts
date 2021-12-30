@@ -547,7 +547,7 @@ export function checkForSnakesHealthAndWalls(me: Battlesnake, gameState: GameSta
 
 // checks how much time has elapsed since beginning of move function,
 // returns true if more than 50ms exists after latency
-export function checkTime(timeBeginning: number, gameState: GameState) : boolean {
+export function checkTime(timeBeginning: number, gameState: GameState, logTime?: boolean) : boolean {
   let timeCurrent : number = Date.now()
   let timeElapsed : number = timeCurrent - timeBeginning
   //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
@@ -556,7 +556,7 @@ export function checkTime(timeBeginning: number, gameState: GameState) : boolean
   let comfortMargin: number = 40 // gameState.game.timeout / 10, or myLatency - not sure what's best
   let timeLeft = gameState.game.timeout - timeElapsed - myLatency
   let timeGood = timeLeft > comfortMargin
-  if (!timeGood) {
+  if (!timeGood && logTime) {
     logToFile(consoleWriteStream, `turn: ${gameState.turn}; Elapsed Time: ${timeElapsed}; Latency: ${myLatency}; Time Left: ${timeLeft}. Ran out of time.`)
   }
   return timeGood
@@ -1083,12 +1083,14 @@ export function lookaheadDeterminator(gameState: GameState): number {
     lookahead = 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
   // } else if (isLocalSnake(gameState.you)) {
   //   return lookaheadDeterminatorNonCpuBound(gameState)
+  } else if (gameState.turn < 7 && gameState.game.timeout >= 500) {
+    lookahead = 4
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
       if (gameState.board.snakes.length > 2) {
         lookahead = 3
       } else {
-        lookahead = 4
+        lookahead = 3
       }
     } else {
       switch (gameState.board.snakes.length) {
@@ -1099,7 +1101,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
           lookahead = 7
           break
         case 2:
-          lookahead = 7
+          lookahead = 6
           break
         case 3:
           lookahead = 6
