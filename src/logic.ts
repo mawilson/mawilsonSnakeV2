@@ -235,7 +235,17 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return bestMove
   }
 
-  return _decideMove(gameState, myself, lookahead)
+  let board2d: Board2d = new Board2d(gameState.board)
+  let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
+  let validMoves = availableMoves.validMoves()
+  // before jumping into recursion, first check to see if I have any choices to make
+  if (validMoves.length === 1) { // if I only have one valid move, return that
+    return new MoveWithEval(validMoves[0], undefined)
+  } else if (validMoves.length === 0) { // if I have no valid moves, return the default move
+    return new MoveWithEval(getDefaultMove(gameState, myself), undefined)
+  } else { // otherwise, start deciding
+    return _decideMove(gameState, myself, lookahead)
+  }
 }
 
 export function move(gameState: GameState): MoveResponse {

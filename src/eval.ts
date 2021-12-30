@@ -78,7 +78,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = isOriginalSnake? 4 : 40
   const eval4Moves = isOriginalSnake? 6 : 60
-  const snakeLengthDiff: number = myself === undefined ? -1 : snakeLengthDelta(myself, gameState.board)
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = 3
@@ -88,9 +87,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
-  if (snakeLengthDiff >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
-    evalHasEaten = -20
-  } else if (gameState.board.snakes.length === 1) {
+  // if (snakeDelta >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
+  //   evalHasEaten = -20
+  // } else
+  if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
 
@@ -98,13 +98,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalPriorKissOfDeathCertaintyMutual = -400 // another snake would have to kamikaze to hit us here, but it's still risky
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
   const evalPriorKissOfDeathMaybeMutual = -300 // this is less than a 50/50, but still bad. Our predator doesn't want to take this chance either & may avoid this, but may not if it can't
-  const evalPriorKissOfDeath3To1Avoidance = -30 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
-  const evalPriorKissOfDeath3To2Avoidance = -7 // this one is better as we at least still had options after avoiding the kiss
-  const evalPriorKissOfDeath2To1Avoidance = -30
+  const evalPriorKissOfDeath3To1Avoidance = 0 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
+  const evalPriorKissOfDeath3To2Avoidance = 0 // this one is better as we at least still had options after avoiding the kiss
+  const evalPriorKissOfDeath2To1Avoidance = 0
   const evalPriorKissOfDeathNo = 0
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
-  const evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance)
+  const evalPriorKissOfMurderAvoidance = isOriginalSnake? -30 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 30
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -129,9 +129,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalCutoffReward = 35
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
+  const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
   const evalTailChase = -3 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
-  
+
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
     if (logString === "") {
@@ -163,18 +164,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   // give walls a penalty, & corners a double penalty
-  if (myself.head.x === 0) {
-    buildLogString(`self head x at 0, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  } else if (myself.head.x === (gameState.board.width - 1)) {
-    buildLogString(`self head x at width ${myself.head.x}, add ${evalWallPenalty}`)
+  let isOnHorizontalWall: boolean = myself.head.x === 0 || myself.head.x === (gameState.board.width - 1)
+  let isOnVerticalWall: boolean = myself.head.y === 0 || myself.head.y === (gameState.board.height - 1)
+  let isCorner: boolean = isOnHorizontalWall && isOnVerticalWall
+  if (isOnHorizontalWall) {
+    buildLogString(`self head on horizontal wall at ${myself.head.x}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
   }
-  if (myself.head.y === 0) {
-    buildLogString(`self head y at 0, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  } else if (myself.head.y === (gameState.board.height - 1)) {
-    buildLogString(`self head y at height ${myself.head.y}, add ${evalWallPenalty}`)
+  if (isOnVerticalWall) {
+    buildLogString(`self head y on vertical wall at ${myself.head.y}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
   }
 
@@ -195,7 +193,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const possibleMoves = new Moves(true, true, true, true)
 
   // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself, lookahead)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
+  if (snakeHasEaten(myself)) {
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
@@ -389,10 +387,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
     buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
     evaluation = evaluation + kingSnakeAvoidCalq
-  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && isOriginalSnake && isDuel) {
-    let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
-    buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
-    evaluation = evaluation + kingSnakeAvoidCalq
   }
 
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d, kingOfTheSnakes)
@@ -443,6 +437,26 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   if (canBeCutoffBySnake) {
     buildLogString(`can be cut off, adding ${evalCutoffPenalty}`)
     evaluation = evaluation + evalCutoffPenalty
+  }
+
+  if (isCorner) { // corners are bad don't go into them unless totally necessary
+    //let closestSnake: Battlesnake | undefined
+    let closestSnakeDist: number | undefined
+
+    otherSnakes.forEach(function findClosestSnake(snake) {
+      let thisDist = getDistance(snake.head, myself.head)
+      if (closestSnakeDist === undefined) {
+        //closestSnake = snake
+        closestSnakeDist = thisDist
+      } else if (closestSnakeDist > thisDist) {
+        //closestSnake = snake
+        closestSnakeDist = thisDist
+      }
+    })
+    if (closestSnakeDist !== undefined && closestSnakeDist < 5) {
+      buildLogString(`in a corner with another snake nearby, adding ${evalCornerProximityPenalty}`)
+      evaluation = evaluation + evalCornerProximityPenalty
+    }
   }
 
   let safeCells: number = getSafeCells(board2d)
