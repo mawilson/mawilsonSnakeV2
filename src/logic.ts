@@ -82,7 +82,9 @@ export function end(gameState: GameState): void {
 // replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, lookahead: number): MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, startLookahead: number): MoveWithEval {
+  let initialMoveSnakes : { [key: string]: MoveWithEval} | undefined = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
+
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     
@@ -136,12 +138,17 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     // can determine each otherSnake's moves just once as it won't differ for each availableMove for myself
     let moveSnakes : { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
     if (myself.id === gameState.you.id) {
-      let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
-        return snake.id !== gameState.you.id
-      })
-      otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
-        moveSnakes[snake.id] = _decideMove(gameState, snake, 1) // decide best move for other snakes according to current data
-      })
+      if (initialMoveSnakes !== undefined) {
+        moveSnakes = initialMoveSnakes // prediction for the first moves for otherSnakes with extra lookahead
+        initialMoveSnakes = undefined // only want to use this once, afterwards will decideMoves for otherSnakes as normal
+      } else {
+        let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
+          return snake.id !== gameState.you.id
+        })
+        otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
+          moveSnakes[snake.id] = _decideMove(gameState, snake, 1) // decide best move for other snakes according to current data
+        })
+      }
     }
 
     availableMoves.forEach(function evaluateMove(move) {
@@ -252,8 +259,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return new MoveWithEval(validMoves[0], undefined)
   } else if (validMoves.length === 0) { // if I have no valid moves, return the default move
     return new MoveWithEval(getDefaultMove(gameState, myself), undefined)
-  } else { // otherwise, start deciding
-    return _decideMove(gameState, myself, lookahead)
+  } else { // otherwise, start deciding  
+    let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
+      return snake.id !== gameState.you.id
+    })
+    otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
+      if (initialMoveSnakes === undefined) {
+        initialMoveSnakes = {}
+      }
+      initialMoveSnakes[snake.id] = _decideMove(gameState, snake, 3) // decide best move for other snakes according to current data, with modest lookahead
+    })
+
+    return _decideMove(gameState, myself, startLookahead)
   }
 }
 
