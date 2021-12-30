@@ -128,6 +128,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalCutoffReward = 35
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
+  const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
   const evalTailChase = -3 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
 
@@ -162,18 +163,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   // give walls a penalty, & corners a double penalty
-  if (myself.head.x === 0) {
-    buildLogString(`self head x at 0, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  } else if (myself.head.x === (gameState.board.width - 1)) {
-    buildLogString(`self head x at width ${myself.head.x}, add ${evalWallPenalty}`)
+  let isOnHorizontalWall: boolean = myself.head.x === 0 || myself.head.x === (gameState.board.width - 1)
+  let isOnVerticalWall: boolean = myself.head.y === 0 || myself.head.y === (gameState.board.height - 1)
+  let isCorner: boolean = isOnHorizontalWall && isOnVerticalWall
+  if (isOnHorizontalWall) {
+    buildLogString(`self head on horizontal wall at ${myself.head.x}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
   }
-  if (myself.head.y === 0) {
-    buildLogString(`self head y at 0, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  } else if (myself.head.y === (gameState.board.height - 1)) {
-    buildLogString(`self head y at height ${myself.head.y}, add ${evalWallPenalty}`)
+  if (isOnVerticalWall) {
+    buildLogString(`self head y on vertical wall at ${myself.head.y}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
   }
 
@@ -442,6 +440,26 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   if (canBeCutoffBySnake) {
     buildLogString(`can be cut off, adding ${evalCutoffPenalty}`)
     evaluation = evaluation + evalCutoffPenalty
+  }
+
+  if (isCorner) { // corners are bad don't go into them unless totally necessary
+    //let closestSnake: Battlesnake | undefined
+    let closestSnakeDist: number | undefined
+
+    otherSnakes.forEach(function findClosestSnake(snake) {
+      let thisDist = getDistance(snake.head, myself.head)
+      if (closestSnakeDist === undefined) {
+        //closestSnake = snake
+        closestSnakeDist = thisDist
+      } else if (closestSnakeDist > thisDist) {
+        //closestSnake = snake
+        closestSnakeDist = thisDist
+      }
+    })
+    if (closestSnakeDist !== undefined && closestSnakeDist < 5) {
+      buildLogString(`in a corner with another snake nearby, adding ${evalCornerProximityPenalty}`)
+      evaluation = evaluation + evalCornerProximityPenalty
+    }
   }
 
   let safeCells: number = getSafeCells(board2d)

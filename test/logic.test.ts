@@ -1397,6 +1397,23 @@ describe('Snake cutoff tests', () => {
       expect(moveResponse.move).toBe("left") // Right is immediately a cutoff, should absolutely not do this. Left takes us into a corner away from food, away from hunted snake, but means freedom
     }
   })
+  it('does not walk into a cutoff by a snake & a wall', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [ {x: 10, y: 1}, {x: 9, y: 1}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 8, y: 1}, {x: 8, y: 2}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 7, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.game.ruleset.settings.hazardDamagePerTurn = 0
+      
+      gameState.board.food = [{x: 10, y: 0}, {x: 1, y: 8}, {x: 3, y: 9}]
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // down puts us in a corner where otherSnek can immediately cut us off by going either down or right
+    }
+  })
 })
 
 describe('Snake should not enter spaces without a clear escape route', () => {
