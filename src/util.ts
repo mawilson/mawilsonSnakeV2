@@ -2,7 +2,7 @@ import { createWriteStream, WriteStream } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
 import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
 import { evaluate } from "./eval"
-import { isDevelopment } from "./logic"
+import { gameData, isDevelopment } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
   if (isDevelopment) {
@@ -1075,35 +1075,47 @@ function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
 }
 
 // dumber lookahead determinator to account for weaker CPU of Linode server
-export function lookaheadDeterminator(gameState: GameState) {
+export function lookaheadDeterminator(gameState: GameState): number {
+  let lookahead: number
   if (gameState.turn === 0) {
-    return 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
+    lookahead = 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 3) {
-    return 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
+    lookahead = 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
   // } else if (isLocalSnake(gameState.you)) {
   //   return lookaheadDeterminatorNonCpuBound(gameState)
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
       if (gameState.board.snakes.length > 2) {
-        return 3
+        lookahead = 3
       } else {
-        return 4
+        lookahead = 4
       }
     } else {
       switch (gameState.board.snakes.length) {
         case 0:
-          return 0
+          lookahead = 0
+          break
         case 1:
-          return 7
+          lookahead = 7
+          break
         case 2:
-          return 7
+          lookahead = 7
+          break
         case 3:
-          return 6
+          lookahead = 6
+          break
         default: // 4 or more
-          return 5 
+          lookahead = 5
+          break
       }
     }
   }
+
+  if (Object.keys(gameData).length > 1) { // if at least one game is already running, run the game with one less lookahead to avoid excess CPU usage
+    lookahead = lookahead > 0? lookahead - 1 : lookahead
+    logToFile(consoleWriteStream, `more than one game was running, decrementing lookahead to ${lookahead}`)
+  }
+  return lookahead
 }
 
 // returns true if 'myself' is in position to cut off 'snake' at an edge

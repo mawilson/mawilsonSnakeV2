@@ -59,8 +59,9 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const isDuel: boolean = gameState.board.snakes.length === 2
 
   const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
-  const lookahead: number = gameData[gameState.game.id] && isOriginalSnake? gameData[gameState.game.id].lookahead : 0 // only originalSnake uses lookahead
-  const hazardWalls: HazardWalls = gameData[gameState.game.id]? gameData[gameState.game.id].hazardWalls : new HazardWalls()
+  const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // only originalSnake uses lookahead
+  const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
   // values to tweak
   const evalBase: number = 500
@@ -87,9 +88,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
-  // if (snakeDelta >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
-  //   evalHasEaten = -20
-  // } else
   if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
@@ -149,7 +147,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
   if (myself === undefined) {
     return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
-    //evaluation = evaluation + evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
   if (otherSnakes.length === 0) {
     if (gameState.game.ruleset.name === "solo") { // for solo games, we want to continue evaluating. For non-solo games, we've won, may be able to save evaluation time by returning now
@@ -178,8 +175,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   // in addition to wall/corner penalty, give a bonus to being closer to center
   const centers = calculateCenterWithHazard(gameState, hazardWalls)
-  // const centerX = (gameState.board.width - 1) / 2
-  // const centerY = (gameState.board.height - 1) / 2
 
   const xDiff = Math.abs(myself.head.x - centers.centerX)
   const yDiff = Math.abs(myself.head.y - centers.centerY)
@@ -409,11 +404,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
       let foodCalcStep = 0
       foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
-      // if (i === 1) {
-      //   foodCalcStep = 2*(evalFoodVal * (evalFoodStep + j) * foodToHunt.length) // food immediately adjacent is twice as valuable, plus some, to other food
-      // } else {
-      //   foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
-      // }
       buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
       foodCalc = foodCalc + foodCalcStep
     }
@@ -440,7 +430,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   }
 
   if (isCorner) { // corners are bad don't go into them unless totally necessary
-    //let closestSnake: Battlesnake | undefined
     let closestSnakeDist: number | undefined
 
     otherSnakes.forEach(function findClosestSnake(snake) {

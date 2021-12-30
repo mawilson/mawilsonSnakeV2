@@ -68,11 +68,12 @@ function doSomeStats(timesTaken: number[]): void {
 }
 
 export function end(gameState: GameState): void {
-  if (isDevelopment && gameData[gameState.game.id].timesTaken !== undefined) {
-    doSomeStats(gameData[gameState.game.id].timesTaken)
+  let thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
+    doSomeStats(thisGameData.timesTaken)
   }
-  if (gameData[gameState.game.id]) { // clean up game-specific data
-    delete gameData[gameState.game.id]
+  if (thisGameData !== undefined) { // clean up game-specific data
+    delete gameData[gameState.game.id + gameState.you.id]
   }
   console.log(`${gameState.game.id} END\n`)
 }
@@ -253,30 +254,35 @@ export function move(gameState: GameState): MoveResponse {
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
 
-  if (gameData[gameState.game.id]) {
-    gameData[gameState.game.id].hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
-    gameData[gameState.game.id].lookahead = futureSight // replace gameData lookahead with latest copy
+  let thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  if (thisGameData !== undefined) {
+    thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
+    thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
   } else {
-    gameData[gameState.game.id] = {hazardWalls: hazardWalls, lookahead: futureSight, timesTaken: []} // create new gameData object if one does not yet exist
+    if (gameData === undefined) {
+      gameData = {}
+      gameData[gameState.game.id + gameState.you.id] = {hazardWalls: hazardWalls, lookahead: futureSight, timesTaken: []} // create new gameData object if one does not yet exist
+    } else {
+      gameData[gameState.game.id + gameState.you.id] = {hazardWalls: hazardWalls, lookahead: futureSight, timesTaken: []} // create new gameData object if one does not yet exist
+    }
+    thisGameData = gameData[gameState.game.id + gameState.you.id]
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
-  if (gameData[gameState.game.id] && isDevelopment) {
-    if (isDevelopment) {
-      let timeTaken: number = Date.now() - timeBeginning
-      let timesTaken = gameData[gameState.game.id].timesTaken
-      if (timesTaken !== undefined) {
-        if (timesTaken.length >= 50000) {
-          timesTaken.splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
-        } else {
-          timesTaken.push(timeTaken)
-        }
+  if (thisGameData !== undefined && isDevelopment) {
+    let timeTaken: number = Date.now() - timeBeginning
+    let timesTaken = thisGameData.timesTaken
+    if (timesTaken !== undefined) {
+      if (timesTaken.length >= 50000) {
+        timesTaken.splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
       } else {
-        timesTaken = [timeTaken]
+        timesTaken.push(timeTaken)
       }
+    } else {
+      timesTaken = [timeTaken]
     }
   }
 
