@@ -87,9 +87,10 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 2
-  if (snakeDelta >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
-    evalHasEaten = -20
-  } else if (gameState.board.snakes.length === 1) {
+  // if (snakeDelta >= 4 && priorKissStates.murderState === KissOfMurderState.kissOfMurderNo) { // usually food is great, but unnecessary growth isn't. Avoid food unless it's part of a kill move
+  //   evalHasEaten = -20
+  // } else
+  if (gameState.board.snakes.length === 1) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
 
@@ -192,7 +193,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const possibleMoves = new Moves(true, true, true, true)
 
   // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself, lookahead)) { // given a lookahead, try not to penalize snake for eating & then not being so close to food the next two states
+  if (snakeHasEaten(myself)) {
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
@@ -383,10 +384,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       }
     }
   } else if (isKingOfTheSnakes(longestSnake, gameState.board) && !isOriginalSnake) { // for otherSnakes, add a small nudge away from king snakes
-    let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
-    buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
-    evaluation = evaluation + kingSnakeAvoidCalq
-  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && isOriginalSnake && isDuel) {
     let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
     buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
     evaluation = evaluation + kingSnakeAvoidCalq

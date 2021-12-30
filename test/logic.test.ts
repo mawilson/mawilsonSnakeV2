@@ -178,6 +178,22 @@ describe('Tests deprecated by lookahead', () => {
       expect(moveResponse.move).toBe("right") // food is straight right, should seek it out
     }
   })
+
+  // we no longer want to ignore food, even when king snake
+  it.skip('ignores food when adjacent to it but hunting another snake', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // food is left, but we're king snake, should be hunting otherSnek & not food
+    }
+  })
 })
 
 describe('Battlesnake API Version', () => {
@@ -1789,20 +1805,6 @@ describe('Food prioritization and acquisition', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("down") // food is down, we should get it especially if we really need it
-    }
-  })
-  it('ignores food when adjacent to it but hunting another snake', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 2, y: 1}, {x: 6, y: 6}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).not.toBe("down") // food is left, but we're king snake, should be hunting otherSnek & not food
     }
   })
   // very much a valid test but but muddying waters of other tests
