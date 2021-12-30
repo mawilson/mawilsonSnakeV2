@@ -1,8 +1,8 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard } from "./util"
-import { gameData } from "./logic"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves } from "./util"
+import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -50,17 +50,30 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
 // 1000: last snake alive, best possible state
 // 0: snake is dead, worst possible state
-export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined, priorKissStates: KissStatesForEvaluate) : number {
-  const myself : Battlesnake | undefined = meSnake === undefined ? undefined : gameState.board.snakes.find(function findMe(snake) { return snake.id === meSnake.id})
-  const otherSnakes: Battlesnake[] = meSnake === undefined ? gameState.board.snakes : gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== meSnake.id})
+export function evaluate(gameState: GameState, _myself: Battlesnake | undefined, priorKissStates: KissStatesForEvaluate) : number {
+  let myself: Battlesnake | undefined
+  let otherSnakes: Battlesnake[] = []
+  let originalSnake: Battlesnake | undefined
+
+  gameState.board.snakes.forEach(function processSnakes(snake) { // process all snakes in one go rather than multiple separate filters/finds
+    if (snake.id === gameState.you.id) { // if snake ID matches gameState.you.id, this is the original snake
+      originalSnake = snake
+    }
+    if (_myself !== undefined && _myself.id === snake.id) { // if meSnake was provided & the IDs match, this snake is myself
+      myself = snake
+    } else { // if meSnake was undefined or this snake's ID doesn't match meSnake, this is an otherSnake
+      otherSnakes.push(snake)
+    }
+  })
+  let isOriginalSnake: boolean = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
+
   const board2d = new Board2d(gameState.board)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = gameState.board.snakes.length === 2
 
-  const isOriginalSnake = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
   const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
-  const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // only originalSnake uses lookahead
+  const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 1 // originalSnake uses gameData lookahead, otherSnakes use 1
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
   // values to tweak
@@ -70,7 +83,14 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 4000 // this means we've won. Won't be considered in games that were always solo
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
-  const evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
+  let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
+  if (gameState.turn % 25 === 0) { // hazard wall has already shown up this turn, but we don't know where. Make hazard wall penalty higher
+    evalHazardWallPenalty = -8
+  } else if (((gameState.turn + 1) % 25) === 0) { // hazards show up every 25 turns. If this is 0, hazard wall is showing up next turn, make hazard wall penalty higher
+    evalHazardWallPenalty = -4
+  } else if (((gameState.turn + 1) % 25) < 4) {// as above, but hazard is showing up within the next three turns
+    evalHazardWallPenalty = -2
+  }
   const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   const evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
@@ -79,6 +99,11 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
   const eval3Moves = isOriginalSnake? 4 : 40
   const eval4Moves = isOriginalSnake? 6 : 60
+
+  const evalOriginalSnake0Move = 200 // for otherSnakes, should evaluate partly based on originalSnake's position
+  const evalOriginalSnake1Move = 30
+  const evalOriginalSnake2Move = 0
+  const evalOriginalSnake3Move = 0
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = 3
@@ -133,10 +158,12 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
-    if (logString === "") {
-      logString = str
-    } else {
-      logString = logString + "\n" + str
+    if (isDevelopment) {
+      if (logString === "") {
+        logString = str
+      } else {
+        logString = logString + "\n" + str
+      }
     }
   }
 
@@ -183,9 +210,6 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
   evaluation = evaluation + xDiff * evalCenterDistancePenalty
   buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
   evaluation = evaluation + yDiff * evalCenterDistancePenalty
-  
-  // give bonuses & penalties based on how many technically 'valid' moves remain after removing walls & other snake cells
-  const possibleMoves = new Moves(true, true, true, true)
 
   // health considerations, which are effectively hazard considerations
   if (snakeHasEaten(myself)) {
@@ -215,21 +239,21 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     }
   }
 
-  checkForSnakesHealthAndWalls(myself, gameState, board2d, possibleMoves)
-  let validMoves : Direction[] = possibleMoves.validMoves()
+  let moves: Moves = getAvailableMoves(gameState, myself, board2d)
+  let validMoves : Direction[] = moves.validMoves()
   let availableMoves : number = validMoves.length
 
   // look for kiss of death & murder cells in this current configuration
-  let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, possibleMoves)
+  let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
   let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
   let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
 
-  let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, possibleMoves, board2d)
+  let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
-  if (kissStates.canAvoidPossibleDeath(possibleMoves)) { // death is avoidable for at least one possible move
+  if (kissStates.canAvoidPossibleDeath(moves)) { // death is avoidable for at least one possible move
     buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
-  } else if (kissStates.canAvoidCertainDeath(possibleMoves)) { // death has a chance of being avoidable for at least one possible move
+  } else if (kissStates.canAvoidCertainDeath(moves)) { // death has a chance of being avoidable for at least one possible move
     // this is a bit of a mess. Basically: get the predator who has a chance of cells to kill me at (huntingChanceDirections call) rather than the ones who can only do so in one cell
     let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(moveNeighbors.huntingChanceDirections())
     if (smallestPredator !== undefined && smallestPredator.length === myself.length) {
@@ -240,7 +264,7 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       evaluation = evaluation + evalKissOfDeathMaybe
     }
   } else {
-    let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(possibleMoves)
+    let smallestPredator: Battlesnake | undefined = moveNeighbors.getSmallestPredator(moves)
     if (smallestPredator !== undefined && smallestPredator.length === myself.length) {
       buildLogString(`Only kisses of death nearby, but one is mutual, adding ${evalKissOfDeathCertaintyMutual}`)
       evaluation = evaluation + evalKissOfDeathCertaintyMutual
@@ -250,13 +274,13 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     }
   }
 
-  if (kissStates.canCommitCertainMurder(possibleMoves)) {
+  if (kissStates.canCommitCertainMurder(moves)) {
     buildLogString(`Certain kiss of murder nearby, adding ${evalKissOfMurderCertainty}`)
     evaluation = evaluation + evalKissOfMurderCertainty
-  } else if (kissStates.canCommitPossibleMurder(possibleMoves)) {
+  } else if (kissStates.canCommitPossibleMurder(moves)) {
     buildLogString(`Possible kiss of murder nearby, adding ${evalKissOfMurderMaybe}`)
     evaluation = evaluation + evalKissOfMurderMaybe
-  } else if (kissStates.canCommitUnlikelyMurder(possibleMoves)) {
+  } else if (kissStates.canCommitUnlikelyMurder(moves)) {
     buildLogString(`Unlikely kiss of murder nearby, adding ${evalKissOfMurderAvoidance}`)
     evaluation = evaluation + evalKissOfMurderAvoidance
   } else {
@@ -368,6 +392,28 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
       break
   }
 
+  if (!isOriginalSnake && originalSnake !== undefined) { // for otherSnakes, check out originalSnakes' position in this gameState
+    let availableMovesOgSnake = getAvailableMoves(gameState, originalSnake, board2d)
+    switch (availableMovesOgSnake.validMoves().length) {
+      case 0:
+        buildLogString(`ogSnake possibleMoves 0, add ${evalOriginalSnake0Move}`)
+        evaluation = evaluation + evalOriginalSnake0Move
+        break
+      case 1:
+        buildLogString(`ogSnake possibleMoves 1, add ${evalOriginalSnake0Move}`)
+        evaluation = evaluation + evalOriginalSnake0Move
+        break
+      case 2:
+        buildLogString(`ogSnake possibleMoves 2, add ${evalOriginalSnake0Move}`)
+        evaluation = evaluation + evalOriginalSnake0Move
+        break
+      case 3:
+        buildLogString(`ogSnake possibleMoves 3, add ${evalOriginalSnake0Move}`)
+        evaluation = evaluation + evalOriginalSnake0Move
+        break
+    }
+  }
+
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
   let longestSnake = getLongestSnake(myself, otherSnakes)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
@@ -433,13 +479,15 @@ export function evaluate(gameState: GameState, meSnake: Battlesnake | undefined,
     let closestSnakeDist: number | undefined
 
     otherSnakes.forEach(function findClosestSnake(snake) {
-      let thisDist = getDistance(snake.head, myself.head)
-      if (closestSnakeDist === undefined) {
-        //closestSnake = snake
-        closestSnakeDist = thisDist
-      } else if (closestSnakeDist > thisDist) {
-        //closestSnake = snake
-        closestSnakeDist = thisDist
+      if (myself !== undefined) {
+        let thisDist = getDistance(snake.head, myself.head)
+        if (closestSnakeDist === undefined) {
+          //closestSnake = snake
+          closestSnakeDist = thisDist
+        } else if (closestSnakeDist > thisDist) {
+          //closestSnake = snake
+          closestSnakeDist = thisDist
+        }
       }
     })
     if (closestSnakeDist !== undefined && closestSnakeDist < 5) {

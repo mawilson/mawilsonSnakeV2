@@ -1121,7 +1121,15 @@ export function lookaheadDeterminator(gameState: GameState): number {
 }
 
 // returns true if 'myself' is in position to cut off 'snake' at an edge
-export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battlesnake, board2d: Board2d): boolean {  
+export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined, _snake: Battlesnake | undefined, board2d: Board2d): boolean {  
+  if (_myself === undefined) { // undefined snakes cannot cut off
+    return false
+  } else if (_snake === undefined) { // undefined snakes cannot be cut off
+    return false
+  }
+  let myself: Battlesnake = _myself
+  let snake: Battlesnake = _snake
+
   let snakeMoves = new Moves(true, true, true, true)
   checkForSnakesHealthAndWalls(snake, gameState, board2d, snakeMoves)
   let snakeDirection = getSnakeDirection(snake)

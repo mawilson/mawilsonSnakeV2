@@ -167,7 +167,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               let newHead = getCoordAfterMove(snake.head, moveSnakes[snake.id].direction)
               let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
               if (coordsEqual(newHead, newGameState.you.head) && gameState.you.length >= snake.length) { // use self length from before the move, in case this move caused it to grow
-                let newMove = _decideMove(newGameState, snake) // let snake decide again
+                let newMove = _decideMove(newGameState, snake) // let snake decide again, no lookahead this time
+                // note that in this case, otherSnake will end up moving myself again (e.g. myself snake has moved twice), which may result in it choosing badly
                 if (newMove.score !== undefined) {
                   if (adjustedMove.score === undefined) {
                     adjustedMove = newMove
@@ -185,7 +186,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
           // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
           otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
-            fakeMoveSnake(snake)
+            let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
+            if (otherSnakeAvailableMoves.length === 0) {
+              moveSnake(newGameState, snake, board2d, getDefaultMove(newGameState, snake))
+            } else if (otherSnakeAvailableMoves.length === 1) {
+              moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
+            } else {
+              fakeMoveSnake(snake)
+            }
           })
 
           updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
