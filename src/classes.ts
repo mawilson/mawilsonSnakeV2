@@ -789,6 +789,34 @@ export class MoveNeighbors {
     }
     return false
   }
+
+  predatorExists(snake: Battlesnake) : boolean {
+    if (this.upPredator && this.upPredator.id === snake.id) {
+      return true
+    } else if (this.downPredator && this.downPredator.id === snake.id) {
+      return true
+    } else if (this.leftPredator && this.leftPredator.id === snake.id) {
+      return true
+    } else if (this.rightPredator && this.rightPredator.id === snake.id) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  preyExists(snake: Battlesnake) : boolean {
+    if (this.upPrey && this.upPrey.id === snake.id) {
+      return true
+    } else if (this.downPrey && this.downPrey.id === snake.id) {
+      return true
+    } else if (this.leftPrey && this.leftPrey.id === snake.id) {
+      return true
+    } else if (this.rightPrey && this.rightPrey.id === snake.id) {
+      return true
+    } else {
+      return false
+    }
+  }
 }
 
 // valid states for kissOfDeath: kissOfDeathNo, kissOfDeathMaybe, kissOfDeathCertainty, kissOfDeath3To2Avoidance, kissOfDeath3To1Avoidance, kissOfDeath2To1Avoidance

@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -155,6 +155,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
   const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
+  const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -188,14 +189,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // give walls a penalty, & corners a double penalty
-  let isOnHorizontalWall: boolean = myself.head.x === 0 || myself.head.x === (gameState.board.width - 1)
-  let isOnVerticalWall: boolean = myself.head.y === 0 || myself.head.y === (gameState.board.height - 1)
-  let isCorner: boolean = isOnHorizontalWall && isOnVerticalWall
-  if (isOnHorizontalWall) {
+  let isOnHWall: boolean = isOnHorizontalWall(gameState.board, myself.head)
+  let isOnVWall: boolean = isOnVerticalWall(gameState.board, myself.head)
+  let isHeadOnCorner: boolean = isOnHWall && isOnVWall
+  if (isOnHWall) {
     buildLogString(`self head on horizontal wall at ${myself.head.x}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
   }
-  if (isOnVerticalWall) {
+  if (isOnVWall) {
     buildLogString(`self head y on vertical wall at ${myself.head.y}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
   }
@@ -296,7 +297,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     if (isOriginalSnake) {
       evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a cutoff, this is not a murder we want to avoid
     }
-    buildLogString(`attempting left cutoff, adding ${evalCutoffReward}`)
+    buildLogString(`attempting cutoff, adding ${evalCutoffReward}`)
     evaluation = evaluation + evalCutoffReward
   }
 
@@ -366,7 +367,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       break
   }
   // if this state's murder prey was my snake & it's not a duel, give a reward so I assume other snakes are out to get me
-  if (!isDuel && priorKissStates.prey !== undefined && priorKissStates.prey.id === gameState.you.id) {
+  if (!isOriginalSnake && priorKissStates.prey !== undefined && priorKissStates.prey.id === gameState.you.id) {
     buildLogString(`KissOfMurder prey was ${gameState.you.name}, adding ${evalPriorKissOfMurderSelfBonus}`)
     evaluation = evaluation + evalPriorKissOfMurderSelfBonus
   }
@@ -454,22 +455,33 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
 
+  if (snakeHasEaten(myself, lookahead)) {
+    // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
+    if (nearbyFood[0]) { // probably never succeeds since updateGameState would already have removed it
+      nearbyFood[0].push(myself.head)
+    } else {
+      nearbyFood[0] = [myself.head]
+    }
+  }
+
   let j = foodSearchDepth
   let foodCalc : number = 0
   for (let i: number = 1; i <= foodSearchDepth; i++) {
     foodToHunt = nearbyFood[i]
-    if (snakeHasEaten(myself, lookahead)) {
-      // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
-      if (foodToHunt) {
-        foodToHunt.push(myself.head)
-      } else {
-        foodToHunt = [myself.head]
-      }
-    }
     if (foodToHunt && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
+
+      let foodToHuntLength: number = foodToHunt.length
+      if (i === 0) {
+        foodToHuntLength = foodToHuntLength * evalEatingMultiplier // doubly weight food that I have already eaten
+      }
+      foodToHunt.forEach(function nerfCornerFood(fud) {
+        if (isCorner(gameState.board, fud)) {
+          foodToHuntLength = foodToHuntLength - 0.8 // corner food is worth 0.2 that of normal food
+        }
+      })
       let foodCalcStep = 0
-      foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHunt.length
+      foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
       buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
       foodCalc = foodCalc + foodCalcStep
     }
@@ -479,7 +491,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   buildLogString(`adding food calc ${foodCalc}`)
   evaluation = evaluation + foodCalc
 
-  if (isCorner) { // corners are bad don't go into them unless totally necessary
+  if (isHeadOnCorner) { // corners are bad don't go into them unless totally necessary
     let closestSnakeDist: number | undefined
 
     otherSnakes.forEach(function findClosestSnake(snake) {

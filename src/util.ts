@@ -1353,3 +1353,15 @@ export function calculateCenterWithHazard(gameState: GameState, hazardWalls: Haz
 
   return {centerX: centerX, centerY: centerY}
 }
+
+export function isOnHorizontalWall(board: Board, coord: Coord): boolean {
+  return (coord.x === 0 || coord.x === (board.width - 1))
+}
+
+export function isOnVerticalWall(board: Board, coord: Coord): boolean {
+  return (coord.y === 0 || coord.y === (board.height - 1))
+}
+
+export function isCorner(board: Board, coord: Coord): boolean {
+  return isOnHorizontalWall(board, coord) && isOnVerticalWall(board, coord)
+}
