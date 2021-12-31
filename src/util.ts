@@ -629,7 +629,7 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
   return deathMoves
 }
 
-export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d, snakeKing: boolean) : number {
+export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
   const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== me.id})
   if (otherSnakes.length === 0) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
@@ -653,10 +653,6 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
 
   if (gameState.turn < 20) { // prioritize food slightly more earlier in game
     depth = depth > (board2d.height - 5) ? depth : board2d.height - 5
-  }
-
-  if (snakeKing && me.health > 10) {
-    depth = 0 // I don't need it
   }
 
   return depth
@@ -1352,4 +1348,16 @@ export function calculateCenterWithHazard(gameState: GameState, hazardWalls: Haz
   centerY = Math.floor(centerY)
 
   return {centerX: centerX, centerY: centerY}
+}
+
+export function isOnHorizontalWall(board: Board, coord: Coord): boolean {
+  return (coord.x === 0 || coord.x === (board.width - 1))
+}
+
+export function isOnVerticalWall(board: Board, coord: Coord): boolean {
+  return (coord.y === 0 || coord.y === (board.height - 1))
+}
+
+export function isCorner(board: Board, coord: Coord): boolean {
+  return isOnHorizontalWall(board, coord) && isOnVerticalWall(board, coord)
 }
