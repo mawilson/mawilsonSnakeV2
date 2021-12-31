@@ -86,6 +86,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let initialMoveSnakes : { [key: string]: MoveWithEval} | undefined = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
 
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate): MoveWithEval {
+    let timeStart: number = 0
+    if (isDevelopment) {
+      timeStart = Date.now()
+    }
+    
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
@@ -248,6 +253,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       bestMove.score = evalThisState
     }
 
+    if (isDevelopment && timeStart !== 0) {
+      let timeEnd = Date.now()
+      let totalTimeTaken = timeEnd - timeStart
+      if (totalTimeTaken > 30) {
+        if (lookahead === startLookahead) {
+          logToFile(consoleWriteStream, `total time taken calculating _decideMove for ${myself.name} on turn ${gameState.turn} with lookahead ${lookahead}: ${totalTimeTaken}`)
+        } else {
+          logToFile(consoleWriteStream, `for lookahead ${lookahead}, time taken calculating _decideMove for ${myself.name} on turn ${gameState.turn}: ${totalTimeTaken}`)
+        }
+      }
+    }
+
     return bestMove
   }
 
@@ -260,6 +277,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   } else if (validMoves.length === 0) { // if I have no valid moves, return the default move
     return new MoveWithEval(getDefaultMove(gameState, myself), undefined)
   } else { // otherwise, start deciding  
+    let timeStart: number = 0
+    if (isDevelopment) {
+      timeStart = Date.now()
+    }
     let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
       return snake.id !== gameState.you.id
     })
@@ -269,6 +290,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
       initialMoveSnakes[snake.id] = _decideMove(gameState, snake, 3) // decide best move for other snakes according to current data, with modest lookahead
     })
+    if (isDevelopment && timeStart !== 0) {
+      let timeEnd = Date.now()
+      logToFile(consoleWriteStream, `time taken calculating otherSnakes' first moves for on turn ${gameState.turn}: ${timeEnd - timeStart}`)
+    }
 
     return _decideMove(gameState, myself, startLookahead)
   }

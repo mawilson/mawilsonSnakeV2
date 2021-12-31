@@ -127,7 +127,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfDeathNo = 0
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
-  const evalPriorKissOfMurderAvoidance = isOriginalSnake? -30 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
+  let evalPriorKissOfMurderAvoidance = isOriginalSnake? -30 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 30
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -286,6 +286,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else {
     buildLogString(`No kisses of murder nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
+  }
+
+  // need to calculate cutoffs before priorKisses, as evalPriorKissOfMurderAvoidance can change based on whether this is a cutoff
+  let canCutoffSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake
+    return isCutoff(gameState, myself, snake, board2d) // returns true if myself can cut snake off
+  })
+  if (canCutoffSnake) {
+    if (isOriginalSnake) {
+      evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a cutoff, this is not a murder we want to avoid
+    }
+    buildLogString(`attempting left cutoff, adding ${evalCutoffReward}`)
+    evaluation = evaluation + evalCutoffReward
+  }
+
+  let canBeCutoffBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can cut myself off
+    return isCutoff(gameState, snake, myself, board2d) // returns true if snake can cut myself off
+  })
+  if (canBeCutoffBySnake) {
+    buildLogString(`can be cut off, adding ${evalCutoffPenalty}`)
+    evaluation = evaluation + evalCutoffPenalty
   }
 
   
@@ -458,22 +478,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   buildLogString(`adding food calc ${foodCalc}`)
   evaluation = evaluation + foodCalc
-
-  let canCutoffSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake
-    return isCutoff(gameState, myself, snake, board2d) // returns true if myself can cut snake off
-  })
-  if (canCutoffSnake) {
-    buildLogString(`attempting left cutoff, adding ${evalCutoffReward}`)
-    evaluation = evaluation + evalCutoffReward
-  }
-
-  let canBeCutoffBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can cut myself off
-    return isCutoff(gameState, snake, myself, board2d) // returns true if snake can cut myself off
-  })
-  if (canBeCutoffBySnake) {
-    buildLogString(`can be cut off, adding ${evalCutoffPenalty}`)
-    evaluation = evaluation + evalCutoffPenalty
-  }
 
   if (isCorner) { // corners are bad don't go into them unless totally necessary
     let closestSnakeDist: number | undefined
