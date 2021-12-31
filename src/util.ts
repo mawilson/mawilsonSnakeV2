@@ -1121,7 +1121,16 @@ export function lookaheadDeterminator(gameState: GameState): number {
 }
 
 // returns true if 'myself' is in position to cut off 'snake' at an edge
-export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battlesnake, board2d: Board2d): boolean {  
+export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined, _snake: Battlesnake | undefined, board2d: Board2d): boolean {  
+  if (_myself === undefined) { // undefined snakes cannot cut off
+    return false
+  } else if (_snake === undefined) { // undefined snakes cannot be cut off
+    return false
+  }
+  let myself: Battlesnake = _myself
+  let snake: Battlesnake = _snake
+  let myselfIsLonger = myself.length > snake.length // if my snake is longer. May recalculate later if snake grows while we cut it off
+
   let snakeMoves = new Moves(true, true, true, true)
   checkForSnakesHealthAndWalls(snake, gameState, board2d, snakeMoves)
   let snakeDirection = getSnakeDirection(snake)
@@ -1129,49 +1138,41 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
   function cutoffLeftEdge(): boolean {
     if (snake.head.x === 0) { // if they are on the left edge
       if (myself.head.x === 1 || myself.head.x === 0) { // if I am next to them on the left edge
-        if (myself.head.y >= snake.head.y && snakeDirection === Direction.Up) { // if I am above snake, & it is moving up
-          let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head - TODO: Make this snake's NECK after moving otherSnakes prior to evaluate
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: 1, y: snake.head.y - 1}) // cell one to the right of snake's head & one below
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.y; i < myself.head.y; i++) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: 0, y: i})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        if (snakeDirection === Direction.Up) { // if snake is moving up
+          if (myself.head.y >= snake.head.y) { // if I am above or level with snake
+            let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one right of snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (snake.head.y - myself.head.y) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let j: number = snake.head.y; j < gameState.board.height; j++) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: 0, y: j})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.x === 0 && myselfIsLonger) { // only consider cutting off on left edge if I am longer
-              return true
-            } else if (myself.head.x === 1 && !myselfIsLonger) { // only consider cutting off on top edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
-        } else if (myself.head.y <= snake.head.y && snakeDirection === Direction.Down) { // if I am below snake, & it is moving down
-          let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one to the right of snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: 1, y: snake.head.y + 1}) // cell one to the right of snake's head & one above
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it  
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.y; i > myself.head.y; i--) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: 0, y: i})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        } else if (snakeDirection === Direction.Down) { // if snake is moving down
+          if (myself.head.y <= snake.head.y) { // if I am below or level with snake
+            let cutoffCell = board2d.getCell({x: 1, y: snake.head.y}) // cell one right of snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (myself.head.y - snake.head.y) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let j: number = snake.head.y; j >= 0; j--) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: 0, y: j})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.x === 0 && myselfIsLonger) { // only consider cutting off on left edge if I am longer
-              return true
-            } else if (myself.head.x === 1 && !myselfIsLonger) { // only consider cutting off on bottom edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
@@ -1184,49 +1185,41 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
   function cutoffRightEdge(): boolean {
     if (snake.head.x === (gameState.board.width - 1)) { // if they are on the right edge
       if (myself.head.x === (gameState.board.width - 2) || myself.head.x === (gameState.board.width - 1)) { // if I am next to them on the right edge
-        if (myself.head.y >= snake.head.y && snakeDirection === Direction.Up) { // if I am above snake, & it is moving up
-          let cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y}) // cell one to the left of snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y - 1}) // cell one to the left of snake's head & one below
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.y; i < myself.head.y; i++) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: (gameState.board.width - 1), y: i})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        if (snakeDirection === Direction.Up) { // if snake is moving up
+          if (myself.head.y >= snake.head.y) { // if I am above or level with snake
+            let cutoffCell = board2d.getCell({x: gameState.board.width - 2, y: snake.head.y}) // cell one left of snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (snake.head.y - myself.head.y) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let j: number = snake.head.y; j < gameState.board.height; j++) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: gameState.board.width - 1, y: j})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.x === (gameState.board.width - 1) && myselfIsLonger) { // only consider cutting off on right edge if I am longer
-              return true
-            } else if (myself.head.x === (gameState.board.width - 2) && !myselfIsLonger) { // only consider cutting off on top edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
-        } else if (myself.head.y <= snake.head.y && snakeDirection === Direction.Down) { // if I am below snake, & it is moving down
-          let cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y}) // cell one to the left of snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: (gameState.board.width - 2), y: snake.head.y + 1}) // cell one to the left of snake's head & one above
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it          
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.y; i > myself.head.y; i--) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: (gameState.board.width - 1), y: i})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        } else if (snakeDirection === Direction.Down) { // if snake is moving down
+          if (myself.head.y <= snake.head.y) { // if I am below or level with snake
+            let cutoffCell = board2d.getCell({x: gameState.board.width - 2, y: snake.head.y}) // cell one left of snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (myself.head.y - snake.head.y) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let j: number = snake.head.y; j >= 0; j--) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: gameState.board.width - 1, y: j})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.x === (gameState.board.width - 1) && myselfIsLonger) { // only consider cutting off on right edge if I am longer
-              return true
-            } else if (myself.head.x === (gameState.board.width - 2) && !myselfIsLonger) { // only consider cutting off on bottom edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
@@ -1239,49 +1232,41 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
   function cutoffBottomEdge(): boolean {
     if (snake.head.y === 0) { // if they are on the bottom edge
       if (myself.head.y === 1 || myself.head.y === 0) { // if I am next to them on the bottom edge
-        if (myself.head.x >= snake.head.x && snakeDirection === Direction.Right) { // if I am right of snake, & it is moving right
-          let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: snake.head.x - 1, y: 1}) // cell one above snake's head & one left
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.x; i < myself.head.x; i++) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: i, y: 0})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        if (snakeDirection === Direction.Right) { // if snake is moving right
+          if (myself.head.x >= snake.head.x) { // if I am right of or level with snake
+            let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (snake.head.x - myself.head.x) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let i: number = snake.head.x; i < gameState.board.width; i++) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: i, y: 0})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.y === 0 && myselfIsLonger) { // only consider cutting off on bottom edge if I am longer
-              return true
-            } else if (myself.head.y === 1 && !myselfIsLonger) { // only consider cutting off on right edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
-        } else if (myself.head.x <= snake.head.x && snakeDirection === Direction.Left) { // if I am left of snake, & it is moving left
-          let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: snake.head.x + 1, y: 1}) // cell one above snake's head & one right
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it       
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.x; i > myself.head.x; i--) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: i, y: 0})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        } else if (snakeDirection === Direction.Left) { // if snake is moving left
+          if (myself.head.x <= snake.head.x) { // if I am left of or level with snake
+            let cutoffCell = board2d.getCell({x: snake.head.x, y: 1}) // cell one above snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (myself.head.x - snake.head.x) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let i: number = snake.head.x; i >= 0; i--) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: i, y: 0})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.y === 0 && myselfIsLonger) { // only consider cutting off on bottom edge if I am longer
-              return true
-            } else if (myself.head.y === 1 && !myselfIsLonger) { // only consider cutting off on left edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
@@ -1294,49 +1279,41 @@ export function isCutoff(gameState: GameState, myself: Battlesnake, snake: Battl
   function cutoffTopEdge(): boolean {
     if (snake.head.y === (gameState.board.height - 1)) { // if they are on the top edge
       if (myself.head.y === (gameState.board.height - 2) || myself.head.y === (gameState.board.height - 1)) { // if I am next to them on the bottom edge
-        if (myself.head.x >= snake.head.x && snakeDirection === Direction.Right) { // if I am right of snake, & it is moving right
-          let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: snake.head.x - 1, y: (gameState.board.height - 2)}) // cell one below snake's head & one left
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it             
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.x; i < myself.head.x; i++) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: i, y: (gameState.board.height - 1)})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        if (snakeDirection === Direction.Right) { // if snake is moving right
+          if (myself.head.x >= snake.head.x) { // if I am right of or level with snake
+            let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (snake.head.x - myself.head.x) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let i: number = snake.head.x; i < gameState.board.width; i++) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: i, y: (gameState.board.height - 1)})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.y === (gameState.board.height - 1) && myselfIsLonger) { // only consider cutting off on top edge if I am longer
-              return true
-            } else if (myself.head.y === (gameState.board.height - 2) && !myselfIsLonger) { // only consider cutting off on right edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }
-        } else if (myself.head.x <= snake.head.x && snakeDirection === Direction.Left) { // if I am left of snake, & it is moving left
-          let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.isTail && !cutoffCell.snakeCell.hasEaten) { // if this cell is a tail & the snake hasn't eaten, it will shrink & won't serve to cut off. Check the cell behind it
-            cutoffCell = board2d.getCell({x: snake.head.x + 1, y: (gameState.board.height - 2)}) // cell one below snake's head & one right
-          }
-          if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && cutoffCell.snakeCell.snake.id === myself.id) { // if cutoffCell has me in it 
-            let myselfIsLonger = myself.length > snake.length // if my snake is longer
-            if (myselfIsLonger) {
-              let foundFood : number = 0
-              for (let i: number = snake.head.x; i > myself.head.x; i--) { // if my snake remains longer after considering food that snake will find on the way
-                let cell = board2d.getCell({x: i, y: (gameState.board.height - 1)})
-                if (cell instanceof BoardCell && cell.food) {
-                  foundFood = foundFood + 1
-                }
+        } else if (snakeDirection === Direction.Left) { // if snake is moving left
+          if (myself.head.x <= snake.head.x) { // if I am left of or level with snake
+            let cutoffCell = board2d.getCell({x: snake.head.x, y: (gameState.board.height - 2)}) // cell one below snake's head
+            if (cutoffCell instanceof BoardCell && cutoffCell.snakeCell instanceof SnakeCell && !(cutoffCell.snakeCell.isTail && !snakeHasEaten(cutoffCell.snakeCell.snake))) { // if cutoffCell is not the tail of a snake that hasn't eaten
+              return true // no need to check for food, snake can't kiss us so long as we follow this straight to the edge
+            }
+          } else if (myselfIsLonger && (myself.head.x - snake.head.x) === 1) { // can still cut off if I'm one behind & larger
+            let foundFood : number = 0
+            for (let i: number = snake.head.x; i >= 0; i--) { // if my snake remains longer after considering food that snake will find on the way
+              let cell = board2d.getCell({x: i, y: (gameState.board.height - 1)})
+              if (cell instanceof BoardCell && cell.food) {
+                foundFood = foundFood + 1
               }
-              myselfIsLonger = myself.length > (snake.length + foundFood)
             }
-            if (myself.head.y === (gameState.board.height - 1) && myselfIsLonger) { // only consider cutting off on top edge if I am longer
-              return true
-            } else if (myself.head.y === (gameState.board.height - 2) && !myselfIsLonger) { // only consider cutting off on left edge if I am not longer
+            myselfIsLonger = myself.length > (snake.length + foundFood)
+            if (myselfIsLonger) { // so long as I remain longer, I can do the cutoff
               return true
             }
           }

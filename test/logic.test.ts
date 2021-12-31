@@ -503,7 +503,6 @@ describe('Kiss of death tests', () => {
   })
   // good test case for otherSnakes always correctly choosing a kiss of death against me, otherwise snek may think otherSnakes would prioritize killing another snake
   it('navigates away from a single kiss of death certainty towards freedom', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 2, y: 5}], "30", "", "")
       const gameState = createGameState(snek)
@@ -1414,7 +1413,6 @@ describe('Snake cutoff tests', () => {
     }
   })
   it('does not walk into a cutoff by a snake & a wall', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [ {x: 10, y: 1}, {x: 9, y: 1}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
     
@@ -1428,6 +1426,23 @@ describe('Snake cutoff tests', () => {
       gameState.board.food = [{x: 10, y: 0}, {x: 1, y: 8}, {x: 3, y: 9}]
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("down") // down puts us in a corner where otherSnek can immediately cut us off by going either down or right
+    }
+  })
+  it('moves towards a cutoff situation before otherSnek can escape', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [ {x: 3, y: 2}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 3, y: 0}, {x: 2, y: 0}, {x: 1, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 4, y: 0}] // one food won't prevent otherSnek from being large enough to escape this cutoff
+
+      gameState.game.ruleset.settings.hazardDamagePerTurn = 0
+      
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // should move towards otherSnek to create a kill cutoff situation, otherwise otherSnek can risk the kiss of murder & double back & escape
     }
   })
 })
