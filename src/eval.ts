@@ -445,13 +445,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         evaluation = evaluation + kingSnakeCalq
       }
     }
-  } else if (isKingOfTheSnakes(longestSnake, gameState.board) && !isOriginalSnake) { // for otherSnakes, add a small nudge away from king snakes
-    let kingSnakeAvoidCalq = -(getDistance(myself.head, longestSnake.head) * evalKingSnakeStep) // lower distances are worse, multiply by -1 to make this a reward
-    buildLogString(`kingSnake avoider, adding ${kingSnakeAvoidCalq}`)
-    evaluation = evaluation + kingSnakeAvoidCalq
   }
 
-  const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d, kingOfTheSnakes)
+  const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
 
