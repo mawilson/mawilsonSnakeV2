@@ -1878,6 +1878,48 @@ describe('Food prioritization and acquisition', () => {
       expect(moveResponse.move).toBe("left") // food is straight left, should seek it out even in a corner
     }
   })
+  it.only('acquires food when dueling as soon as it can', () => {
+    debugger
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 97, [{x: 2, y: 4}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 5, y: 7}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 3}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 1}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 6, y: 3}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 3, y: 0}, {x: 3, y: 4}, {x: 4, y: 8}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 10, y: 0}]
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+      createHazardRow(gameState.board, 8)
+      createHazardRow(gameState.board, 9)
+      createHazardRow(gameState.board, 10)
+      createHazardColumn(gameState.board, 10)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // not getting the food at 3,4 immediately is silly & brings the chance of otherSnek getting it
+    }
+  })
+  it('acquires food when in foursnake as soon as it can', () => {
+    debugger
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 97, [{x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 9, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 1, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 70, [{x: 7, y: 8}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 5, y: 9}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.board.food = [{x: 1, y: 7}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 6, y: 2}, {x: 5, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // there is no good justification for not getting this early food & risking another snake getting it
+    }
+  })
 })
 
 describe('move gameState tests', () => {

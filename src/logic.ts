@@ -1,15 +1,13 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual } from "./util"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle } from "./util"
 import { evaluate } from "./eval"
 
-import { createWriteStream } from 'fs'
-let consoleWriteStream = createWriteStream("consoleLogs_logic.txt", {
-  encoding: "utf8"
-})
+import { WriteStream } from 'fs'
+let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
 
 export function info(): InfoResponse {
@@ -128,7 +126,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
-    if (!stillHaveTime) { // if we need to leave early due to time
+    if (false && !stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
