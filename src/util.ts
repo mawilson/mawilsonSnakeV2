@@ -1360,25 +1360,17 @@ export function isCorner(board: Board, coord: Coord): boolean {
   return isOnHorizontalWall(board, coord) && isOnVerticalWall(board, coord)
 }
 
-export function createLogAndCycle(_filename: string): WriteStream {
-  // for (let i: number = 0; i < 5; i++) { // first check if all five logs exist
-  //   let filename = i === 0? _filename + ".txt" : _filename + "_" + i + ".txt"
-  //   if (!existsSync(filename)) {
-  //     return createWriteStream(filename, {
-  //       encoding: "utf8"
-  //     })
-  //   }
-  // }
-  // if all five logs already existed, need to cycle logs
+// creates a file named filename.txt, & moves existing filename_3.txt to filename_4.txt, _2 to _3, _1 to _2, & filename to _1, if they existed
+export function createLogAndCycle(filename: string): WriteStream {
   for (let i: number = 3; i >= 0; i--) { // in reverse order, move filename_3 to filename_4, _2 to _3, _1 to _2, & filename to _1
-    let oldFilename = i === 0? _filename + ".txt" : _filename + "_" + i + ".txt"
-    let newFilename = _filename + "_" + (i + 1) + ".txt"
+    let oldFilename = i === 0? filename + ".txt" : filename + "_" + i + ".txt"
+    let newFilename = filename + "_" + (i + 1) + ".txt"
     if (existsSync(oldFilename)) { // if the old filename exists, move it to the new filename
       renameSync(oldFilename, newFilename)
     }
   }
   
-  return createWriteStream(_filename + ".txt", { // create filename.txt
+  return createWriteStream(filename + ".txt", { // create filename.txt
     encoding: "utf8"
   }) 
 }

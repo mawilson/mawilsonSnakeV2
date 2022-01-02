@@ -85,9 +85,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   // helper function which will return faster if no moves or one move is available
   // only used for the first (lookahead === startLookahead) or last (lookahead = 0) iterations of _decideMove
-  function decideMoveCheap(gameState: GameState, myself: Battlesnake, board2d: Board2d, lookahead: number): MoveWithEval {
+  function decideMoveCheap(gameState: GameState, myself: Battlesnake, board2d: Board2d, lookahead: number, kissStates?: KissStatesForEvaluate): MoveWithEval {
     let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
-    let evalThisState = evaluate(gameState, myself, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
+    let kisses: KissStatesForEvaluate = kissStates? kissStates : new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
+    let evalThisState = evaluate(gameState, myself, kisses)
     if (availableMoves.length === 0) {
       return new MoveWithEval(getDefaultMove(gameState, myself), evalThisState) // let snake decide now that myself & snakes in kiss situations have already moved
     } else if (availableMoves.length === 1) {
@@ -95,6 +96,64 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     } else {
       return _decideMove(gameState, myself, lookahead) // let snake decide now that myself & snakes in kiss situations have already moved
     } 
+  }
+
+  // simple decideMove that merely looks at the snake & its available moves & chooses the one with the highest evaluate score
+  // does not move any other snakes, not for use with recursion
+  // Score decided upon does not particularly matter for this function, it's just for a direction
+  function decideMoveSelfOnly(gameState: GameState, myself: Battlesnake, board2d: Board2d): MoveWithEval {
+    let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
+    let stillHaveTime = checkTime(startTime, gameState)
+    if (availableMoves.length === 1) {
+      return new MoveWithEval(availableMoves[0], undefined)
+    } else if (availableMoves.length === 0 || !stillHaveTime) {
+      return new MoveWithEval(getDefaultMove(gameState, myself), undefined) // score does not matter for this function
+    } else {
+      let randomMove = getRandomInt(0, availableMoves.length)
+      return new MoveWithEval(availableMoves[randomMove], undefined) // sadly this is the best we can do. Some of the time, it will be okay! Better than fakeMove anyway
+    }
+  //   } else { // too expensive!!!
+  //     // simplified version of _decideMove's evaluateMove code, with no lookahead & no moving of other snakes
+  //     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
+  //     let board2d = new Board2d(gameState.board)
+  //     let moves: Moves = getAvailableMoves(gameState, myself, board2d)
+  //     let availableMoves = moves.validMoves()
+  //     let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
+  //     let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
+  //     let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+  //     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
+
+  //     availableMoves.forEach(function evaluateMove(move) {
+  //       let newGameState = cloneGameState(gameState)
+
+  //       let newSelf: Battlesnake | undefined
+  //       newSelf = newGameState.board.snakes.find(function findSnake(snake) {
+  //         return snake.id === myself.id
+  //       })
+
+  //       let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
+  //       let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
+  //       let evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs))
+
+  //       if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
+  //         bestMove.direction = move
+  //         bestMove.score = evalState.score
+  //       } else {
+  //         if (evalState.score !== undefined) { // if evalState has a score, we want to compare it to bestMove's score
+  //           if (evalState.score > bestMove.score) { // if evalState represents a better move & score, assign bestMove to it
+  //             //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
+  //             bestMove.direction = move
+  //             bestMove.score = evalState.score
+  //           } else if (evalState.score === bestMove.score && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
+  //             //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
+  //             bestMove.direction = move
+  //             bestMove.score = evalState.score
+  //           } // else don't replace bestMove
+  //         } // evalState has no score, & bestMove does, we don't want to replace bestMove with evalState
+  //       }
+  //     })
+  //     return bestMove
+  //   }
   }
 
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate): MoveWithEval {
@@ -126,7 +185,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
-    if (false && !stillHaveTime) { // if we need to leave early due to time
+    if (!stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
@@ -207,19 +266,21 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           })
           updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
         } else { // for other snakes, still need to be able to move self to a new position to evaluate it
-          moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
-
-          // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
-          otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
-            let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
-            if (otherSnakeAvailableMoves.length === 0) {
-              moveSnake(newGameState, snake, board2d, getDefaultMove(newGameState, snake))
-            } else if (otherSnakeAvailableMoves.length === 1) {
-              moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
+          // decide other snake moves cheaply, then move them, then move self
+          let otherMoveSnakes: { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
+          otherSnakes.forEach(function decideMoveOtherSnake(snake) { // choose where to move each other snake simply & cheaply - look at available moves & choose highest evaluate score amongst them, without moving other snakes
+            // TODO: we ought to be able to tell the otherSnake explicitly where ourself is actually looking at moving to, in this case.
+            if (snake.id === newGameState.you.id) {
+              otherMoveSnakes[snake.id] = decideMoveSelfOnly(newGameState, snake, board2d)
             } else {
-              fakeMoveSnake(snake)
+              otherMoveSnakes[snake.id] = decideMoveSelfOnly(newGameState, snake, board2d)
             }
           })
+
+          otherSnakes.forEach(function moveOtherSnake(snake) {
+            moveSnake(newGameState, snake, board2d, otherMoveSnakes[snake.id].direction) // don't need to check if otherMoveSnakes[snake.id] exists, even if it doesn't moveSnake will just move it default
+          })
+          moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
 
           updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
         }
@@ -320,6 +381,8 @@ export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
+
+  //futureSight = 4
 
   let thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
   if (thisGameData !== undefined) {

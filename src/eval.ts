@@ -79,9 +79,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   // values to tweak
   const evalBase: number = 500
   const evalNoSnakes: number = 450 // no snakes can be legitimately good. Ties are fine, & if the other snake chickened, we may be better off. 430 is just enough to let 'does not avoid a tie kiss of death if in a duel'
-  const evalNoMe: number = -4000 // no me is the worst possible state, give a very bad score
+  const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
-  const evalSolo: number = 4000 // this means we've won. Won't be considered in games that were always solo
+  const evalSolo: number = 1500 // this means we've won. Won't be considered in games that were always solo
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
   let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   if (gameState.turn % 25 === 0) { // hazard wall has already shown up this turn, but we don't know where. Make hazard wall penalty higher
@@ -141,6 +141,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
+  const evalKissOfMurderSelfBonus = 30 // bonus given to otherSnakes for attempting to get close enough to kill me
   let evalFoodVal = 2
 
   if (isDuel && otherSnakes[0].health < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
@@ -368,8 +369,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   // if this state's murder prey was my snake & it's not a duel, give a reward so I assume other snakes are out to get me
   if (!isOriginalSnake && priorKissStates.prey !== undefined && priorKissStates.prey.id === gameState.you.id) {
-    buildLogString(`KissOfMurder prey was ${gameState.you.name}, adding ${evalPriorKissOfMurderSelfBonus}`)
+    buildLogString(`prior prey was ${gameState.you.name}, adding ${evalPriorKissOfMurderSelfBonus}`)
     evaluation = evaluation + evalPriorKissOfMurderSelfBonus
+  }
+
+  // as above, give a little bonus to otherSnakes to being able to kill originalSnake in this state
+  if (!isOriginalSnake && originalSnake && moveNeighbors.preyExists(originalSnake)) {
+    buildLogString(`prey includes ${gameState.you.name}, adding ${evalKissOfMurderSelfBonus}`)
+    evaluation = evaluation + evalKissOfMurderSelfBonus
   }
 
   // penalize or rewards spaces next to hazard
@@ -422,15 +429,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         break
       case 1:
         buildLogString(`ogSnake possibleMoves 1, add ${evalOriginalSnake0Move}`)
-        evaluation = evaluation + evalOriginalSnake0Move
+        evaluation = evaluation + evalOriginalSnake1Move
         break
       case 2:
         buildLogString(`ogSnake possibleMoves 2, add ${evalOriginalSnake0Move}`)
-        evaluation = evaluation + evalOriginalSnake0Move
+        evaluation = evaluation + evalOriginalSnake2Move
         break
       case 3:
         buildLogString(`ogSnake possibleMoves 3, add ${evalOriginalSnake0Move}`)
-        evaluation = evaluation + evalOriginalSnake0Move
+        evaluation = evaluation + evalOriginalSnake3Move
         break
     }
   }
