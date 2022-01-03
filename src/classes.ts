@@ -235,7 +235,7 @@ export class Board2d {
           } else if (tempCell.food) {
             str = str + "f"
           } else if (tempCell.hazard) {
-            str = str + "h"
+            str = str + "H"
           } else { // empty cell
             str = str + "x"
           }

@@ -1,4 +1,4 @@
-import { createWriteStream, WriteStream } from 'fs';
+import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
 import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
 import { evaluate } from "./eval"
@@ -12,9 +12,7 @@ export function logToFile(file: WriteStream, str: string) {
   }
 }
 
-let consoleWriteStream = createWriteStream("consoleLogs_util.txt", {
-  encoding: "utf8"
-})
+let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 
 export function getRandomInt(min: number, max: number) : number {
   min = Math.ceil(min);
@@ -1360,4 +1358,19 @@ export function isOnVerticalWall(board: Board, coord: Coord): boolean {
 
 export function isCorner(board: Board, coord: Coord): boolean {
   return isOnHorizontalWall(board, coord) && isOnVerticalWall(board, coord)
+}
+
+// creates a file named filename.txt, & moves existing filename_3.txt to filename_4.txt, _2 to _3, _1 to _2, & filename to _1, if they existed
+export function createLogAndCycle(filename: string): WriteStream {
+  for (let i: number = 3; i >= 0; i--) { // in reverse order, move filename_3 to filename_4, _2 to _3, _1 to _2, & filename to _1
+    let oldFilename = i === 0? filename + ".txt" : filename + "_" + i + ".txt"
+    let newFilename = filename + "_" + (i + 1) + ".txt"
+    if (existsSync(oldFilename)) { // if the old filename exists, move it to the new filename
+      renameSync(oldFilename, newFilename)
+    }
+  }
+  
+  return createWriteStream(filename + ".txt", { // create filename.txt
+    encoding: "utf8"
+  }) 
 }
