@@ -7,7 +7,7 @@ import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = true
+export const isDevelopment: boolean = false
 export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
 
 export function info(): InfoResponse {
@@ -21,7 +21,7 @@ export function info(): InfoResponse {
         color: "#CF5476", // #ff9900
         head: "lantern-fish", // "trans-rights-scarf",
         tail: "fat-rattle", // "comet",
-        version: "1.0.0" //
+        version: "1.0.1" //
       }
     } else {
       // Jaguar
@@ -31,7 +31,7 @@ export function info(): InfoResponse {
         color: "#ff9900", // #ff9900
         head: "tiger-king", //"tiger-king",
         tail: "mystic-moon", //"mystic-moon",
-        version: "1.0.0"
+        version: "1.0.1"
       }
     }
 
@@ -266,21 +266,19 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           })
           updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
         } else { // for other snakes, still need to be able to move self to a new position to evaluate it
-          // decide other snake moves cheaply, then move them, then move self
-          let otherMoveSnakes: { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
-          otherSnakes.forEach(function decideMoveOtherSnake(snake) { // choose where to move each other snake simply & cheaply - look at available moves & choose highest evaluate score amongst them, without moving other snakes
-            // TODO: we ought to be able to tell the otherSnake explicitly where ourself is actually looking at moving to, in this case.
-            if (snake.id === newGameState.you.id) {
-              otherMoveSnakes[snake.id] = decideMoveSelfOnly(newGameState, snake, board2d)
+          moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
+          
+          // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
+          otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
+            let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
+            if (otherSnakeAvailableMoves.length === 0) {
+              moveSnake(newGameState, snake, board2d, getDefaultMove(newGameState, snake))
+            } else if (otherSnakeAvailableMoves.length === 1) {
+              moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
             } else {
-              otherMoveSnakes[snake.id] = decideMoveSelfOnly(newGameState, snake, board2d)
+              fakeMoveSnake(snake)
             }
           })
-
-          otherSnakes.forEach(function moveOtherSnake(snake) {
-            moveSnake(newGameState, snake, board2d, otherMoveSnakes[snake.id].direction) // don't need to check if otherMoveSnakes[snake.id] exists, even if it doesn't moveSnake will just move it default
-          })
-          moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
 
           updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
         }
@@ -381,8 +379,6 @@ export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
-
-  //futureSight = 4
 
   let thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
   if (thisGameData !== undefined) {

@@ -71,6 +71,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = gameState.board.snakes.length === 2
+  const isSolo: boolean = gameState.game.ruleset.name === "solo"
 
   const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 1 // originalSnake uses gameData lookahead, otherSnakes use 1
@@ -78,7 +79,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   // values to tweak
   const evalBase: number = 500
-  const evalNoSnakes: number = 450 // no snakes can be legitimately good. Ties are fine, & if the other snake chickened, we may be better off. 430 is just enough to let 'does not avoid a tie kiss of death if in a duel'
+  const evalNoSnakes: number = 460 // no snakes can be legitimately good. Ties are fine, & if the other snake chickened, we may be better off. 430 is just enough to let 'does not avoid a tie kiss of death if in a duel'
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
   const evalSolo: number = 1500 // this means we've won. Won't be considered in games that were always solo
@@ -101,7 +102,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const eval4Moves = isOriginalSnake? 6 : 60
 
   const evalOriginalSnake0Move = 200 // for otherSnakes, should evaluate partly based on originalSnake's position
-  const evalOriginalSnake1Move = 30
+  const evalOriginalSnake1Move = 0
   const evalOriginalSnake2Move = 0
   const evalOriginalSnake3Move = 0
   
@@ -113,7 +114,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   let evalHasEaten = evalHealthBase + 50 // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = 5 // larger values result in more food prioritization
-  if (gameState.board.snakes.length === 1) {
+  if (isSolo) {
     evalHasEaten = -20 // for solo games, we want to avoid food when we're not starving
   }
 
@@ -151,7 +152,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
-  const evalCutoffReward = 35
+  let evalCutoffReward = 35
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
   const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
   const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
@@ -177,13 +178,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (myself === undefined) {
     return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
   }
-  if (otherSnakes.length === 0) {
-    if (gameState.game.ruleset.name === "solo") { // for solo games, we want to continue evaluating. For non-solo games, we've won, may be able to save evaluation time by returning now
-      buildLogString(`no other snakes, add ${evalSolo}`)
-      evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
-    } else {
-      return evalSolo
-    }
+  if (!isSolo && otherSnakes.length === 0) { // if it's not a solo game & there are no snakes left, we've won
+    buildLogString(`no other snakes, add ${evalSolo}`)
+    evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
   } else {
     buildLogString(`other snakes are in game, multiply their number by evalSnakeCount & add to eval: ${evalSnakeCount} * ${otherSnakes.length}`)
     evaluation = evaluation + (evalSnakeCount * otherSnakes.length)
@@ -212,16 +209,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   evaluation = evaluation + xDiff * evalCenterDistancePenalty
   buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
   evaluation = evaluation + yDiff * evalCenterDistancePenalty
-
-  // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself)) {
-    buildLogString(`got food, add ${evalHasEaten}`)
-    evaluation = evaluation + evalHasEaten
-  } else {
-    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
-    buildLogString(`Health eval for myself, adding ${healthEval}`)
-    evaluation = evaluation + healthEval
-  }
 
   if (isDuel) { // if duelling, pay closer attention to enemy's health in an attempt to starve it out if possible
     if (hazardDamage > 0) {
@@ -291,12 +278,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // need to calculate cutoffs before priorKisses, as evalPriorKissOfMurderAvoidance can change based on whether this is a cutoff
-  let canCutoffSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake
+  let canCutoffSnake = otherSnakes.find(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake
     return isCutoff(gameState, myself, snake, board2d) // returns true if myself can cut snake off
   })
   if (canCutoffSnake) {
     if (isOriginalSnake) {
       evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a cutoff, this is not a murder we want to avoid
+    } else if (!isOriginalSnake && originalSnake && canCutoffSnake.id === originalSnake.id) { // the snake we can cut off is originalSnake, give a bonus
+      evalCutoffReward = evalCutoffReward + 50
     }
     buildLogString(`attempting cutoff, adding ${evalCutoffReward}`)
     evaluation = evaluation + evalCutoffReward
@@ -428,15 +417,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         evaluation = evaluation + evalOriginalSnake0Move
         break
       case 1:
-        buildLogString(`ogSnake possibleMoves 1, add ${evalOriginalSnake0Move}`)
+        buildLogString(`ogSnake possibleMoves 1, add ${evalOriginalSnake1Move}`)
         evaluation = evaluation + evalOriginalSnake1Move
         break
       case 2:
-        buildLogString(`ogSnake possibleMoves 2, add ${evalOriginalSnake0Move}`)
+        buildLogString(`ogSnake possibleMoves 2, add ${evalOriginalSnake2Move}`)
         evaluation = evaluation + evalOriginalSnake2Move
         break
       case 3:
-        buildLogString(`ogSnake possibleMoves 3, add ${evalOriginalSnake0Move}`)
+        buildLogString(`ogSnake possibleMoves 3, add ${evalOriginalSnake3Move}`)
         evaluation = evaluation + evalOriginalSnake3Move
         break
     }
@@ -458,7 +447,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
 
-  if (snakeHasEaten(myself, lookahead)) {
+  let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
+  let safeToEat: boolean = !canBeCutoffBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
+  if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
     if (nearbyFood[0]) { // probably never succeeds since updateGameState would already have removed it
       nearbyFood[0].push(myself.head)
@@ -467,16 +458,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
-  let j = foodSearchDepth
+  // health considerations, which are effectively hazard considerations
+  if (snakeHasEaten(myself) && safeToEat) { // only reward snake for eating if it was safe to eat, otherwise just give it the normal health eval
+    buildLogString(`got food, add ${evalHasEaten}`)
+    evaluation = evaluation + evalHasEaten
+  } else {
+    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+    buildLogString(`Health eval for myself, adding ${healthEval}`)
+    evaluation = evaluation + healthEval
+  }
+
+  let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
   let foodCalc : number = 0
-  for (let i: number = 1; i <= foodSearchDepth; i++) {
+  for (let i: number = 0; i <= foodSearchDepth; i++) {
     foodToHunt = nearbyFood[i]
     if (foodToHunt && foodToHunt.length > 0) {
       // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
 
       let foodToHuntLength: number = foodToHunt.length
-      if (i === 0) {
-        foodToHuntLength = foodToHuntLength * evalEatingMultiplier // doubly weight food that I have already eaten
+      if (!isSolo && i === 0) {
+        foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
       }
       foodToHunt.forEach(function nerfCornerFood(fud) {
         if (isCorner(gameState.board, fud)) {
