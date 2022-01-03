@@ -1,13 +1,13 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle } from "./util"
-import { evaluate } from "./eval"
+import { evaluate, determineEvalNoSnakes } from "./eval"
 
 import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
 
 export function info(): InfoResponse {
@@ -256,8 +256,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 if (newMove.score !== undefined) {
                   if (adjustedMove.score === undefined) {
                     adjustedMove = newMove
-                  } else if (newMove.score > adjustedMove.score) { // only use the new decision if it's better than the decision it had previously
-                    adjustedMove = newMove // this should only succeed if the new decision doesn't lead to death, & is better than a tie in the event of a tie
+                  } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
+                    if (newGameState.board.snakes.length > 2) { // it's not a duel, a tie is bad no matter what, rechoose
+                      adjustedMove = newMove
+                    } else if (gameState.you.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
+                      adjustedMove = newMove
+                    } else if (newMove.score > determineEvalNoSnakes(newGameState, snake)) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose
+                      adjustedMove = newMove
+                    } // if it fails all three of those, we won't rechoose
                   }
                 }
               }
