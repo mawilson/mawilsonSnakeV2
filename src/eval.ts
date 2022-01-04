@@ -544,8 +544,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let foodToHunt : Coord[] = []
 
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
-  let safeToEat: boolean = !canBeCutoffBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
-  if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff situation doing so, or if it risked a kiss of death for the food
+  let safeToEat: boolean = !canBeCutoffBySnake && !canBeSandwichedBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
+  if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
     if (nearbyFood[0]) { // probably never succeeds since updateGameState would already have removed it
       nearbyFood[0].push(myself.head)

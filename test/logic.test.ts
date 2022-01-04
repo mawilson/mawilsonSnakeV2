@@ -2167,6 +2167,18 @@ describe('face off tests', () => {
       expect(moveResponse.move).toBe("up") // up is probably best, right is a face off & kinda bad, but down is just shoving us in a 50/50 situation & almost for sure worse
     }
   })
+  it.skip('seeks out a face off cell in a duel', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 97, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 6, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up")
+    }
+  })
 })
 
 describe('sandwich tests', () => {
