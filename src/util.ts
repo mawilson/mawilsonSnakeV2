@@ -1038,45 +1038,13 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
   return {kissOfDeathState: kissOfDeathState, kissOfMurderState: kissOfMurderState}
 }
 
-function lookaheadDeterminatorNonCpuBound(gameState: GameState): number {
-  let timeout = gameState.game.timeout
-  let defaultLatency = gameState.you.name === "Test Snake Please Ignore" ? 150 : 30 // default latency of 30 for prod snakes, 150 for local snake
-  let latency = gameState.you.latency === "" ? defaultLatency : parseInt(gameState.you.latency, 10)
-  latency = latency === NaN ? defaultLatency : latency // in case latency is non-numeric for some reason
-  let numSnakes = gameState.board.snakes.length
-  let comfortMargin: number = 50 // time in ms I'm comfortable skirting close to the edge of timeout
-  let timeLeft: number = timeout - latency - comfortMargin
-
-  function _lookaheadDeterminator(penalty: number) {
-    let lookahead: number = 0 // base lookahead of 1, assume we can do at least this
-
-    // for jaguar, with a latency of 30 & penalty of 20, this would give us a lookahead of 8, with a 90ms penalty for the 8th lookahead
-    // for test snake, with a latency of 150 & penalty of 20, this would give us a lookahead of 7, with a 80ms penalty for the 7th lookahead
-    for (let j: number = timeLeft; j >= 0; j = j - penalty - (lookahead * 10)) { // 1st lookahead free. 40ms for second, 50ms for third, etc.
-      lookahead = lookahead + 1
-    }
-    return lookahead
-  }
-
-  if (numSnakes < 1) {
-    return 0 // with one or no snakes there's no meaningful calqs for us to do anyway, return lookahead of 0
-  }
-  if (numSnakes > 2) {
-    return _lookaheadDeterminator(20) // give a 20ms base penalty for each loop plus cost associated with lookahead depth
-  } else { // numSnakes === 2
-    return _lookaheadDeterminator(10) // give a 10ms base penalty for each loop plus cost associated with lookahead depth
-  }
-}
-
-// dumber lookahead determinator to account for weaker CPU of Linode server
+// finely tuned lookahead determinator based on various things - available moves, timeout, etc
 export function lookaheadDeterminator(gameState: GameState): number {
   let lookahead: number
   if (gameState.turn === 0) {
     lookahead = 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 3) {
     lookahead = 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
-  // } else if (isLocalSnake(gameState.you)) {
-  //   return lookaheadDeterminatorNonCpuBound(gameState)
   } else if (gameState.turn < 7 && gameState.game.timeout >= 500) {
     lookahead = 4
   } else {
@@ -1098,11 +1066,34 @@ export function lookaheadDeterminator(gameState: GameState): number {
           lookahead = 6
           break
         case 3:
-          lookahead = 6
+          let board2d = new Board2d(gameState.board)
+          let myselfAvailableMoves = getAvailableMoves(gameState, gameState.you, board2d)
+          if (myselfAvailableMoves.validMoves().length === 3) { // if I have three available moves, may need to decrement lookahead if all other snakes also do
+            let otherSnakesHave3Moves = gameState.board.snakes.every(function hasThreeMoves(snake) {
+              let availableMoves = getAvailableMoves(gameState, snake, board2d)
+              return availableMoves.validMoves().length === 3
+            })
+            if (otherSnakesHave3Moves) {
+              lookahead = 5
+            } else {
+              lookahead = 6
+            }
+          } else {
+            lookahead = 6
+          }
           break
         default: // 4 or more
           lookahead = 5
           break
+      }
+      if (lookahead > 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
+        let totalSnakeLength: number = 0
+        gameState.board.snakes.forEach(function addSnakeLength(snake) {
+          totalSnakeLength = totalSnakeLength + snake.length
+        })
+        if (gameState.you.length < 8 && totalSnakeLength < 20) { // my own length matters most since I look the farthest ahead, but if all snakes are small that also matters
+          lookahead = lookahead - 1
+        }
       }
     }
   }
@@ -1319,6 +1310,157 @@ export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined,
 
   if (cutoffLeftEdge() || cutoffRightEdge() || cutoffBottomEdge() || cutoffTopEdge()) {
     return true
+  } else {
+    return false
+  }
+}
+
+// returns true if 'myself' is in position with another snake to sandwich 'snake'
+export function isSandwich(gameState: GameState, _myself: Battlesnake | undefined, _snake: Battlesnake | undefined, board2d: Board2d): boolean {
+  if (_myself === undefined) { // undefined snakes cannot cut off
+    return false
+  } else if (_snake === undefined) { // undefined snakes cannot be cut off
+    return false
+  } else if (gameState.board.snakes.length < 3) { // cannot sandwich if there are not at least three snakes
+    return false
+  }
+  let myself: Battlesnake = _myself
+  let snake: Battlesnake = _snake
+  let _otherSnake: Battlesnake | undefined = gameState.board.snakes.find(function findOtherSnake(thirdSnake) { return thirdSnake.id !== myself.id && thirdSnake.id !== snake.id})
+
+  if (_otherSnake === undefined) { // should not be possible, but if our third snake doesn't exist on the game board we also can't sandwich
+    return false
+  }
+  let otherSnake: Battlesnake = _otherSnake
+
+  let snakeDir = getSnakeDirection(snake)
+  let snakeMoves = getAvailableMoves(gameState, snake, board2d)
+  let myselfMoves = getAvailableMoves(gameState, myself, board2d)
+  let otherSnakeMoves = getAvailableMoves(gameState, otherSnake, board2d)
+
+  // helper function to determine if horizontal sandwicher 'myself' is vertically positioned to sandwich 'snake', either up or down
+  function isHorizontalSandwichVerticallyPositioned(myself: Battlesnake, snake: Battlesnake, direction: Direction): boolean {
+    switch(myself.head.y - snake.head.y) {
+      case 0: // my head is even with snake head. This is sandwichable
+        return true
+      case -1: // my head is lower than snake head
+        if (direction === Direction.Up) {
+          if (myself.length > snake.length) { // This is only sandwichable if I am larger than snake
+            return true
+          }
+        } else if (direction === Direction.Down) { // This is only sandwichable if snake can only move down
+          if (snakeMoves.validMoves().length === 1) {
+            return true
+          }
+        }
+        break
+      case 1: // my head is higher than snake head.
+        if (direction === Direction.Up) {
+          if (snakeMoves.validMoves().length === 1) { // This is only sandwichable if snake can only move up
+            return true
+          } 
+        } else if (direction === Direction.Down) { 
+          if (myself.length > snake.length) { // This is only sandwichable if I am larger than snake
+            return true
+          }
+        }
+        break
+      default: // myself is not in position to sandwich, therefore this is not a sandwich
+        return false
+    }
+    return false // if no case up until this point has returned, sandwich criteria were not met
+  }
+
+  // helper function to determine if vertical sandwicher 'myself' is horizontally positioned to sandwich 'snake', either left or right
+  function isVerticalSandwichHorizontallyPositioned(myself: Battlesnake, snake: Battlesnake, direction: Direction): boolean {
+    switch(myself.head.x - snake.head.x) {
+      case 0: // my head is even with snake head. This is sandwichable
+        return true
+      case -1: // my head is left of snake head
+        if (direction === Direction.Right) {
+          if (myself.length > snake.length) { // This is only sandwichable if I am larger than snake
+            return true
+          }
+        } else if (direction === Direction.Left) { // This is only sandwichable if snake can only move left
+          if (snakeMoves.validMoves().length === 1) {
+            return true
+          }
+        }
+        break
+      case 1: // my head is right of snake head.
+        if (direction === Direction.Right) {
+          if (snakeMoves.validMoves().length === 1) { // This is only sandwichable if snake can only move right
+            return true
+          } 
+        } else if (direction === Direction.Left) { 
+          if (myself.length > snake.length) { // This is only sandwichable if I am larger than snake
+            return true
+          }
+        }
+        break
+      default: // myself is not in position to sandwich, therefore this is not a sandwich
+        return false
+    }
+    return false // if no case up until this point has returned, sandwich criteria were not met
+  }
+
+  function isHorizontalSandwich(): boolean {
+    // second condition is that sandwiching snakes can move in the same direction as snake is moving
+    if (snakeDir === Direction.Up && myselfMoves.up && otherSnakeMoves.up) { // sandwiching moving up
+      // third condition is that sandwiching snakes are near snake & can prevent it from moving out of the sandwich
+      // this means either: they are one behind, but larger; they are level; or they are one ahead
+      if (!isHorizontalSandwichVerticallyPositioned(myself, snake, Direction.Up)) { // if myself is not in position vertically to sandwich, this is not a sandwich
+        return false
+      } else if (!isHorizontalSandwichVerticallyPositioned(otherSnake, snake, Direction.Up)) { // likewise for otherSnake
+        return false
+      } else {
+        return true // both snakes are in vertical position, we can sandwich
+      }
+    } else if (snakeDir === Direction.Down && myselfMoves.down && otherSnakeMoves.down) { // sandwiching moving down
+      if (!isHorizontalSandwichVerticallyPositioned(myself, snake, Direction.Down)) { // if myself is not in position vertically to sandwich, this is not a sandwich
+        return false
+      } else if (!isHorizontalSandwichVerticallyPositioned(otherSnake, snake, Direction.Down)) { // likewise for otherSnake
+        return false
+      } else {
+        return true // both snakes are in vertical position, we can sandwich
+      }
+    }
+    return false
+  }
+
+  function isVerticalSandwich(): boolean {
+    // second condition is that sandwiching snakes can move in the same direction as snake is moving
+    if (snakeDir === Direction.Left && myselfMoves.left && otherSnakeMoves.left) { // sandwiching moving left
+      // third condition is that sandwiching snakes are near snake & can prevent it from moving out of the sandwich
+      // this means either: they are one behind, but larger; they are level; or they are one ahead
+      if (!isVerticalSandwichHorizontallyPositioned(myself, snake, Direction.Left)) { // if myself is not in position horizontally to sandwich, this is not a sandwich
+        return false
+      } else if (!isVerticalSandwichHorizontallyPositioned(otherSnake, snake, Direction.Left)) { // likewise for otherSnake
+        return false
+      } else {
+        return true // both snakes are in horizontal position, we can sandwich
+      }
+    } else if (snakeDir === Direction.Right && myselfMoves.right && otherSnakeMoves.right) { // sandwiching moving right
+      if (!isVerticalSandwichHorizontallyPositioned(myself, snake, Direction.Right)) { // if myself is not in position horizontally to sandwich, this is not a sandwich
+        return false
+      } else if (!isVerticalSandwichHorizontallyPositioned(otherSnake, snake, Direction.Right)) { // likewise for otherSnake
+        return false
+      } else {
+        return true // both snakes are in vertical position, we can sandwich
+      }
+    }
+    return false
+  }
+
+  // first condition for sandwiching is snake is between myself & otherSnake. This can be either vertically or horizontally
+  if ((snake.head.x - myself.head.x) === 1 && (otherSnake.head.x - snake.head.x) === 1) { // myself is 1 left of snake, otherSnake is 1 right of snake
+    return isHorizontalSandwich()
+  } else if ((snake.head.x - otherSnake.head.x) === 1 && (myself.head.x - snake.head.x) === 1) { // otherSnake is 1 left of snake, myself is 1 right of snake
+    return isHorizontalSandwich()
+  } else if ((snake.head.y - myself.head.y) === 1 && (otherSnake.head.y - snake.head.y) === 1) { // myself is 1 below snake, otherSnake is 1 above snake
+    return isVerticalSandwich()
+  } else if ((snake.head.y - otherSnake.head.y) === 1 && (myself.head.y - snake.head.y) === 1) { // otherSnake is 1 below snake, myself is 1 above snake
+    return isVerticalSandwich()
   } else {
     return false
   }

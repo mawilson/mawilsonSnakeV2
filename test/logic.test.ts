@@ -743,6 +743,20 @@ describe('Kiss of murder tests', () => {
       expect(moveResponse.move).toBe("down") // given at least 6 lookahead (& no timeouts), down will 100% of the time lead to a kiss of murder in 6 turns
     }
   })
+  it('chooses a murder that leads it towards open space if it misses', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 1}, {x: 4, y: 1}, {x: 4, y: 0}, {x: 3, y: 0}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 1, y: 7}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 2, y: 2}, {x: 3, y: 2}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 2}, {x: 7, y: 2}, {x: 7, y: 1}, {x: 8, y: 1}, {x: 9, y: 1}, {x: 9, y: 0}, {x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 10, y: 4}, {x: 10, y: 5}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 7, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}, {x: 9, y: 7}, {x: 10, y: 7}, {x: 10, y: 8}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 8, y: 2}, {x: 0, y: 8}]
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // down is puts us in a box, right is a 50/50 kill but puts us in a box if we miss. Up is also a 50/50, & if we miss, it shoves otherSnek in said box.
+    }
+  })
 })
 
 describe('Snake should account for possible kisses after it moves', () => {
@@ -1893,7 +1907,6 @@ describe('Food prioritization and acquisition', () => {
     }
   })
   it('acquires food when dueling as soon as it can', () => {
-    debugger
     for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 97, [{x: 2, y: 4}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 5, y: 7}], "30", "", "")
       const gameState = createGameState(snek)
@@ -2152,6 +2165,55 @@ describe('face off tests', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // up is probably best, right is a face off & kinda bad, but down is just shoving us in a 50/50 situation & almost for sure worse
+    }
+  })
+  it.skip('seeks out a face off cell in a duel', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 97, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 6, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up")
+    }
+  })
+})
+
+describe('sandwich tests', () => {
+  it('continues sandwiching an enemy snake so long as its other half does', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 5, y: 0}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 2}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 6, y: 2}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 7, y: 0}, {x: 8, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // otherSnek2 is currently sandwiched, should continue moving up to continue sandwiching
+    }
+  })
+  it('avoids being sandwiched', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}, {x: 5, y: 0}, {x: 6, y: 0}, {x: 7, y: 0}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y : 6}, {x: 1, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 6, y: 3}, {x: 7, y: 3}, {x: 8, y: 3}, {x: 9, y: 3}, {x: 10, y: 3}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.board.food = [{x: 5, y: 3}] // food to try to tempt snek into the sandwich
+
+      let moveResponse: MoveResponse = move(gameState)
+      // both otherSnek & otherSnek2 are in KissOfDeath3to1Avoidance situations with snek, & should go up. If snek also goes up, it will be sandwiched - it should go left or right
+      expect(moveResponse.move).not.toBe("up")
     }
   })
 })
