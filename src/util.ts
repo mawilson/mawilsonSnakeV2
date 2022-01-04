@@ -928,6 +928,7 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
         if (typeof moveNeighbors.upPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.upPrey, gameState, board2d, preyMoves)
           let preyValidMoves = preyMoves.validMoves().length
+          let faceoffMurder = isFaceoff(gameState, myself, moveNeighbors.upPrey, board2d) // if this is a faceoff, want to assign that particular kissOfMurder type
           switch(preyValidMoves) {
             case 1: // prey has only one valid place to go, & we can kill it there
               setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
@@ -936,11 +937,19 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
               if (moveNeighbors.isMurderChanceSnake(moveNeighbors.upPrey)) { // we can kill it at both places
                 setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
               } else { // we can kill it at one direction, but it will likely escape in the other direction
-                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                if (faceoffMurder) {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+                } else {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                }
               }
               break
             case 3: // prey has three valid places to go, it is likely to avoid us this turn
-              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              if (faceoffMurder) {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+              } else {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
               break
           }
         }
@@ -949,6 +958,7 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
         if (typeof moveNeighbors.downPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.downPrey, gameState, board2d, preyMoves)
           let preyValidMoves = preyMoves.validMoves().length
+          let faceoffMurder = isFaceoff(gameState, myself, moveNeighbors.downPrey, board2d) // if this is a faceoff, want to assign that particular kissOfMurder type
           switch(preyValidMoves) {
             case 1: // prey has only one valid place to go, & we can kill it there
               setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
@@ -957,11 +967,19 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
               if (moveNeighbors.isMurderChanceSnake(moveNeighbors.downPrey)) { // we can kill it at both places
                 setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
               } else { // we can kill it at one direction, but it will likely escape in the other direction
-                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                if (faceoffMurder) {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+                } else {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                }
               }
               break
             case 3: // prey has three valid places to go, it is likely to avoid us this turn
-              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              if (faceoffMurder) {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+              } else {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
               break
           }
         }
@@ -970,6 +988,7 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
         if (typeof moveNeighbors.leftPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.leftPrey, gameState, board2d, preyMoves)
           let preyValidMoves = preyMoves.validMoves().length
+          let faceoffMurder = isFaceoff(gameState, myself, moveNeighbors.leftPrey, board2d) // if this is a faceoff, want to assign that particular kissOfMurder type
           switch(preyValidMoves) {
             case 1: // prey has only one valid place to go, & we can kill it there
               setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
@@ -978,11 +997,19 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
               if (moveNeighbors.isMurderChanceSnake(moveNeighbors.leftPrey)) { // we can kill it at both places
                 setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
               } else { // we can kill it at one direction, but it will likely escape in the other direction
-                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                if (faceoffMurder) {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+                } else {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                }
               }
               break
             case 3: // prey has three valid places to go, it is likely to avoid us this turn
-              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              if (faceoffMurder) {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+              } else {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
               break
           }
         }
@@ -991,6 +1018,7 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
         if (typeof moveNeighbors.rightPrey !== "undefined") {
           checkForSnakesHealthAndWalls(moveNeighbors.rightPrey, gameState, board2d, preyMoves)
           let preyValidMoves = preyMoves.validMoves().length
+          let faceoffMurder = isFaceoff(gameState, myself, moveNeighbors.rightPrey, board2d) // if this is a faceoff, want to assign that particular kissOfMurder type
           switch(preyValidMoves) {
             case 1: // prey has only one valid place to go, & we can kill it there
               setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderCertainty)
@@ -999,11 +1027,19 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
               if (moveNeighbors.isMurderChanceSnake(moveNeighbors.rightPrey)) { // we can kill it at both places
                 setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderMaybe)
               } else { // we can kill it at one direction, but it will likely escape in the other direction
-                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                if (faceoffMurder) {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+                } else {
+                  setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+                }
               }
               break
             case 3: // prey has three valid places to go, it is likely to avoid us this turn
-              setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              if (faceoffMurder) {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderFaceoff)
+              } else {
+                setKissOfMurderDirectionState(move, KissOfMurderState.kissOfMurderAvoidance)
+              }
               break
           }
         }
@@ -1091,7 +1127,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
         gameState.board.snakes.forEach(function addSnakeLength(snake) {
           totalSnakeLength = totalSnakeLength + snake.length
         })
-        if (gameState.you.length < 8 && totalSnakeLength < 20) { // my own length matters most since I look the farthest ahead, but if all snakes are small that also matters
+        if (gameState.you.length < 15 && totalSnakeLength < 30) { // my own length matters most since I look the farthest ahead, but if all snakes are small that also matters
           lookahead = lookahead - 1
         }
       }
@@ -1464,6 +1500,39 @@ export function isSandwich(gameState: GameState, _myself: Battlesnake | undefine
   } else {
     return false
   }
+}
+
+// returns true if 'myself' is in position to face off with another, smaller snake - one empty space between them, & snake can't move directly away
+export function isFaceoff(gameState: GameState, _myself: Battlesnake | undefined, _snake: Battlesnake | undefined, board2d: Board2d): boolean {
+  if (_myself === undefined) { // undefined snakes cannot face off
+    return false
+  } else if (_snake === undefined) { // undefined snakes cannot face off
+    return false
+  } else if (gameState.board.snakes.length !== 2) { // make faceOff only matter in duels, where there's only one snake to worry about
+    return false
+  } else if (_myself.length <= _snake.length) { // myself cannot face off a snake that is larger or equal to it
+    return false
+  }
+  let myself: Battlesnake = _myself
+  let snake: Battlesnake = _snake
+
+  // face off occurs when both snakes have one space inbetween them, & snake does not have the option to turn & run directly away from myself
+  if (myself.head.x === snake.head.x && (Math.abs(myself.head.y - snake.head.y)) === 2) { // if x's are identical, y's need to be two apart
+    let snakeAvailableMoves = getAvailableMoves(gameState, snake, board2d)
+    if (myself.head.y > snake.head.y && !snakeAvailableMoves.down && snakeAvailableMoves.up) { // if myself is above snake, it's a faceoff if snake can't go down & can go up
+      return true
+    } else if (myself.head.y < snake.head.y && !snakeAvailableMoves.up && snakeAvailableMoves.down) { // if myself is below snake, it's a faceoff if snake can't go up & can go down
+      return true
+    }
+  } else if (myself.head.y === snake.head.y && (Math.abs(myself.head.x - snake.head.x)) === 2) { // if y's are identical, x's need to be two apart
+    let snakeAvailableMoves = getAvailableMoves(gameState, snake, board2d)
+    if (myself.head.x > snake.head.x && !snakeAvailableMoves.left && snakeAvailableMoves.right) { // if myself is right of snake, it's a faceoff if snake can't go left & can go right
+      return true
+    } else if (myself.head.x < snake.head.x && !snakeAvailableMoves.right && snakeAvailableMoves.left) { // if myself is left of snake, it's a faceoff if snake can't go right & can go left
+      return true
+    }
+  }
+  return false // if it hasn't succeeded at any truth test up until this point, it's not a faceoff
 }
 
 // calculates the center of the board when considering hazard. For a game without hazard, this will just be the center of the board

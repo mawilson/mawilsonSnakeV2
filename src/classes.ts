@@ -44,6 +44,7 @@ export enum KissOfMurderState {
   kissOfMurderNo,
   kissOfMurderMaybe,
   kissOfMurderAvoidance,
+  kissOfMurderFaceoff,
   kissOfMurderCertainty
 }
 
@@ -874,6 +875,20 @@ export class KissStates {
     } else if (moves.right && !badStates.includes(this.kissOfDeathState.right)) {
       return true
     } else { // all valid options in moves will lead to certain death
+      return false
+    }
+  }
+
+  canCommitFaceoffMurder(moves: Moves): boolean {
+    if (moves.up && this.kissOfMurderState.up === KissOfMurderState.kissOfMurderFaceoff) {
+      return true
+    } else if (moves.down && this.kissOfMurderState.down === KissOfMurderState.kissOfMurderFaceoff) {
+      return true
+    } else if (moves.left && this.kissOfMurderState.left === KissOfMurderState.kissOfMurderFaceoff) {
+      return true
+    } else if (moves.right && this.kissOfMurderState.right === KissOfMurderState.kissOfMurderFaceoff) {
+      return true
+    } else {
       return false
     }
   }
