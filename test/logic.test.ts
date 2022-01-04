@@ -2147,9 +2147,10 @@ describe('hazard walls tests', () => {
 })
 
 describe('face off tests', () => {
+  // currently failing because it thinks it can trap otherSnek by risking going down
   it.skip('does not choose an even worse space over a face off', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 97, [{x: 4, y: 7}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 2, y: 6}, {x: 2, y: 7}], "30", "", "")
+      const snek = new Battlesnake("snek", "snek", 97, [{x: 4, y: 7}, {x: 3, y: 7}, {x: 3, y: 8}, {x: 4, y: 8}, {x: 5, y: 8}, {x: 6, y: 8}, {x: 7, y: 8}], "30", "", "")
       const gameState = createGameState(snek)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 5, y: 4}, {x: 4, y: 4}, {x: 3, y: 4}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 2, y: 5}, {x: 3, y: 5}, {x: 4, y: 5}], "30", "", "")
@@ -2164,19 +2165,34 @@ describe('face off tests', () => {
       createHazardColumn(gameState.board, 10)
 
       let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up") // up is probably best, right is a face off & kinda bad, but down is just shoving us in a 50/50 situation & almost for sure worse
+      expect(moveResponse.move).toBe("right") // right is a face off & kinda bad, but down is just shoving us in a 50/50 situation & almost for sure worse
     }
   })
-  it.skip('seeks out a face off cell in a duel', () => {
+  it('seeks out a face off cell in a duel', () => {
     for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 97, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}], "30", "", "")
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 1, y: 7}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 0, y: 10}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 6, y: 4}], "30", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 7, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 6, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // right will likely put us in a faceoff with otherSnek, who wants the food & will go left
+    }
+  })
+  it('closes the distance from a faceoff position', () => {
+    debugger
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 7, y: 5}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 7, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 3, y: 3}, {x: 3, y: 4}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up")
+      expect(moveResponse.move).toBe("down") // down closes the gap in a face off
     }
   })
 })

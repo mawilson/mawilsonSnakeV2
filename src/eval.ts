@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -203,7 +203,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfDeathNo = 0
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
-  let evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
+  const evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
+  let evalPriorKissOfMurderAvoidance = isOriginalSnake? -30 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -216,6 +217,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKissOfDeathNo = 0
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
+  const evalKissOfMurderFaceoff = 35 // we can kill a snake, they have an escape route, but we can easily give chase
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
   const evalKissOfMurderSelfBonus = 30 // bonus given to otherSnakes for attempting to get close enough to kill me
   let evalFoodVal = 2
@@ -229,8 +231,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   let evalCutoffReward = 35 // reward for getting a snake into a cutoff situation
   let evalSandwichReward = 20 // reward for getting a snake into a sandwich situation - less than cutoff, as it requires another snake to cooperate & is thus less reliable
+  const evalFaceoffReward = 50 // reward for getting a snake into a faceoff. While not as definitive as the above two, it's also not typically a bad thing for a snake to do
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
   const evalSandwichPenalty = -50 // as with cutoffs, but sandwiches are less reliable. Even so, a state to avoid
+  const evalFaceoffPenalty = -10 // getting faced off is the least troubling of the three, but still problematic
   const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
   const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
@@ -346,6 +350,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (kissStates.canCommitPossibleMurder(moves)) {
     buildLogString(`Possible kiss of murder nearby, adding ${evalKissOfMurderMaybe}`)
     evaluation = evaluation + evalKissOfMurderMaybe
+  } else if (kissStates.canCommitFaceoffMurder(moves)) {
+    buildLogString(`Faceoff kiss of murder nearby, adding ${evalKissOfMurderFaceoff}`)
+    evaluation = evaluation + evalKissOfMurderFaceoff
   } else if (kissStates.canCommitUnlikelyMurder(moves)) {
     buildLogString(`Unlikely kiss of murder nearby, adding ${evalKissOfMurderAvoidance}`)
     evaluation = evaluation + evalKissOfMurderAvoidance
@@ -395,6 +402,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalSandwichPenalty
   }
 
+  let canFaceoffSnake = otherSnakes.some(function findSnakeToFaceoff(snake) { // returns true if myself can faceoff any otherSnake
+    return isFaceoff(gameState, myself, snake, board2d)
+  })
+  if (canFaceoffSnake) {
+    evalPriorKissOfMurderAvoidance = 25 // if the kiss of murder that the other snake avoided led it into a faceoff, this is not a murder we want to avoid
+    buildLogString(`attempting faceoff, adding ${evalFaceoffReward}`)
+    evaluation = evaluation + evalFaceoffReward
+  }
+
+  let canBeFacedOff: boolean = otherSnakes.some(function findSnakeToBeFacedOffBy(snake) {
+    return isFaceoff(gameState, snake, myself, board2d)
+  })
+  if (canBeFacedOff) {
+    buildLogString(`can be faced off, adding ${evalFaceoffPenalty}`)
+    evaluation = evaluation + evalFaceoffPenalty
+  }
   
   // for kisses from the previous move state
   // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
@@ -443,6 +466,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     case KissOfMurderState.kissOfMurderMaybe:
       buildLogString(`KissOfMurderMaybe, adding ${evalPriorKissOfMurderMaybe}`)
       evaluation = evaluation + evalPriorKissOfMurderMaybe
+      break
+    case KissOfMurderState.kissOfMurderFaceoff:
+      buildLogString(`KissOfMurderFaceoff, adding ${evalPriorKissOfMurderFaceoff}`)
+      evaluation = evaluation + evalPriorKissOfMurderFaceoff
       break
     case KissOfMurderState.kissOfMurderAvoidance:
       buildLogString(`KissOfMurderAvoidance, adding ${evalPriorKissOfMurderAvoidance}`)
