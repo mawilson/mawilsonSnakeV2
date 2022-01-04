@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -126,8 +126,6 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake)
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-// 1000: last snake alive, best possible state
-// 0: snake is dead, worst possible state
 export function evaluate(gameState: GameState, _myself: Battlesnake | undefined, priorKissStates: KissStatesForEvaluate) : number {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
@@ -229,8 +227,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
-  let evalCutoffReward = 35
+  let evalCutoffReward = 35 // reward for getting a snake into a cutoff situation
+  let evalSandwichReward = 20 // reward for getting a snake into a sandwich situation - less than cutoff, as it requires another snake to cooperate & is thus less reliable
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
+  const evalSandwichPenalty = -50 // as with cutoffs, but sandwiches are less reliable. Even so, a state to avoid
   const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
   const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
@@ -359,9 +359,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     return isCutoff(gameState, myself, snake, board2d) // returns true if myself can cut snake off
   })
   if (canCutoffSnake) {
-    if (isOriginalSnake) {
-      evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a cutoff, this is not a murder we want to avoid
-    } else if (!isOriginalSnake && originalSnake && canCutoffSnake.id === originalSnake.id) { // the snake we can cut off is originalSnake, give a bonus
+    evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a cutoff, this is not a murder we want to avoid
+    if (!isOriginalSnake && originalSnake && canCutoffSnake.id === originalSnake.id) { // the snake we can cut off is originalSnake, give a bonus
       evalCutoffReward = evalCutoffReward + 50
     }
     buildLogString(`attempting cutoff, adding ${evalCutoffReward}`)
@@ -374,6 +373,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (canBeCutoffBySnake) {
     buildLogString(`can be cut off, adding ${evalCutoffPenalty}`)
     evaluation = evaluation + evalCutoffPenalty
+  }
+
+  let canSandwichSnake = otherSnakes.find(function findSnakeToSandwich(snake) { // returns true if myself can sandwich any otherSnake
+    return isSandwich(gameState, myself, snake, board2d)
+  })
+  if (canSandwichSnake) {
+    evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a sandwich, this is not a murder we want to avoid
+    if (!isOriginalSnake && originalSnake && canSandwichSnake.id === originalSnake.id) { // the snake we can sandwich is originalSnake, give a bonus
+      evalSandwichReward = evalSandwichReward + 50
+    }
+    buildLogString(`attempting sandwich, adding ${evalSandwichReward}`)
+    evaluation = evaluation + evalSandwichReward
+  }
+
+  let canBeSandwichedBySnake: boolean = otherSnakes.some(function findSnakeToBeSandwichedBy(snake) { // returns true if any otherSnake can sandwich me
+    return isSandwich(gameState, snake, myself, board2d) // returns true if snake can sandwich me
+  })
+  if (canBeSandwichedBySnake) {
+    buildLogString(`can be sandwiched, adding ${evalSandwichPenalty}`)
+    evaluation = evaluation + evalSandwichPenalty
   }
 
   

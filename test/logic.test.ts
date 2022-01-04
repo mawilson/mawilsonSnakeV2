@@ -2168,3 +2168,40 @@ describe('face off tests', () => {
     }
   })
 })
+
+describe('sandwich tests', () => {
+  it('continues sandwiching an enemy snake so long as its other half does', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 5, y: 0}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 2}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 6, y: 2}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 7, y: 0}, {x: 8, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // otherSnek2 is currently sandwiched, should continue moving up to continue sandwiching
+    }
+  })
+  it('avoids being sandwiched', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}, {x: 5, y: 0}, {x: 6, y: 0}, {x: 7, y: 0}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 4, y: 3}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y : 6}, {x: 1, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 6, y: 3}, {x: 7, y: 3}, {x: 8, y: 3}, {x: 9, y: 3}, {x: 10, y: 3}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.board.food = [{x: 5, y: 3}] // food to try to tempt snek into the sandwich
+
+      let moveResponse: MoveResponse = move(gameState)
+      // both otherSnek & otherSnek2 are in KissOfDeath3to1Avoidance situations with snek, & should go up. If snek also goes up, it will be sandwiched - it should go left or right
+      expect(moveResponse.move).not.toBe("up")
+    }
+  })
+})
