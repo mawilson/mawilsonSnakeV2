@@ -7,7 +7,7 @@ import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
 
 export function info(): InfoResponse {
@@ -360,9 +360,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return new MoveWithEval(getDefaultMove(gameState, myself), undefined)
   } else { // otherwise, start deciding  
     let timeStart: number = 0
-    if (isDevelopment) {
-      timeStart = Date.now()
-    }
+    timeStart = Date.now()
+
     let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
       return snake.id !== gameState.you.id
     })
@@ -370,14 +369,32 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       if (initialMoveSnakes === undefined) {
         initialMoveSnakes = {}
       }
-      initialMoveSnakes[snake.id] = _decideMove(gameState, snake, 3) // decide best move for other snakes according to current data, with modest lookahead
+      let newGameState: GameState = cloneGameState(gameState)
+      let newSelf: Battlesnake | undefined
+      newSelf = newGameState.board.snakes.find(function findSnake(newGameStateSnake) {
+        return snake.id === newGameStateSnake.id
+      })
+      if (newSelf !== undefined) {
+        newGameState.you = newSelf // need to process the snake as though it were myself, since _decideMove behaves radically different for self & otherSnakes
+        if (newGameState.game.timeout < 500) {
+          initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, 2) // decide best move for other snakes according to current data, with modest lookahead
+        } else {
+          initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, 3) // decide best move for other snakes according to current data, with modest lookahead
+        }
+      }
     })
+    let timeEnd = Date.now()
+    let timeTaken = timeEnd - timeStart
     if (isDevelopment && timeStart !== 0) {
-      let timeEnd = Date.now()
-      logToFile(consoleWriteStream, `time taken calculating otherSnakes' first moves for on turn ${gameState.turn}: ${timeEnd - timeStart}`)
+      logToFile(consoleWriteStream, `time taken calculating otherSnakes' first moves for on turn ${gameState.turn}: ${timeTaken}`)
     }
 
-    return _decideMove(gameState, myself, startLookahead)
+    if (timeTaken > 30) { // if it took inordinately long to get otherSnakes' starting moves, decrease lookahead for myself by one
+      return _decideMove(gameState, myself, startLookahead - 1)
+    } else {
+      return _decideMove(gameState, myself, startLookahead)
+
+    }
   }
 }
 
