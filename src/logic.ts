@@ -7,7 +7,7 @@ import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = true
+export const isDevelopment: boolean = false
 export let gameData: {[key: string]: GameData} = {}
 
 export function info(): InfoResponse {

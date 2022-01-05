@@ -167,7 +167,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (((gameState.turn + 1) % 25) < 4) {// as above, but hazard is showing up within the next three turns
     evalHazardWallPenalty = -2
   }
-  const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
+  const evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   let evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
   if (isDuel) { // if in a duel, give stronger rewards towards middle for myself, but not other snakes
