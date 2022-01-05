@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -149,7 +149,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const isDuel: boolean = gameState.board.snakes.length === 2
   const isSolo: boolean = gameState.game.ruleset.name === "solo"
 
-  const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 1 // originalSnake uses gameData lookahead, otherSnakes use 1
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
@@ -157,7 +157,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
-  const evalSolo: number = 1500 // this means we've won. Won't be considered in games that were always solo
+  const evalSolo: number = 100 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
   let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   if (gameState.turn % 25 === 0) { // hazard wall has already shown up this turn, but we don't know where. Make hazard wall penalty higher
@@ -169,7 +169,20 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
-  const evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
+  let evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
+  if (isDuel) { // if in a duel, give stronger rewards towards middle for myself, but not other snakes
+    if (hazardDamage > 0) { // for games with hazard, it matters a lot to trend away from the edges, in general
+      evalCenterDistancePenalty = -6
+    } else { // for games without hazard, center matters substantially less
+      evalCenterDistancePenalty = -3
+    }
+  } else {
+    if (hazardDamage > 0) { // can't afford to go center as strongly as in a duel, but with hazard, it's still important
+      evalCenterDistancePenalty = -3
+    } else { // for a non-duel game without hazard, center is almost negligible
+      evalCenterDistancePenalty = -1
+    }
+  }
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
@@ -229,7 +242,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
-  let evalCutoffReward = 35 // reward for getting a snake into a cutoff situation
+  const evalHazardSnakeSeekerStep = -3 // negative means that higher distances from hazard snake will result in lower score
+  
+  let evalCutoffReward = isDuel? 60 : 35 // reward for getting a snake into a cutoff situation. Very strong in duel as it should lead directly to a win
   let evalSandwichReward = 20 // reward for getting a snake into a sandwich situation - less than cutoff, as it requires another snake to cooperate & is thus less reliable
   const evalFaceoffReward = 50 // reward for getting a snake into a faceoff. While not as definitive as the above two, it's also not typically a bad thing for a snake to do
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
@@ -563,6 +578,16 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         buildLogString(`kingSnake seeker, adding ${kingSnakeCalq}`)
         evaluation = evaluation + kingSnakeCalq
       }
+    }
+  }
+
+  // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
+  if (isDuel && hazardDamage > 0) {
+    let opponentCell = board2d.getCell(longestSnake.head) // in a duel, longestSnake is just the opponent snake
+    if (opponentCell && opponentCell.hazard) {
+      let opponentDistanceCalq = getDistance(myself.head, longestSnake.head) * evalHazardSnakeSeekerStep
+      buildLogString(`hazard snake seeker, adding ${opponentDistanceCalq}`)
+      evaluation = evaluation + opponentDistanceCalq
     }
   }
 

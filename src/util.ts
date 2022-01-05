@@ -1585,3 +1585,30 @@ export function createLogAndCycle(filename: string): WriteStream {
     encoding: "utf8"
   }) 
 }
+
+export function createGameDataId(gameState: GameState): string {
+  return gameState.game.id + gameState.you.id
+}
+
+export function doSomeStats(timesTaken: number[]): void {
+  let averageTime: number = 0
+  let highestTime: number = 0
+
+  timesTaken.forEach(function processTimes(time) {
+    averageTime = averageTime + time
+    highestTime = time > highestTime? time : highestTime
+  })
+  averageTime = averageTime / timesTaken.length
+  let deviations: number[] = []
+  timesTaken.forEach(function calculateDeviations(time) {
+    let deviation = averageTime - time
+    deviation = deviation * deviation
+    deviations.push(deviation)
+  })
+  let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / timesTaken.length
+  let standardDeviation = Math.sqrt(variance)
+
+  logToFile(consoleWriteStream, `of ${timesTaken.length} total times, average time: ${averageTime}; highest time: ${highestTime}; variance: ${variance}; standard deviation: ${standardDeviation}`)
+
+  timesTaken = []
+}

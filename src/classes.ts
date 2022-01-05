@@ -957,3 +957,19 @@ export class KissStatesForEvaluate {
     }
   }
 }
+
+export class GameData {
+  hazardWalls: HazardWalls
+  lookahead: number
+  timesTaken: number[]
+
+  constructor(hazardWalls: HazardWalls | undefined, lookahead: number, timesTaken: number[]) {
+    if (hazardWalls !== undefined) {
+      this.hazardWalls = hazardWalls
+    } else {
+      this.hazardWalls = new HazardWalls(undefined)
+    }
+    this.lookahead = lookahead
+    this.timesTaken = timesTaken
+  }
+}
