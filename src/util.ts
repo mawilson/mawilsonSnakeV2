@@ -636,21 +636,17 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
       return 0
     }
   }
-  let depth : number = 3
+  let depth : number = 4
   if (me.health < 10) { // search for food from farther away if health is lower
     depth = board2d.height + board2d.width
   } else if (me.health < 20) {
-    depth = board2d.height - 5
+    depth = board2d.height - 4
   } else if (me.health < 30) {
-    depth = board2d.height - 6
+    depth = board2d.height - 5
   } else if (me.health < 40) {
-    depth = board2d.height - 7
+    depth = board2d.height - 6
   } else if (me.health < 50) {
-    depth = board2d.height - 8
-  }
-
-  if (gameState.turn < 20) { // prioritize food slightly more earlier in game
-    depth = depth > (board2d.height - 5) ? depth : board2d.height - 5
+    depth = board2d.height - 7
   }
 
   return depth
@@ -1079,10 +1075,10 @@ export function lookaheadDeterminator(gameState: GameState): number {
   let lookahead: number
   if (gameState.turn === 0) {
     lookahead = 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
-  } else if (gameState.turn < 3) {
-    lookahead = 3 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
+  } else if (gameState.turn < 5) {
+    lookahead = 2 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
   } else if (gameState.turn < 7 && gameState.game.timeout >= 500) {
-    lookahead = 4
+    lookahead = 3
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
       if (gameState.board.snakes.length > 2) {

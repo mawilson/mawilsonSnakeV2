@@ -157,7 +157,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
-  const evalSolo: number = 100 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
+  const evalSolo: number = 200 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
   let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   if (gameState.turn % 25 === 0) { // hazard wall has already shown up this turn, but we don't know where. Make hazard wall penalty higher
@@ -172,7 +172,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
   if (isDuel) { // if in a duel, give stronger rewards towards middle for myself, but not other snakes
     if (hazardDamage > 0) { // for games with hazard, it matters a lot to trend away from the edges, in general
-      evalCenterDistancePenalty = -6
+      evalCenterDistancePenalty = -4
     } else { // for games without hazard, center matters substantially less
       evalCenterDistancePenalty = -3
     }
@@ -217,7 +217,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   const evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
-  let evalPriorKissOfMurderAvoidance = isOriginalSnake? -5 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
+  let evalPriorKissOfMurderAvoidance = isOriginalSnake? 0 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -599,10 +599,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let safeToEat: boolean = !canBeCutoffBySnake && !canBeSandwichedBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
   if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
-    if (nearbyFood[0]) { // probably never succeeds since updateGameState would already have removed it
-      nearbyFood[0].push(myself.head)
+    let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
+    if (nearbyFood[depthToAdd]) { // should never succeed at depth 0, but may at others
+      nearbyFood[depthToAdd].push(myself.head)
     } else {
-      nearbyFood[0] = [myself.head]
+      nearbyFood[depthToAdd] = [myself.head]
     }
   }
 
@@ -627,9 +628,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       if (!isSolo && i === 0) {
         foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
       }
-      foodToHunt.forEach(function nerfCornerFood(fud) {
+      foodToHunt.forEach(function adjustFoodValues(fud) {
         if (isCorner(gameState.board, fud)) {
           foodToHuntLength = foodToHuntLength - 0.8 // corner food is worth 0.2 that of normal food
+        }
+        let foodCell = board2d.getCell(fud)
+        if (foodCell && foodCell.hazard) {
+          foodToHuntLength = foodToHuntLength - 0.6 // hazard food is worth 0.4 that of normal food
         }
       })
       let foodCalcStep = 0

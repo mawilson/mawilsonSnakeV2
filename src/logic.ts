@@ -354,11 +354,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       })
       if (newSelf !== undefined) {
         newGameState.you = newSelf // need to process the snake as though it were myself, since _decideMove behaves radically different for self & otherSnakes
+        let otherSnakeLookahead = 3
         if (newGameState.game.timeout < 500) {
-          initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, 2) // decide best move for other snakes according to current data, with modest lookahead
-        } else {
-          initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, 3) // decide best move for other snakes according to current data, with modest lookahead
+          otherSnakeLookahead = 2
         }
+        if (otherSnakeLookahead >= startLookahead) {
+          otherSnakeLookahead = startLookahead - 1
+        }
+        if (otherSnakeLookahead < 0) {
+          otherSnakeLookahead = 0
+        }
+
+        initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, otherSnakeLookahead) // decide best move for other snakes according to current data, with modest lookahead
       }
     })
     let timeEnd = Date.now()
