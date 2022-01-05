@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -149,7 +149,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const isDuel: boolean = gameState.board.snakes.length === 2
   const isSolo: boolean = gameState.game.ruleset.name === "solo"
 
-  const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 1 // originalSnake uses gameData lookahead, otherSnakes use 1
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
@@ -157,7 +157,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
-  const evalSolo: number = 1500 // this means we've won. Won't be considered in games that were always solo
+  const evalSolo: number = 200 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
   let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
   if (gameState.turn % 25 === 0) { // hazard wall has already shown up this turn, but we don't know where. Make hazard wall penalty higher
@@ -167,9 +167,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (((gameState.turn + 1) % 25) < 4) {// as above, but hazard is showing up within the next three turns
     evalHazardWallPenalty = -2
   }
-  const evalHazardPenalty: number = -(hazardDamage) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
+  const evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
-  const evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
+  let evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
+  if (isDuel) { // if in a duel, give stronger rewards towards middle for myself, but not other snakes
+    if (hazardDamage > 0) { // for games with hazard, it matters a lot to trend away from the edges, in general
+      evalCenterDistancePenalty = -4
+    } else { // for games without hazard, center matters substantially less
+      evalCenterDistancePenalty = -3
+    }
+  } else {
+    if (hazardDamage > 0) { // can't afford to go center as strongly as in a duel, but with hazard, it's still important
+      evalCenterDistancePenalty = -3
+    } else { // for a non-duel game without hazard, center is almost negligible
+      evalCenterDistancePenalty = -1
+    }
+  }
   const eval0Move = -700
   const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
   const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
@@ -204,7 +217,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   const evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
-  let evalPriorKissOfMurderAvoidance = isOriginalSnake? -30 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
+  let evalPriorKissOfMurderAvoidance = isOriginalSnake? 0 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -229,7 +242,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   const evalFoodStep = 1
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
-  let evalCutoffReward = 35 // reward for getting a snake into a cutoff situation
+  const evalHazardSnakeSeekerStep = -3 // negative means that higher distances from hazard snake will result in lower score
+  
+  let evalCutoffReward = isDuel? 60 : 35 // reward for getting a snake into a cutoff situation. Very strong in duel as it should lead directly to a win
   let evalSandwichReward = 20 // reward for getting a snake into a sandwich situation - less than cutoff, as it requires another snake to cooperate & is thus less reliable
   const evalFaceoffReward = 50 // reward for getting a snake into a faceoff. While not as definitive as the above two, it's also not typically a bad thing for a snake to do
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
@@ -566,6 +581,16 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
+  // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
+  if (isDuel && hazardDamage > 0) {
+    let opponentCell = board2d.getCell(longestSnake.head) // in a duel, longestSnake is just the opponent snake
+    if (opponentCell && opponentCell.hazard) {
+      let opponentDistanceCalq = getDistance(myself.head, longestSnake.head) * evalHazardSnakeSeekerStep
+      buildLogString(`hazard snake seeker, adding ${opponentDistanceCalq}`)
+      evaluation = evaluation + opponentDistanceCalq
+    }
+  }
+
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
@@ -574,10 +599,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let safeToEat: boolean = !canBeCutoffBySnake && !canBeSandwichedBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
   if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
-    if (nearbyFood[0]) { // probably never succeeds since updateGameState would already have removed it
-      nearbyFood[0].push(myself.head)
+    let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
+    if (nearbyFood[depthToAdd]) { // should never succeed at depth 0, but may at others
+      nearbyFood[depthToAdd].push(myself.head)
     } else {
-      nearbyFood[0] = [myself.head]
+      nearbyFood[depthToAdd] = [myself.head]
     }
   }
 
@@ -602,9 +628,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       if (!isSolo && i === 0) {
         foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
       }
-      foodToHunt.forEach(function nerfCornerFood(fud) {
+      foodToHunt.forEach(function adjustFoodValues(fud) {
         if (isCorner(gameState.board, fud)) {
           foodToHuntLength = foodToHuntLength - 0.8 // corner food is worth 0.2 that of normal food
+        }
+        let foodCell = board2d.getCell(fud)
+        if (foodCell && foodCell.hazard) {
+          foodToHuntLength = foodToHuntLength - 0.6 // hazard food is worth 0.4 that of normal food
         }
       })
       let foodCalcStep = 0

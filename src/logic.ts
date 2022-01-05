@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle } from "./util"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, doSomeStats } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
 
 import { WriteStream } from 'fs'
@@ -8,7 +8,7 @@ let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
 export const isDevelopment: boolean = false
-export let gameData: {[key: string]: {hazardWalls: HazardWalls, lookahead: number, timesTaken: number[]}} = {}
+export let gameData: {[key: string]: GameData} = {}
 
 export function info(): InfoResponse {
     console.log("INFO")
@@ -42,36 +42,14 @@ export function start(gameState: GameState): void {
   console.log(`${gameState.game.id} START`)
 }
 
-function doSomeStats(timesTaken: number[]): void {
-  let averageTime: number = 0
-  let highestTime: number = 0
-
-  timesTaken.forEach(function processTimes(time) {
-    averageTime = averageTime + time
-    highestTime = time > highestTime? time : highestTime
-  })
-  averageTime = averageTime / timesTaken.length
-  let deviations: number[] = []
-  timesTaken.forEach(function calculateDeviations(time) {
-    let deviation = averageTime - time
-    deviation = deviation * deviation
-    deviations.push(deviation)
-  })
-  let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / timesTaken.length
-  let standardDeviation = Math.sqrt(variance)
-
-  logToFile(consoleWriteStream, `of ${timesTaken.length} total times, average time: ${averageTime}; highest time: ${highestTime}; variance: ${variance}; standard deviation: ${standardDeviation}`)
-
-  timesTaken = []
-}
-
 export function end(gameState: GameState): void {
-  let thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  let gameDataId = createGameDataId(gameState)
+  let thisGameData = gameData? gameData[gameDataId] : undefined
   if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
     doSomeStats(thisGameData.timesTaken)
   }
   if (thisGameData !== undefined) { // clean up game-specific data
-    delete gameData[gameState.game.id + gameState.you.id]
+    delete gameData[gameDataId]
   }
   console.log(`${gameState.game.id} END\n`)
 }
@@ -360,9 +338,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return new MoveWithEval(getDefaultMove(gameState, myself), undefined)
   } else { // otherwise, start deciding  
     let timeStart: number = 0
-    if (isDevelopment) {
-      timeStart = Date.now()
-    }
+    timeStart = Date.now()
+
     let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
       return snake.id !== gameState.you.id
     })
@@ -370,14 +347,39 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       if (initialMoveSnakes === undefined) {
         initialMoveSnakes = {}
       }
-      initialMoveSnakes[snake.id] = _decideMove(gameState, snake, 3) // decide best move for other snakes according to current data, with modest lookahead
+      let newGameState: GameState = cloneGameState(gameState)
+      let newSelf: Battlesnake | undefined
+      newSelf = newGameState.board.snakes.find(function findSnake(newGameStateSnake) {
+        return snake.id === newGameStateSnake.id
+      })
+      if (newSelf !== undefined) {
+        newGameState.you = newSelf // need to process the snake as though it were myself, since _decideMove behaves radically different for self & otherSnakes
+        let otherSnakeLookahead = 3
+        if (newGameState.game.timeout < 500) {
+          otherSnakeLookahead = 2
+        }
+        if (otherSnakeLookahead >= startLookahead) {
+          otherSnakeLookahead = startLookahead - 1
+        }
+        if (otherSnakeLookahead < 0) {
+          otherSnakeLookahead = 0
+        }
+
+        initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, otherSnakeLookahead) // decide best move for other snakes according to current data, with modest lookahead
+      }
     })
+    let timeEnd = Date.now()
+    let timeTaken = timeEnd - timeStart
     if (isDevelopment && timeStart !== 0) {
-      let timeEnd = Date.now()
-      logToFile(consoleWriteStream, `time taken calculating otherSnakes' first moves for on turn ${gameState.turn}: ${timeEnd - timeStart}`)
+      logToFile(consoleWriteStream, `time taken calculating otherSnakes' first moves for on turn ${gameState.turn}: ${timeTaken}`)
     }
 
-    return _decideMove(gameState, myself, startLookahead)
+    if (timeTaken > 30) { // if it took inordinately long to get otherSnakes' starting moves, decrease lookahead for myself by one
+      return _decideMove(gameState, myself, startLookahead - 1)
+    } else {
+      return _decideMove(gameState, myself, startLookahead)
+
+    }
   }
 }
 
@@ -385,19 +387,19 @@ export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
+  let gameDataId = createGameDataId(gameState)
 
-  let thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
+  let thisGameData = gameData? gameData[gameDataId] : undefined
   if (thisGameData !== undefined) {
     thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
     thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
   } else {
+    let newGameData = new GameData(hazardWalls, futureSight, [])
     if (gameData === undefined) {
       gameData = {}
-      gameData[gameState.game.id + gameState.you.id] = {hazardWalls: hazardWalls, lookahead: futureSight, timesTaken: []} // create new gameData object if one does not yet exist
-    } else {
-      gameData[gameState.game.id + gameState.you.id] = {hazardWalls: hazardWalls, lookahead: futureSight, timesTaken: []} // create new gameData object if one does not yet exist
     }
-    thisGameData = gameData[gameState.game.id + gameState.you.id]
+    gameData[gameDataId] = newGameData // create new gameData object if one does not yet exist
+    thisGameData = gameData[gameDataId]
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
