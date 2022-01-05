@@ -962,6 +962,7 @@ export class GameData {
   hazardWalls: HazardWalls
   lookahead: number
   timesTaken: number[]
+  evaluationsForLookaheads: {[key: number]: number[]} // at each lookahead level, a record of the bestMove.score returned by _decideMove
 
   constructor(hazardWalls: HazardWalls | undefined, lookahead: number, timesTaken: number[]) {
     if (hazardWalls !== undefined) {
@@ -971,5 +972,6 @@ export class GameData {
     }
     this.lookahead = lookahead
     this.timesTaken = timesTaken
+    this.evaluationsForLookaheads = {}
   }
 }

@@ -1,9 +1,9 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, doSomeStats } from "./util"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, appendToGameDataFile, createGameDataId, doSomeStats } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
 
-import { WriteStream } from 'fs'
+import { WriteStream, createWriteStream, appendFile } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
 const lookaheadWeight = 0.1
@@ -48,6 +48,28 @@ export function end(gameState: GameState): void {
   if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
     doSomeStats(thisGameData.timesTaken)
   }
+
+  if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
+    let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
+      return snake.id === gameState.you.id
+    })
+    let isTie = gameState.board.snakes.length === 0
+
+    for (let i: number = 0; i <= thisGameData.lookahead; i++) { // for each level of lookahead, log the evaluation values we ended up going with
+      let scores: number[] = thisGameData.evaluationsForLookaheads[i]
+      if (scores !== undefined && scores.length > 0) {
+        if (isWin) {
+          appendToGameDataFile("./gameData/winScores_depth" + i + ".txt", scores)
+        } else if (isTie) {
+          appendToGameDataFile("./gameData/tieScores_depth" + i + ".txt", scores)
+        } else {
+          appendToGameDataFile("./gameData/lossScores_depth" + i + ".txt", scores)
+        }
+      }
+    }
+  }
+
+
   if (thisGameData !== undefined) { // clean up game-specific data
     delete gameData[gameDataId]
   }
@@ -325,6 +347,17 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     }
 
+    if (myself.id === gameState.you.id && startLookahead === 6 && lookahead !== undefined) { // only compiling scores for myself when startLookahead was 6
+      let gameDataString = createGameDataId(gameState)
+      if (gameData && gameData[gameDataString] && gameData[gameDataString].evaluationsForLookaheads) { // if game data exists, append to it
+        let evaluationsForLookaheads = gameData[gameDataString].evaluationsForLookaheads
+        if (evaluationsForLookaheads[lookahead] === undefined) {
+          evaluationsForLookaheads[lookahead] = [bestMove.score]
+        } else {
+          evaluationsForLookaheads[lookahead].push(bestMove.score)
+        }
+      }
+    }
     return bestMove
   }
 
@@ -378,7 +411,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return _decideMove(gameState, myself, startLookahead - 1)
     } else {
       return _decideMove(gameState, myself, startLookahead)
-
     }
   }
 }

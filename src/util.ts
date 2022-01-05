@@ -1,4 +1,4 @@
-import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
+import { createWriteStream, WriteStream, existsSync, renameSync, open, close, appendFile } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
 import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
 import { evaluate } from "./eval"
@@ -1582,10 +1582,25 @@ export function createLogAndCycle(filename: string): WriteStream {
   }) 
 }
 
+export function appendToGameDataFile(filename: string, data: number[]) {
+  open(filename, "a+", (err, fd) => { // a for append
+    if (err) throw err
+    data.forEach((num) => {
+      appendFile(fd, "," + num, "utf8", (err) => {
+        console.log(`Failed to append data to ${filename} due to ${err}`)
+      })
+    })
+    close(fd, (err) => {
+      if (err) throw err
+    })
+  })
+}
+
 export function createGameDataId(gameState: GameState): string {
   return gameState.game.id + gameState.you.id
 }
 
+// given an array of numbers, calculates the average, highest, variance, & standard deviation of those numbers
 export function doSomeStats(timesTaken: number[]): void {
   let averageTime: number = 0
   let highestTime: number = 0
