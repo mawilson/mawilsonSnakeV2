@@ -19,7 +19,7 @@ app.post("/move", (req: Request, res: Response) => {
     res.send(move(req.body))
 });
 
-app.post("/end", (req: Request, res: Response) => {
+app.post("/end", async (req: Request, res: Response) => {
     res.send(end(req.body))
 });
 

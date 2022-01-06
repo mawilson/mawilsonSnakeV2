@@ -975,3 +975,19 @@ export class GameData {
     this.evaluationsForLookaheads = {}
   }
 }
+
+export class SnakeScores {
+  startingLookahead: number // the lookahead that the root _decideMove was called with
+  depth: number // the depth of lookahead this score corresponds with
+  score: number // the score returned for the best move at this lookahead
+  version: string // the version of Jaguar this score was generated with
+  gameResult: string // whether the score is associated with a win, tie, or loss
+
+  constructor(startingLookahead: number, depth: number, score: number, version: string, gameResult: string) {
+    this.startingLookahead = startingLookahead
+    this.depth = depth
+    this.score = score
+    this.version = version
+    this.gameResult = gameResult
+  }
+}

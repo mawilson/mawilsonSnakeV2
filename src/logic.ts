@@ -1,14 +1,18 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData } from "./classes"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScores } from "./classes"
 import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, appendToGameDataFile, createGameDataId, doSomeStats } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
 
-import { WriteStream, createWriteStream, appendFile } from 'fs'
+import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
+import { Collection, Db, MongoClient } from 'mongodb'
+
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 export let gameData: {[key: string]: GameData} = {}
+
+const version: string = "1.0.2"
 
 export function info(): InfoResponse {
     console.log("INFO")
@@ -21,7 +25,7 @@ export function info(): InfoResponse {
         color: "#CF5476", // #ff9900
         head: "lantern-fish", // "trans-rights-scarf",
         tail: "fat-rattle", // "comet",
-        version: "1.0.1" //
+        version: version
       }
     } else {
       // Jaguar
@@ -31,18 +35,29 @@ export function info(): InfoResponse {
         color: "#ff9900", // #ff9900
         head: "tiger-king", //"tiger-king",
         tail: "mystic-moon", //"mystic-moon",
-        version: "1.0.1"
+        version: version
       }
     }
 
     return response
 }
 
+async function connectToDatabase(): Promise<MongoClient> {
+  // Connection url
+  const url = "mongodb://localhost:27017";
+
+  // Connect using a MongoClient instance
+  const mongoClient: MongoClient = new MongoClient(url)
+  await mongoClient.connect()
+
+  return mongoClient
+}
+
 export function start(gameState: GameState): void {
   console.log(`${gameState.game.id} START`)
 }
 
-export function end(gameState: GameState): void {
+export async function end(gameState: GameState) {
   let gameDataId = createGameDataId(gameState)
   let thisGameData = gameData? gameData[gameDataId] : undefined
   if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
@@ -54,21 +69,28 @@ export function end(gameState: GameState): void {
       return snake.id === gameState.you.id
     })
     let isTie = gameState.board.snakes.length === 0
+    let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
+
+    const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
+    const dbName = "test";
+    const collectionName = "snakeScores"
+    const db: Db = mongoClient.db(dbName)
+
+    const snakeScoresCollection: Collection = db.collection(collectionName)
 
     for (let i: number = 0; i <= thisGameData.lookahead; i++) { // for each level of lookahead, log the evaluation values we ended up going with
       let scores: number[] = thisGameData.evaluationsForLookaheads[i]
       if (scores !== undefined && scores.length > 0) {
-        if (isWin) {
-          appendToGameDataFile("./gameData/winScores_depth" + i + ".txt", scores)
-        } else if (isTie) {
-          appendToGameDataFile("./gameData/tieScores_depth" + i + ".txt", scores)
-        } else {
-          appendToGameDataFile("./gameData/lossScores_depth" + i + ".txt", scores)
-        }
+        let snakeScores: SnakeScores[] = []
+        scores.forEach(function writeScoreToDb(score) {
+          snakeScores.push(new SnakeScores(6, i, score, version, gameResult)) // currently only saving results when startingLookahead was exactly 6
+        })
+        await snakeScoresCollection.insertMany(snakeScores)
       }
     }
-  }
 
+    await mongoClient.close() // always close your connection out!
+  }
 
   if (thisGameData !== undefined) { // clean up game-specific data
     delete gameData[gameDataId]
