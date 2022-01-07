@@ -82,7 +82,14 @@ export interface GameState {
   you: Battlesnake;
 }
 
-// export interface IBoard2d {
-//   cells: Array<BoardCell>;
-//   //cells: Array<Array<BoardCell>>;
-// }
+export interface SnakeScoreMongoAggregateId {
+  depth: number;
+  startLookahead: number
+  snakeCount: number
+  snakeLength: number
+}
+
+export interface SnakeScoreMongoAggregate {
+  _id: SnakeScoreMongoAggregateId;
+  averageScore: number;
+}

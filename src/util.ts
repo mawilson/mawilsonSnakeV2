@@ -1,4 +1,4 @@
-import { createWriteStream, WriteStream, existsSync, renameSync, open, close, appendFile } from 'fs';
+import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
 import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
 import { evaluate } from "./eval"
@@ -1582,20 +1582,6 @@ export function createLogAndCycle(filename: string): WriteStream {
   }) 
 }
 
-export function appendToGameDataFile(filename: string, data: number[]) {
-  open(filename, "a+", (err, fd) => { // a for append
-    if (err) throw err
-    data.forEach((num) => {
-      appendFile(fd, "," + num, "utf8", (err) => {
-        console.log(`Failed to append data to ${filename} due to ${err}`)
-      })
-    })
-    close(fd, (err) => {
-      if (err) throw err
-    })
-  })
-}
-
 export function createGameDataId(gameState: GameState): string {
   return gameState.game.id + gameState.you.id
 }
@@ -1640,4 +1626,9 @@ export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for rando
   }
 
   return array;
+}
+
+// function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
+export function getSnakeScoreHashKey(snakeLength: number, foodCount: number, hazardCount: number, snakeCount: number, depth: number, startLookahead: number): string {
+  return `${snakeLength};${foodCount};${hazardCount};${snakeCount};${depth};${startLookahead}`
 }

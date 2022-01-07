@@ -1,19 +1,23 @@
-import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScores } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, appendToGameDataFile, createGameDataId, doSomeStats, calculateCenterWithHazard, getDistance, shuffle } from "./util"
+import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, doSomeStats, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
+export const version: string = "1.0.2" // need to declare this before importing snakeScoreAggregations from db
+import { connectToDatabase, getSnakeScoresCollection, snakeScoreAggregations } from "./db"
 
 import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 
-import { Collection, Db, MongoClient } from 'mongodb'
+import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
-const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
-export let gameData: {[key: string]: GameData} = {}
+export const isDevelopment: boolean = true
 
-const version: string = "1.0.2"
+// machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
+const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
+const amUsingMachineData: boolean = true && !amMachineLearning // should never use machine learning data while also collecting it, but also may choose not to use it
+
+export let gameData: {[key: string]: GameData} = {}
 
 export function info(): InfoResponse {
     console.log("INFO")
@@ -43,22 +47,31 @@ export function info(): InfoResponse {
     return response
 }
 
-async function connectToDatabase(): Promise<MongoClient> {
-  // Connection url
-  const url = "mongodb://localhost:27017";
-
-  // Connect using a MongoClient instance
-  const mongoClient: MongoClient = new MongoClient(url)
-  await mongoClient.connect()
-
-  return mongoClient
-}
-
-export function start(gameState: GameState): void {
+export async function start(gameState: GameState): Promise<void> {
   console.log(`${gameState.game.id} START`)
+
+  const gameDataId = createGameDataId(gameState)
+  gameData[gameDataId] = new GameData() // move() will update hazardWalls & lookahead accordingly later on.
+
+  if (amUsingMachineData) { // only necessary to get machine learning data if we plan on using it
+    const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
+    const snakeScoresCollection: Collection = await getSnakeScoresCollection(mongoClient) // connects to DB & attempts to get the snakeScores collection
+
+    // there are various different categories we want to have for machine learning
+    let aggCursor = snakeScoresCollection.aggregate<SnakeScoreMongoAggregate>(snakeScoreAggregations)
+
+    // each aggr should have an _id object consisting of the grouped elements - snakeLength, snakeCount, depth, startLookahead, & later foodCount & hazardCount
+    // it should also have an averageScore
+    for await (const aggr of aggCursor) {
+      let snakeScore = new SnakeScore(aggr.averageScore, aggr._id.snakeLength, 0, 0, aggr._id.snakeCount, aggr._id.depth, aggr._id.startLookahead, version)
+      gameData[gameDataId].evaluationsForMachineLearning[snakeScore.hashKey()] = snakeScore // insert snakeScore into the pseudo-hash object
+    }
+
+    await mongoClient.close() 
+  }
 }
 
-export async function end(gameState: GameState) {
+export async function end(gameState: GameState): Promise<void> {
   let gameDataId = createGameDataId(gameState)
   let thisGameData = gameData? gameData[gameDataId] : undefined
   if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
@@ -75,21 +88,13 @@ export async function end(gameState: GameState) {
       let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
 
       const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
-      const dbName = "test";
-      const collectionName = "snakeScores"
-      const db: Db = mongoClient.db(dbName)
+      const snakeScoresCollection: Collection = await getSnakeScoresCollection(mongoClient)
 
-      const snakeScoresCollection: Collection = db.collection(collectionName)
-
-      for (let i: number = 0; i <= thisGameData.lookahead; i++) { // for each level of lookahead, log the evaluation values we ended up going with
-        let scores: number[] = thisGameData.evaluationsForLookaheads[i]
-        if (scores !== undefined && scores.length > 0) {
-          let snakeScores: SnakeScores[] = []
-          scores.forEach(function writeScoreToDb(score) {
-            snakeScores.push(new SnakeScores(6, i, score, version, gameResult)) // currently only saving results when startingLookahead was exactly 6
-          })
-          await snakeScoresCollection.insertMany(snakeScores)
-        }
+      if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
+        thisGameData.evaluationsForLookaheads.forEach((snakeScore) => {
+          snakeScore.gameResult = gameResult // update each snakeScore with the result of the game
+        })
+        await snakeScoresCollection.insertMany(thisGameData.evaluationsForLookaheads)
       }
 
       await mongoClient.close() // always close your connection out!
@@ -107,6 +112,9 @@ export async function end(gameState: GameState) {
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, startLookahead: number): MoveWithEval {
+  let gameDataString = createGameDataId(gameState)
+  let thisGameData: GameData | undefined = gameData[gameDataString]
+  
   let initialMoveSnakes : { [key: string]: MoveWithEval} | undefined = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
   let movesShortCircuited: number = 0
 
@@ -277,20 +285,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     availableMoves.forEach(function evaluateMove(move) {
       let doneEvaluating: boolean = false
 
-      if (bestMove && bestMove.score && startLookahead === 6 && !amMachineLearning) { // machine learning check!
-        if (lookahead === 6 && bestMove.score >= 5344.02239608802) {
-          doneEvaluating = true
-        } else if (lookahead === 5 && bestMove.score >= 4011.340523138833) {
-          doneEvaluating = true
-        } else if (lookahead === 4 && bestMove.score >= 3128.2189535941766) {
-          doneEvaluating = true
-        } else if (lookahead === 3 && bestMove.score >= 2447.0549368173056) {
-          doneEvaluating = true
-        } else if (lookahead === 2 && bestMove.score >= 1826.7102187120292) {
-          doneEvaluating = true
-        } else if (lookahead === 1 && bestMove.score >= 1293.0179313919516) {
-          doneEvaluating = true
-        } else if (lookahead === 0 && bestMove.score >= 864.0478300717019) {
+      if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && myself.id === gameState.you.id) { // machine learning check! Only do for self
+        let effectiveLookahead = lookahead === undefined? 0 : lookahead
+        let snakeScoreHash = getSnakeScoreHashKey(myself.length, gameState.board.food.length, gameState.board.hazards.length, gameState.board.snakes.length, effectiveLookahead, startLookahead)
+        let averageMoveScore: number | undefined = thisGameData.evaluationsForMachineLearning[snakeScoreHash]?.score
+        if (averageMoveScore !== undefined && bestMove.score >= averageMoveScore) { // if an average move score exists for this game state
           doneEvaluating = true
         }
       }
@@ -391,6 +390,15 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     })
 
+    // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
+    if (myself.id === gameState.you.id && bestMove.score !== undefined) { // only add machine learning data for my own moves
+      if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
+        let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
+        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, gameState.board.food.length, gameState.board.hazards.length, gameState.board.snakes.length, effectiveLookahead, startLookahead, version)
+        thisGameData.evaluationsForLookaheads.push(newSnakeScore)
+      }
+    }
+
     // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
     if (lookahead !== undefined) {
       let evalWeight : number = 1
@@ -418,17 +426,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     }
 
-    if (myself.id === gameState.you.id && startLookahead === 6 && lookahead !== undefined) { // only compiling scores for myself when startLookahead was 6
-      let gameDataString = createGameDataId(gameState)
-      if (gameData && gameData[gameDataString] && gameData[gameDataString].evaluationsForLookaheads) { // if game data exists, append to it
-        let evaluationsForLookaheads = gameData[gameDataString].evaluationsForLookaheads
-        if (evaluationsForLookaheads[lookahead] === undefined) {
-          evaluationsForLookaheads[lookahead] = [bestMove.score]
-        } else {
-          evaluationsForLookaheads[lookahead].push(bestMove.score)
-        }
-      }
-    }
     return bestMove
   }
 
@@ -485,7 +482,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       myselfMove = _decideMove(gameState, myself, startLookahead)
     }
 
-    if (isDevelopment && !amMachineLearning) { // if I'm not machine learning, log how many times I took advantage of the data
+    if (isDevelopment && amUsingMachineData) { // if I'm using machine learning data, log how many times I took advantage of the data
       logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves forEach ${movesShortCircuited} times.`)
     }
     return myselfMove
@@ -502,14 +499,7 @@ export function move(gameState: GameState): MoveResponse {
   if (thisGameData !== undefined) {
     thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
     thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
-  } else {
-    let newGameData = new GameData(hazardWalls, futureSight, [])
-    if (gameData === undefined) {
-      gameData = {}
-    }
-    gameData[gameDataId] = newGameData // create new gameData object if one does not yet exist
-    thisGameData = gameData[gameDataId]
-  }
+  } // do not want to create new game data if it does not exist, start() should do that
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)

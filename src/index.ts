@@ -11,7 +11,7 @@ app.get("/", (req: Request, res: Response) => {
     res.send(info())
 });
 
-app.post("/start", (req: Request, res: Response) => {
+app.post("/start", async (req: Request, res: Response) => {
     res.send(start(req.body))
 });
 

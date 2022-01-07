@@ -209,7 +209,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
   const evalPriorKissOfDeathCertaintyMutual = -400 // another snake would have to kamikaze to hit us here, but it's still risky
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
-  const evalPriorKissOfDeathMaybeMutual = -300 // this is less than a 50/50, but still bad. Our predator doesn't want to take this chance either & may avoid this, but may not if it can't
+  const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -300 // this is less than a 50/50, but still bad. Our predator doesn't want to take this chance either & may avoid this, but may not if it can't
   const evalPriorKissOfDeath3To1Avoidance = 0 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
   const evalPriorKissOfDeath3To2Avoidance = 0 // this one is better as we at least still had options after avoiding the kiss
   const evalPriorKissOfDeath2To1Avoidance = 0
@@ -223,7 +223,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
   const evalKissOfDeathCertaintyMutual = -200 // another snake will have to kamikaze to his us here, but it's still risky
   const evalKissOfDeathMaybe = -200 // a 50/50 on whether we will be kissed to death next turn
-  const evalKissOfDeathMaybeMutual = -150 // a bit less than a 50/50, as neither party particularly wants to take this chance
+  const evalKissOfDeathMaybeMutual = isDuel? 0 : -150 // a bit less than a 50/50, as neither party particularly wants to take this chance
   const evalKissOfDeath3To1Avoidance = 0
   const evalKissOfDeath3To2Avoidance = 0
   const evalKissOfDeath2To1Avoidance = 0
