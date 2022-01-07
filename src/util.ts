@@ -1586,6 +1586,7 @@ export function createGameDataId(gameState: GameState): string {
   return gameState.game.id + gameState.you.id
 }
 
+// given an array of numbers, calculates the average, highest, variance, & standard deviation of those numbers
 export function doSomeStats(timesTaken: number[]): void {
   let averageTime: number = 0
   let highestTime: number = 0
@@ -1607,4 +1608,27 @@ export function doSomeStats(timesTaken: number[]): void {
   logToFile(consoleWriteStream, `of ${timesTaken.length} total times, average time: ${averageTime}; highest time: ${highestTime}; variance: ${variance}; standard deviation: ${standardDeviation}`)
 
   timesTaken = []
+}
+
+export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for randomizing array contents
+  let currentIndex = array.length,  randomIndex;
+
+  // While there remain elements to shuffle...
+  while (currentIndex != 0) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    // And swap it with the current element.
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
+  }
+
+  return array;
+}
+
+// function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
+export function getSnakeScoreHashKey(snakeLength: number, foodCount: number, hazardCount: number, snakeCount: number, depth: number, startLookahead: number): string {
+  return `${snakeLength};${foodCount};${hazardCount};${snakeCount};${depth};${startLookahead}`
 }
