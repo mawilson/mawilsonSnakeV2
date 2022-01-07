@@ -1,6 +1,6 @@
 import { InfoResponse, GameState, MoveResponse, Game, Board } from "./types"
 import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScores } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, appendToGameDataFile, createGameDataId, doSomeStats, calculateCenterWithHazard, getDistance } from "./util"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, appendToGameDataFile, createGameDataId, doSomeStats, calculateCenterWithHazard, getDistance, shuffle } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
 
 import { WriteStream } from 'fs'
@@ -257,8 +257,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     }
 
-
-    // rearrange availableMoves array so machineLearning/timeout snake doesn't prefer one direction
+    // shuffle availableMoves array, then sort it by distance from center so machineLearning/timeout snake doesn't prefer one direction
+    shuffle(availableMoves)
     availableMoves.sort(function sortByDistanceFromCenter (a: Direction, b: Direction): number {
       let aCoord = getCoordAfterMove(myself.head, a)
       let bCoord = getCoordAfterMove(myself.head, b)
@@ -268,8 +268,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       if (distFromCenterA < distFromCenterB) {
         return -1
       } else if (distFromCenterA > distFromCenterB) {
-        return 1
-      } else if (getRandomInt(0, 2)) { // for ties, swap their orders half of the time - this way we still swap the ordering some of the time
         return 1
       } else {
         return 0
