@@ -1,8 +1,8 @@
 export const version: string = "1.0.3" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, TimingData, TimingStats } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey } from "./util"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, TimingData, FoodCountTier, HazardCountTier } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
 import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
 
@@ -63,9 +63,13 @@ export async function start(gameState: GameState): Promise<void> {
 
     // each aggr should have an _id object consisting of the grouped elements - snakeLength, snakeCount, depth, startLookahead, & later foodCount & hazardCount
     // it should also have an averageScore
+
+    // consider four different food tiers: 0, 1-3, 4-6, & more
+    // consider four different hazard tiers: 0, 1-30, 31-60, & more
+    let evaluationsForMachineLearning = gameData[gameDataId].evaluationsForMachineLearning
     for await (const aggr of aggCursor) {
-      let snakeScore = new SnakeScore(aggr.averageScore, aggr._id.snakeLength, 0, 0, aggr._id.snakeCount, aggr._id.depth, aggr._id.startLookahead, version)
-      gameData[gameDataId].evaluationsForMachineLearning[snakeScore.hashKey()] = snakeScore // insert snakeScore into the pseudo-hash object
+      let snakeScore = new SnakeScore(aggr.averageScore, aggr._id.snakeLength, aggr._id.foodCountTier, aggr._id.hazardCountTier, aggr._id.snakeCount, aggr._id.depth, aggr._id.startLookahead, version)
+      evaluationsForMachineLearning[snakeScore.hashKey()] = snakeScore
     }
 
     await mongoClient.close() 
@@ -281,7 +285,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && myself.id === gameState.you.id) { // machine learning check! Only do for self
         let effectiveLookahead = lookahead === undefined? 0 : lookahead
-        let snakeScoreHash = getSnakeScoreHashKey(myself.length, gameState.board.food.length, gameState.board.hazards.length, gameState.board.snakes.length, effectiveLookahead, startLookahead)
+        let foodCountTier = getFoodCountTier(gameState.board.food.length)
+        let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
+        let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, startLookahead)
         let averageMoveScore: number | undefined = thisGameData.evaluationsForMachineLearning[snakeScoreHash]?.score
         if (averageMoveScore !== undefined && bestMove.score >= averageMoveScore) { // if an average move score exists for this game state
           doneEvaluating = true
@@ -396,7 +402,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     if (myself.id === gameState.you.id && bestMove.score !== undefined) { // only add machine learning data for my own moves
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
-        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, gameState.board.food.length, gameState.board.hazards.length, gameState.board.snakes.length, effectiveLookahead, startLookahead, version)
+        let foodCountTier = getFoodCountTier(gameState.board.food.length)
+        let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
+        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, startLookahead, version)
         thisGameData.evaluationsForLookaheads.push(newSnakeScore)
       }
     }
@@ -507,19 +515,10 @@ export function move(gameState: GameState): MoveResponse {
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState.board)) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
-  if (thisGameData !== undefined && isDevelopment) {
+  if (thisGameData !== undefined) {
     let timeTaken: number = Date.now() - timeBeginning
     let timesTaken = thisGameData.timesTaken
-    if (timesTaken !== undefined) {
-      if (timesTaken.length >= 50000) {
-        timesTaken.splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
-      } else {
-        timesTaken.push(timeTaken)
-      }
-    } else {
-      timesTaken = [timeTaken]
-    }
-    checkTime(timeBeginning, gameState, true)
+    timesTaken.push(timeTaken)
   }
 
   return {move: directionToString(chosenMoveDirection)}

@@ -49,6 +49,20 @@ export enum KissOfMurderState {
   kissOfMurderCertainty
 }
 
+export enum FoodCountTier {
+  zero,
+  less4,
+  less7,
+  lots
+}
+
+export enum HazardCountTier {
+  zero,
+  less31,
+  less61,
+  lots
+}
+
 export class Coord implements ICoord {
   x: number;
   y: number;
@@ -963,8 +977,8 @@ export class SnakeScore {
   score: number // the score returned for the best move at this lookahead
   // board variables that contextualize a score
   snakeLength: number
-  foodCount: number
-  hazardCount: number
+  foodCountTier: FoodCountTier
+  hazardCountTier: HazardCountTier
   snakeCount: number
   // game variables that contextualize a score
   depth: number
@@ -972,11 +986,11 @@ export class SnakeScore {
   version: string // the version of Jaguar this score was generated with
   gameResult: string // SnakeScore won't know this upon creation, it's up to end() to update it properly. Should be 'win', 'loss', 'tie', or 'unknown'
 
-  constructor(score: number, snakeLength: number, foodCount: number, hazardCount: number, snakeCount: number, depth: number, startLookahead: number, version: string) {
+  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number, version: string) {
     this.score = score
     this.snakeLength = snakeLength
-    this.foodCount = foodCount
-    this.hazardCount = hazardCount
+    this.foodCountTier = foodCountTier
+    this.hazardCountTier = hazardCountTier
     this.snakeCount = snakeCount
     this.depth = depth // the depth of lookahead this score corresponds with
     this.startLookahead = startLookahead
@@ -985,7 +999,7 @@ export class SnakeScore {
   }
 
   hashKey(): string {
-    return getSnakeScoreHashKey(this.snakeLength, this.foodCount, this.hazardCount, this.snakeCount, this.depth, this.startLookahead)
+    return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth, this.startLookahead)
   }
 }
 

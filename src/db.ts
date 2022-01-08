@@ -34,7 +34,9 @@ export const snakeScoreAggregations = [
           'depth': '$depth', 
           'startLookahead': '$startLookahead', 
           'snakeCount': '$snakeCount', 
-          'snakeLength': '$snakeLength'
+          'snakeLength': '$snakeLength',
+          'foodCountTier': '$foodCountTier',
+          'hazardCountTier': '$hazardCountTier'
         }, 
         'averageScore': {
           '$avg': '$score'

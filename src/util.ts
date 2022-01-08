@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, FoodCountTier, HazardCountTier } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment } from "./logic"
 
@@ -1652,6 +1652,30 @@ export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for rando
 }
 
 // function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
-export function getSnakeScoreHashKey(snakeLength: number, foodCount: number, hazardCount: number, snakeCount: number, depth: number, startLookahead: number): string {
-  return `${snakeLength};${foodCount};${hazardCount};${snakeCount};${depth};${startLookahead}`
+export function getSnakeScoreHashKey(snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number): string {
+  return `${snakeLength};${foodCountTier};${hazardCountTier};${snakeCount};${depth};${startLookahead}`
+}
+
+export function getFoodCountTier(numFood: number): FoodCountTier {
+  if (numFood === 0) {
+    return FoodCountTier.zero
+  } else if (numFood < 4) {
+    return FoodCountTier.less4
+  } else if (numFood < 7) {
+    return FoodCountTier.less7
+  } else {
+    return FoodCountTier.lots
+  }
+}
+
+export function getHazardCountTier(numHazard: number): HazardCountTier {
+  if (numHazard === 0) {
+    return HazardCountTier.zero
+  } else if (numHazard < 31) {
+    return HazardCountTier.less31
+  } else if (numHazard < 61) {
+    return HazardCountTier.less61
+  } else {
+    return HazardCountTier.lots
+  }
 }
