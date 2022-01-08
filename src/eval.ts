@@ -122,7 +122,9 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake)
   newGameState.board.snakes.push(newSnakeSelf)
   newGameState.board.snakes.push(newSnakeOther)
 
-  return evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
+  let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
+  evaluation = evaluation - 50 // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
+  return evaluation
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
@@ -156,7 +158,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   // values to tweak
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
-  const evalSnakeCount = -100 // assign penalty based on number of snakes left in gameState
+  const evalSnakeCountBase = -200 // base penalty for a single otherSnake left in game
+  const evalSnakeCountStep = 30 // reduction in penalty for each snake after the last one. e.g., the 3rd otherSnake penalty is (-200 + 30*3) = -110
+  const evalSnakeCountMin = -100 // minimum penalty for a snake to be in game (should at the very least be less than 0)
   const evalSolo: number = 200 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
   let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
@@ -278,8 +282,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`no other snakes, add ${evalSolo}`)
     evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
   } else {
-    buildLogString(`other snakes are in game, multiply their number by evalSnakeCount & add to eval: ${evalSnakeCount} * ${otherSnakes.length}`)
-    evaluation = evaluation + (evalSnakeCount * otherSnakes.length)
+    let snakeCountPenalty : number = 0
+    for (let i: number = 0; i < otherSnakes.length; i++) {
+      let snakePenalty: number = evalSnakeCountBase + evalSnakeCountStep * i
+      snakePenalty = snakePenalty > evalSnakeCountMin? evalSnakeCountMin : snakePenalty // snake penalty should never be greater than -100
+      snakeCountPenalty = snakeCountPenalty + snakePenalty
+    }
+    buildLogString(`other snakes are in game, multiply their number by evalSnakeCount & add to eval: ${snakeCountPenalty}`)
+    evaluation = evaluation + snakeCountPenalty
   }
 
   // give walls a penalty, & corners a double penalty
@@ -421,7 +431,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     return isFaceoff(gameState, myself, snake, board2d)
   })
   if (canFaceoffSnake) {
-    evalPriorKissOfMurderAvoidance = 25 // if the kiss of murder that the other snake avoided led it into a faceoff, this is not a murder we want to avoid
+    evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 25? 25 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a faceoff, this is not a murder we want to avoid
     buildLogString(`attempting faceoff, adding ${evalFaceoffReward}`)
     evaluation = evaluation + evalFaceoffReward
   }

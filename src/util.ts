@@ -315,7 +315,7 @@ export function getSnakeDirection(snake: Battlesnake) : Direction | undefined {
 
 // return any move that is neither outside of the gameState boundaries, nor the snake's neck
 // a maximum of two directions can result in out of bounds, & one direction can result in neck. Thus there must always be one valid direction
-export function getDefaultMove(gameState: GameState, snake: Battlesnake) : Direction {
+function getDefaultMoveNaive(gameState: GameState, snake: Battlesnake) : Direction {
   let neckDir = getNeckDirection(snake)
   if (snake.head.x !== 0 && neckDir !== Direction.Left) {
     return Direction.Left // left is neither out of bounds nor our neck
@@ -328,9 +328,41 @@ export function getDefaultMove(gameState: GameState, snake: Battlesnake) : Direc
   }
 }
 
+// looks at gamestate & myself & returns a single move that is valid - won't result in starvation, moving out of bounds, or (if possible) snake cells
+// disallows moving onto my own neck unless that is the only move that won't result in starvation
+export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2d: Board2d) : Direction {
+  let moves : Moves = new Moves(true, true, true, true)
+
+  checkForSnakesHealthAndWalls(myself, gameState, board2d, moves)
+
+  let availableMoves : Direction[] = moves.validMoves()
+  if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
+    moves.up = true
+    moves.down = true
+    moves.left = true
+    moves.right = true
+    checkForHealth(myself, gameState, board2d, moves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
+    if (moves.validMoves().length > 1) { // if there are more than one available snakecells to pick from, disable our own neck
+      checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
+    } else if (moves.validMoves().length < 1) { // should only happen if all moves result in starvation, in which case, choose any move that stays on the board
+      moves.up = true
+      moves.down = true
+      moves.left = true
+      moves.right = true
+      checkForWalls(myself, board2d, moves)
+    }
+  }
+  availableMoves = moves.validMoves()
+  if (availableMoves.length < 1) { // if we somehow still don't have a valid move, just use the old naive getDefaultMove to give us something neither our neck, nor out of bounds
+    return getDefaultMoveNaive(gameState, myself)
+  } else {
+    return availableMoves[getRandomInt(0, availableMoves.length)] // return some random valid move
+  }
+}
+
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
-  let move : Direction = _move === undefined ? getDefaultMove(gameState, snake) : _move // if a move was not provided, get a default one
+  let move : Direction = _move === undefined ? getDefaultMove(gameState, snake, board2d) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
@@ -351,7 +383,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
 
     snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
   } else { // moveSnake should never move anywhere that isn't on the board, try again a different direction
-    let newDir = getDefaultMove(gameState, snake)
+    let newDir = getDefaultMove(gameState, snake, board2d)
     logToFile(consoleWriteStream, `failed to move snake ${snake.name} at (${snake.head.x},${snake.head.y}) towards ${move}, trying towards ${newDir} instead`)
     moveSnake(gameState, snake, board2d, newDir) // at least one of the directions will always be on the game board & not be our neck, so this should never infinitely recurse
   }
@@ -783,23 +815,12 @@ export function getSafeCells(board2d: Board2d) : number {
   return num
 }
 
-// looks at gamestate & myself & returns any moves that are valid - won't result in starvation, moving out of bounds, or (if possible) snake cells
+// looks at gamestate & myself & returns any moves that are valid - won't result in starvation, moving out of bounds, or snake cells
 export function getAvailableMoves(gameState: GameState, myself: Battlesnake, board2d: Board2d) : Moves {
   let moves : Moves = new Moves(true, true, true, true)
 
   checkForSnakesHealthAndWalls(myself, gameState, board2d, moves)
 
-  let availableMoves : Direction[] = moves.validMoves()
-  if (availableMoves.length < 1) { // given no good options, always choose another snake tile. It may die, which would make it a valid space again.
-    moves.up = true
-    moves.down = true
-    moves.left = true
-    moves.right = true
-    checkForHealth(myself, gameState, board2d, moves) // reset available moves to only exclude moves which kill me by wall or health. Snakecells are valid again
-    if (moves.validMoves().length > 1) { // if there are more than one available snakecells to pick from, disable our own neck
-      checkForNeck(myself, gameState, moves) // also disable neck as a valid place to move
-    }
-  }
   return moves
 }
 
