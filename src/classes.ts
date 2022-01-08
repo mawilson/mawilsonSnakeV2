@@ -1,6 +1,7 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
 import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten, getSnakeScoreHashKey } from "./util"
+import { version } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -1004,5 +1005,37 @@ export class GameData {
     this.timesTaken = []
     this.evaluationsForLookaheads = []
     this.evaluationsForMachineLearning = {}
+  }
+}
+
+export class TimingStats {
+  average: number
+  max: number
+  variance: number
+  populationStandardDeviation: number
+
+  constructor(average: number, max: number, variance: number, populationStandardDeviation: number) {
+    this.average = average
+    this.max = max
+    this.variance = variance
+    this.populationStandardDeviation = populationStandardDeviation
+  }
+}
+
+export class TimingData {
+  average: number
+  max: number
+  populationStandardDeviaton: number
+  version: string
+  amMachineLearning: boolean
+  amUsingMachineData: boolean
+
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean) {
+    this.average = timingStats.average
+    this.max = timingStats.max
+    this.populationStandardDeviaton = timingStats.populationStandardDeviation
+    this.version = version
+    this.amMachineLearning = amMachineLearning
+    this.amUsingMachineData = amUsingMachineData
   }
 }

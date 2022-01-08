@@ -12,9 +12,8 @@ export async function connectToDatabase(): Promise<MongoClient> {
     return mongoClient
 }
 
-export async function getSnakeScoresCollection(mongoClient: MongoClient): Promise<Collection> {
+export async function getCollection(mongoClient: MongoClient, collectionName: string): Promise<Collection> {
     const dbName = "test";
-    const collectionName = "snakeScores"
     const db: Db = mongoClient.db(dbName)
 
     return db.collection(collectionName)

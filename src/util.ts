@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment } from "./logic"
 
@@ -1608,27 +1608,29 @@ export function createGameDataId(gameState: GameState): string {
 }
 
 // given an array of numbers, calculates the average, highest, variance, & standard deviation of those numbers
-export function doSomeStats(timesTaken: number[]): void {
-  let averageTime: number = 0
-  let highestTime: number = 0
+export function calculateTimingData(numbers: number[]): TimingStats {
+  let average: number = 0
+  let max: number = 0
 
-  timesTaken.forEach(function processTimes(time) {
-    averageTime = averageTime + time
-    highestTime = time > highestTime? time : highestTime
+  numbers.forEach(function processTimes(num) {
+    average = average + num
+    max = num > max? num : max
   })
-  averageTime = averageTime / timesTaken.length
+  average = average / numbers.length
   let deviations: number[] = []
-  timesTaken.forEach(function calculateDeviations(time) {
-    let deviation = averageTime - time
+  numbers.forEach(function calculateDeviations(num) {
+    let deviation = average - num
     deviation = deviation * deviation
     deviations.push(deviation)
   })
-  let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / timesTaken.length
+  let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / numbers.length
   let standardDeviation = Math.sqrt(variance)
 
-  logToFile(consoleWriteStream, `of ${timesTaken.length} total times, average time: ${averageTime}; highest time: ${highestTime}; variance: ${variance}; standard deviation: ${standardDeviation}`)
+  if (isDevelopment) {
+    logToFile(consoleWriteStream, `of ${numbers.length} total times, average time: ${average}; highest time: ${max}; variance: ${variance}; standard deviation: ${standardDeviation}`)
+  }
 
-  timesTaken = []
+  return new TimingStats(average, max, variance, standardDeviation)
 }
 
 export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for randomizing array contents

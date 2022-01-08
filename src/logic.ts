@@ -1,9 +1,10 @@
+export const version: string = "1.0.3" // need to declare this before imports since several imports utilize it
+
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, doSomeStats, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey } from "./util"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, TimingData, TimingStats } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
-export const version: string = "1.0.3" // need to declare this before importing snakeScoreAggregations from db
-import { connectToDatabase, getSnakeScoresCollection, snakeScoreAggregations } from "./db"
+import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
 
 import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
@@ -55,7 +56,7 @@ export async function start(gameState: GameState): Promise<void> {
 
   if (amUsingMachineData) { // only necessary to get machine learning data if we plan on using it
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
-    const snakeScoresCollection: Collection = await getSnakeScoresCollection(mongoClient) // connects to DB & attempts to get the snakeScores collection
+    const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores") // connects to DB & attempts to get the snakeScores collection
 
     // there are various different categories we want to have for machine learning
     let aggCursor = snakeScoresCollection.aggregate<SnakeScoreMongoAggregate>(snakeScoreAggregations)
@@ -74,11 +75,18 @@ export async function start(gameState: GameState): Promise<void> {
 export async function end(gameState: GameState): Promise<void> {
   let gameDataId = createGameDataId(gameState)
   let thisGameData = gameData? gameData[gameDataId] : undefined
-  if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
-    doSomeStats(thisGameData.timesTaken)
-  }
-
+  
   if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
+    const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
+    if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
+      let timeStats = calculateTimingData(thisGameData.timesTaken)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData)
+
+      const timingCollection: Collection = await getCollection(mongoClient, "timing")
+
+      await timingCollection.insertOne(timeData)
+    }
+    
     let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
       return snake.id === gameState.you.id
     })
@@ -87,8 +95,7 @@ export async function end(gameState: GameState): Promise<void> {
       let isTie = gameState.board.snakes.length === 0
       let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
 
-      const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
-      const snakeScoresCollection: Collection = await getSnakeScoresCollection(mongoClient)
+      const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
 
       if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
         thisGameData.evaluationsForLookaheads.forEach((snakeScore) => {
@@ -96,9 +103,9 @@ export async function end(gameState: GameState): Promise<void> {
         })
         await snakeScoresCollection.insertMany(thisGameData.evaluationsForLookaheads)
       }
-
-      await mongoClient.close() // always close your connection out!
     }
+
+    await mongoClient.close() // always close your connection out!
   }
 
   if (thisGameData !== undefined) { // clean up game-specific data
