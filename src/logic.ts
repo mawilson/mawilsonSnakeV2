@@ -1,8 +1,8 @@
 export const version: string = "1.0.3" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, TimingData, FoodCountTier, HazardCountTier } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier } from "./util"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, FoodCountTier, HazardCountTier } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey, getSnakeScoreFromHashKey, getFoodCountTier, getHazardCountTier } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
 import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
 
@@ -15,7 +15,7 @@ const lookaheadWeight = 0.1
 export const isDevelopment: boolean = false
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
-const amMachineLearning: boolean = true // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
+const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
 const amUsingMachineData: boolean = true && !amMachineLearning // should never use machine learning data while also collecting it, but also may choose not to use it
 
 export let gameData: {[key: string]: GameData} = {}
@@ -68,8 +68,10 @@ export async function start(gameState: GameState): Promise<void> {
     // consider four different hazard tiers: 0, 1-30, 31-60, & more
     let evaluationsForMachineLearning = gameData[gameDataId].evaluationsForMachineLearning
     for await (const aggr of aggCursor) {
-      let snakeScore = new SnakeScore(aggr.averageScore, aggr._id.snakeLength, aggr._id.foodCountTier, aggr._id.hazardCountTier, aggr._id.snakeCount, aggr._id.depth, aggr._id.startLookahead, version)
-      evaluationsForMachineLearning[snakeScore.hashKey()] = snakeScore
+      let snakeScore: SnakeScore | undefined = getSnakeScoreFromHashKey(aggr._id.hashKey, aggr.averageScore)
+      if (snakeScore !== undefined) {
+        evaluationsForMachineLearning[aggr._id.hashKey] = snakeScore
+      }
     }
 
     await mongoClient.close() 
@@ -84,7 +86,7 @@ export async function end(gameState: GameState): Promise<void> {
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
       let timeStats = calculateTimingData(thisGameData.timesTaken)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, version)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -102,10 +104,11 @@ export async function end(gameState: GameState): Promise<void> {
       const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
 
       if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
+        let snakeScoresForMongo: SnakeScoreForMongo[] = []
         thisGameData.evaluationsForLookaheads.forEach((snakeScore) => {
-          snakeScore.gameResult = gameResult // update each snakeScore with the result of the game
+          snakeScoresForMongo.push(new SnakeScoreForMongo(snakeScore.score, snakeScore.hashKey(), version, gameResult))
         })
-        await snakeScoresCollection.insertMany(thisGameData.evaluationsForLookaheads)
+        await snakeScoresCollection.insertMany(snakeScoresForMongo)
       }
     }
 

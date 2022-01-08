@@ -1,7 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
 import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten, getSnakeScoreHashKey } from "./util"
-import { version } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -986,7 +985,7 @@ export class SnakeScore {
   version: string // the version of Jaguar this score was generated with
   gameResult: string // SnakeScore won't know this upon creation, it's up to end() to update it properly. Should be 'win', 'loss', 'tie', or 'unknown'
 
-  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number, version: string) {
+  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number, _version: string) {
     this.score = score
     this.snakeLength = snakeLength
     this.foodCountTier = foodCountTier
@@ -994,12 +993,26 @@ export class SnakeScore {
     this.snakeCount = snakeCount
     this.depth = depth // the depth of lookahead this score corresponds with
     this.startLookahead = startLookahead
-    this.version = version
     this.gameResult = "unknown" // the fourth gameResult - unknown. To be adjusted later once known.
+    this.version = _version
   }
 
   hashKey(): string {
     return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth, this.startLookahead)
+  }
+}
+
+export class SnakeScoreForMongo {
+  score: number
+  hashKey: string
+  version: string
+  gameResult: string
+
+  constructor(score: number, hashKey: string, _version: string, gameResult: string) {
+    this.score = score
+    this.hashKey = hashKey
+    this.version = _version
+    this.gameResult = gameResult
   }
 }
 
@@ -1044,11 +1057,11 @@ export class TimingData {
   amMachineLearning: boolean
   amUsingMachineData: boolean
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, _version: string) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
-    this.version = version
+    this.version = _version
     this.amMachineLearning = amMachineLearning
     this.amUsingMachineData = amUsingMachineData
   }

@@ -23,24 +23,19 @@ export async function getCollection(mongoClient: MongoClient, collectionName: st
 // this one groups based on depth, startLookahead, snakeCount, & snakeLength
 // it only considers scores whose gameResult was a win & version matches my version
 export const snakeScoreAggregations = [
-    {
-      '$match': {
-        'gameResult': 'win', 
-        'version': version
-      }
-    }, {
-      '$group': {
-        '_id': {
-          'depth': '$depth', 
-          'startLookahead': '$startLookahead', 
-          'snakeCount': '$snakeCount', 
-          'snakeLength': '$snakeLength',
-          'foodCountTier': '$foodCountTier',
-          'hazardCountTier': '$hazardCountTier'
-        }, 
-        'averageScore': {
-          '$avg': '$score'
-        }
+  {
+    '$match': {
+      'gameResult': 'win', 
+      'version': version
+    }
+  }, {
+    '$group': {
+      '_id': {
+        'hashKey': '$hashKey'
+      }, 
+      'averageScore': {
+        '$avg': '$score'
       }
     }
-  ]
+  }
+]

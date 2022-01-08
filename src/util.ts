@@ -1,8 +1,8 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, FoodCountTier, HazardCountTier } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier } from "./classes"
 import { evaluate } from "./eval"
-import { gameData, isDevelopment } from "./logic"
+import { gameData, isDevelopment, version } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
   if (isDevelopment) {
@@ -1654,6 +1654,45 @@ export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for rando
 // function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
 export function getSnakeScoreHashKey(snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number): string {
   return `${snakeLength};${foodCountTier};${hazardCountTier};${snakeCount};${depth};${startLookahead}`
+}
+
+// given a snake score hash key, we should be able to reliably rebuild the SnakeScore
+export function getSnakeScoreFromHashKey(hashKey: string, score: number): SnakeScore | undefined {
+  let parts = hashKey.split(";")
+  if (parts.length < 6) {
+    return undefined
+  } else {
+    let snakeLength: number = parseInt(parts[0], 10)
+    if (isNaN(snakeLength)) {
+      return undefined
+    }
+    let foodCountTier: FoodCountTier = parseInt(parts[1], 10)
+    if (isNaN(foodCountTier)) {
+      return undefined
+    } else if (!(foodCountTier in FoodCountTier)) {
+      return undefined // invalid number for a FoodCountTier
+    }
+    let hazardCountTier: HazardCountTier = parseInt(parts[2], 10)
+    if (isNaN(hazardCountTier)) {
+      return undefined
+    } else if (!(hazardCountTier in HazardCountTier)) {
+      return undefined // invalid number for a HazardCountTier
+    }
+    let snakeCount: number = parseInt(parts[3], 10)
+    if (isNaN(snakeCount)) {
+      return undefined
+    }
+    let depth: number = parseInt(parts[4], 10)
+    if (isNaN(depth)) {
+      return undefined
+    }
+    let startLookahead: number = parseInt(parts[5], 10)
+    if (isNaN(startLookahead)) {
+      return undefined
+    }
+    // if we get here, all parts appear to be valid - create a new SnakeScore & return it
+    return new SnakeScore(score, snakeLength, foodCountTier, hazardCountTier, snakeCount, depth, startLookahead, version)
+  }
 }
 
 export function getFoodCountTier(numFood: number): FoodCountTier {
