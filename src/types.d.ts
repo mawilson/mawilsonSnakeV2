@@ -83,10 +83,7 @@ export interface GameState {
 }
 
 export interface SnakeScoreMongoAggregateId {
-  depth: number;
-  startLookahead: number
-  snakeCount: number
-  snakeLength: number
+  hashKey: string
 }
 
 export interface SnakeScoreMongoAggregate {

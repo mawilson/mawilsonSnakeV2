@@ -1,7 +1,7 @@
 import { info, move, decideMove } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from '../src/classes'
-import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard } from '../src/util'
+import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
+import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard, getSnakeScoreFromHashKey, getSnakeScoreHashKey } from '../src/util'
 import { evaluate } from '../src/eval'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
@@ -2232,6 +2232,29 @@ describe('sandwich tests', () => {
       let moveResponse: MoveResponse = move(gameState)
       // both otherSnek & otherSnek2 are in KissOfDeath3to1Avoidance situations with snek, & should go up. If snek also goes up, it will be sandwiched - it should go left or right
       expect(moveResponse.move).not.toBe("up")
+    }
+  })
+})
+
+describe('SnakeScore hash key tests', () => {
+  it('can correctly create a hashKey out of a snake score', () => {
+    let snakeScore = new SnakeScore(500, 8, FoodCountTier.less7, HazardCountTier.less31, 4, 4, 6, "1.0.0")
+    let snakeScoreHash = snakeScore.hashKey()
+
+    expect(snakeScoreHash).toBe("8;2;1;4;4;6")
+  })
+  it('can correctly create a SnakeScore out of a hash key', () => {
+    let snakeScoreHash = "15;3;0;3;4;5"
+    let snakeScore = getSnakeScoreFromHashKey(snakeScoreHash, 500)
+
+    expect(snakeScore).toBeDefined()
+    if (snakeScore !== undefined) {
+      expect(snakeScore.snakeLength).toBe(15)
+      expect(snakeScore.foodCountTier).toBe(FoodCountTier.lots)
+      expect(snakeScore.hazardCountTier).toBe(HazardCountTier.zero)
+      expect(snakeScore.snakeCount).toBe(3)
+      expect(snakeScore.depth).toBe(4)
+      expect(snakeScore.startLookahead).toBe(5)
     }
   })
 })

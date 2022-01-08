@@ -1,9 +1,11 @@
+export const version: string = "1.0.3" // need to declare this before imports since several imports utilize it
+
+import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, doSomeStats, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey } from "./util"
+import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, FoodCountTier, HazardCountTier } from "./classes"
+import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey, getSnakeScoreFromHashKey, getFoodCountTier, getHazardCountTier } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
-export const version: string = "1.0.3" // need to declare this before importing snakeScoreAggregations from db
-import { connectToDatabase, getSnakeScoresCollection, snakeScoreAggregations } from "./db"
+import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
 
 import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
@@ -15,7 +17,7 @@ export const isDevelopment: boolean = false
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = true // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
-const amUsingMachineData: boolean = true && !amMachineLearning // should never use machine learning data while also collecting it, but also may choose not to use it
+export const amUsingMachineData: boolean = true && !amMachineLearning // should never use machine learning data while also collecting it, but also may choose not to use it
 
 export let gameData: {[key: string]: GameData} = {}
 
@@ -52,33 +54,23 @@ export async function start(gameState: GameState): Promise<void> {
 
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData() // move() will update hazardWalls & lookahead accordingly later on.
-
-  if (amUsingMachineData) { // only necessary to get machine learning data if we plan on using it
-    const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
-    const snakeScoresCollection: Collection = await getSnakeScoresCollection(mongoClient) // connects to DB & attempts to get the snakeScores collection
-
-    // there are various different categories we want to have for machine learning
-    let aggCursor = snakeScoresCollection.aggregate<SnakeScoreMongoAggregate>(snakeScoreAggregations)
-
-    // each aggr should have an _id object consisting of the grouped elements - snakeLength, snakeCount, depth, startLookahead, & later foodCount & hazardCount
-    // it should also have an averageScore
-    for await (const aggr of aggCursor) {
-      let snakeScore = new SnakeScore(aggr.averageScore, aggr._id.snakeLength, 0, 0, aggr._id.snakeCount, aggr._id.depth, aggr._id.startLookahead, version)
-      gameData[gameDataId].evaluationsForMachineLearning[snakeScore.hashKey()] = snakeScore // insert snakeScore into the pseudo-hash object
-    }
-
-    await mongoClient.close() 
-  }
 }
 
 export async function end(gameState: GameState): Promise<void> {
   let gameDataId = createGameDataId(gameState)
   let thisGameData = gameData? gameData[gameDataId] : undefined
-  if (isDevelopment && thisGameData !== undefined && thisGameData.timesTaken !== undefined) {
-    doSomeStats(thisGameData.timesTaken)
-  }
-
+  
   if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
+    const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
+    if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
+      let timeStats = calculateTimingData(thisGameData.timesTaken)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, version)
+
+      const timingCollection: Collection = await getCollection(mongoClient, "timing")
+
+      await timingCollection.insertOne(timeData)
+    }
+    
     let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
       return snake.id === gameState.you.id
     })
@@ -87,18 +79,18 @@ export async function end(gameState: GameState): Promise<void> {
       let isTie = gameState.board.snakes.length === 0
       let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
 
-      const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
-      const snakeScoresCollection: Collection = await getSnakeScoresCollection(mongoClient)
+      const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
 
       if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
+        let snakeScoresForMongo: SnakeScoreForMongo[] = []
         thisGameData.evaluationsForLookaheads.forEach((snakeScore) => {
-          snakeScore.gameResult = gameResult // update each snakeScore with the result of the game
+          snakeScoresForMongo.push(new SnakeScoreForMongo(snakeScore.score, snakeScore.hashKey(), version, gameResult))
         })
-        await snakeScoresCollection.insertMany(thisGameData.evaluationsForLookaheads)
+        await snakeScoresCollection.insertMany(snakeScoresForMongo)
       }
-
-      await mongoClient.close() // always close your connection out!
     }
+
+    await mongoClient.close() // always close your connection out!
   }
 
   if (thisGameData !== undefined) { // clean up game-specific data
@@ -274,8 +266,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && myself.id === gameState.you.id) { // machine learning check! Only do for self
         let effectiveLookahead = lookahead === undefined? 0 : lookahead
-        let snakeScoreHash = getSnakeScoreHashKey(myself.length, gameState.board.food.length, gameState.board.hazards.length, gameState.board.snakes.length, effectiveLookahead, startLookahead)
-        let averageMoveScore: number | undefined = thisGameData.evaluationsForMachineLearning[snakeScoreHash]?.score
+        let foodCountTier = getFoodCountTier(gameState.board.food.length)
+        let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
+        let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, startLookahead)
+        let averageMoveScore: number | undefined = evaluationsForMachineLearning[snakeScoreHash]
         if (averageMoveScore !== undefined && bestMove.score >= averageMoveScore) { // if an average move score exists for this game state
           doneEvaluating = true
         }
@@ -386,10 +380,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
-    if (myself.id === gameState.you.id && bestMove.score !== undefined) { // only add machine learning data for my own moves
+    if (amMachineLearning && myself.id === gameState.you.id && bestMove.score !== undefined) { // only add machine learning data for my own moves
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
-        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, gameState.board.food.length, gameState.board.hazards.length, gameState.board.snakes.length, effectiveLookahead, startLookahead, version)
+        let foodCountTier = getFoodCountTier(gameState.board.food.length)
+        let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
+        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, startLookahead, version)
         thisGameData.evaluationsForLookaheads.push(newSnakeScore)
       }
     }
@@ -500,19 +496,10 @@ export function move(gameState: GameState): MoveResponse {
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState.board)) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
-  if (thisGameData !== undefined && isDevelopment) {
+  if (thisGameData !== undefined) {
     let timeTaken: number = Date.now() - timeBeginning
     let timesTaken = thisGameData.timesTaken
-    if (timesTaken !== undefined) {
-      if (timesTaken.length >= 50000) {
-        timesTaken.splice(0, 1, timeTaken) // remove element 0, add timeTaken to end of array
-      } else {
-        timesTaken.push(timeTaken)
-      }
-    } else {
-      timesTaken = [timeTaken]
-    }
-    checkTime(timeBeginning, gameState, true)
+    timesTaken.push(timeTaken)
   }
 
   return {move: directionToString(chosenMoveDirection)}

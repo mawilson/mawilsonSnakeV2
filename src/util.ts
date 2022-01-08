@@ -1,8 +1,8 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier } from "./classes"
 import { evaluate } from "./eval"
-import { gameData, isDevelopment } from "./logic"
+import { gameData, isDevelopment, version } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
   if (isDevelopment) {
@@ -1608,27 +1608,29 @@ export function createGameDataId(gameState: GameState): string {
 }
 
 // given an array of numbers, calculates the average, highest, variance, & standard deviation of those numbers
-export function doSomeStats(timesTaken: number[]): void {
-  let averageTime: number = 0
-  let highestTime: number = 0
+export function calculateTimingData(numbers: number[]): TimingStats {
+  let average: number = 0
+  let max: number = 0
 
-  timesTaken.forEach(function processTimes(time) {
-    averageTime = averageTime + time
-    highestTime = time > highestTime? time : highestTime
+  numbers.forEach(function processTimes(num) {
+    average = average + num
+    max = num > max? num : max
   })
-  averageTime = averageTime / timesTaken.length
+  average = average / numbers.length
   let deviations: number[] = []
-  timesTaken.forEach(function calculateDeviations(time) {
-    let deviation = averageTime - time
+  numbers.forEach(function calculateDeviations(num) {
+    let deviation = average - num
     deviation = deviation * deviation
     deviations.push(deviation)
   })
-  let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / timesTaken.length
+  let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / numbers.length
   let standardDeviation = Math.sqrt(variance)
 
-  logToFile(consoleWriteStream, `of ${timesTaken.length} total times, average time: ${averageTime}; highest time: ${highestTime}; variance: ${variance}; standard deviation: ${standardDeviation}`)
+  if (isDevelopment) {
+    logToFile(consoleWriteStream, `of ${numbers.length} total times, average time: ${average}; highest time: ${max}; variance: ${variance}; standard deviation: ${standardDeviation}`)
+  }
 
-  timesTaken = []
+  return new TimingStats(average, max, variance, standardDeviation)
 }
 
 export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for randomizing array contents
@@ -1650,6 +1652,69 @@ export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for rando
 }
 
 // function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
-export function getSnakeScoreHashKey(snakeLength: number, foodCount: number, hazardCount: number, snakeCount: number, depth: number, startLookahead: number): string {
-  return `${snakeLength};${foodCount};${hazardCount};${snakeCount};${depth};${startLookahead}`
+export function getSnakeScoreHashKey(snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number): string {
+  return `${snakeLength};${foodCountTier};${hazardCountTier};${snakeCount};${depth};${startLookahead}`
+}
+
+// given a snake score hash key, we should be able to reliably rebuild the SnakeScore
+export function getSnakeScoreFromHashKey(hashKey: string, score: number): SnakeScore | undefined {
+  let parts = hashKey.split(";")
+  if (parts.length < 6) {
+    return undefined
+  } else {
+    let snakeLength: number = parseInt(parts[0], 10)
+    if (isNaN(snakeLength)) {
+      return undefined
+    }
+    let foodCountTier: FoodCountTier = parseInt(parts[1], 10)
+    if (isNaN(foodCountTier)) {
+      return undefined
+    } else if (!(foodCountTier in FoodCountTier)) {
+      return undefined // invalid number for a FoodCountTier
+    }
+    let hazardCountTier: HazardCountTier = parseInt(parts[2], 10)
+    if (isNaN(hazardCountTier)) {
+      return undefined
+    } else if (!(hazardCountTier in HazardCountTier)) {
+      return undefined // invalid number for a HazardCountTier
+    }
+    let snakeCount: number = parseInt(parts[3], 10)
+    if (isNaN(snakeCount)) {
+      return undefined
+    }
+    let depth: number = parseInt(parts[4], 10)
+    if (isNaN(depth)) {
+      return undefined
+    }
+    let startLookahead: number = parseInt(parts[5], 10)
+    if (isNaN(startLookahead)) {
+      return undefined
+    }
+    // if we get here, all parts appear to be valid - create a new SnakeScore & return it
+    return new SnakeScore(score, snakeLength, foodCountTier, hazardCountTier, snakeCount, depth, startLookahead, version)
+  }
+}
+
+export function getFoodCountTier(numFood: number): FoodCountTier {
+  if (numFood === 0) {
+    return FoodCountTier.zero
+  } else if (numFood < 4) {
+    return FoodCountTier.less4
+  } else if (numFood < 7) {
+    return FoodCountTier.less7
+  } else {
+    return FoodCountTier.lots
+  }
+}
+
+export function getHazardCountTier(numHazard: number): HazardCountTier {
+  if (numHazard === 0) {
+    return HazardCountTier.zero
+  } else if (numHazard < 31) {
+    return HazardCountTier.less31
+  } else if (numHazard < 61) {
+    return HazardCountTier.less61
+  } else {
+    return HazardCountTier.lots
+  }
 }
