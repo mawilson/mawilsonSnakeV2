@@ -1474,6 +1474,29 @@ describe('Snake cutoff tests', () => {
       expect(moveResponse.move).toBe("down") // should move towards otherSnek to create a kill cutoff situation, otherwise otherSnek can risk the kiss of murder & double back & escape
     }
   })
+  it('finishes off a cutoff kill', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6}], "30", "", "")
+      
+      const gameState = createGameState(snek)
+      gameState.turn = 77
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 3, y: 0}, {x: 2, y: 0}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 95, [{x: 7, y: 4}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 9, y: 3}, {x: 8, y: 3}, {x: 7, y: 3}, {x: 6, y: 3}, {x: 5, y: 3}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.board.food = [{x: 5, y: 7}, {x: 8, y: 6}, {x: 5, y: 9}, {x: 6, y: 9}, {x: 2, y: 10}]
+
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 10)
+      createHazardRow(gameState.board, 10)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // should move down to finish otherSnek off & stop wasting time we could spend gathering food for war against otherSnek2
+    }
+  })
 })
 
 describe('Snake should not enter spaces without a clear escape route', () => {
