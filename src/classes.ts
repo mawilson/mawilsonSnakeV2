@@ -1035,12 +1035,14 @@ export class TimingStats {
   max: number
   variance: number
   populationStandardDeviation: number
+  gameResult: string
 
-  constructor(average: number, max: number, variance: number, populationStandardDeviation: number) {
+  constructor(average: number, max: number, variance: number, populationStandardDeviation: number, gameResult: string) {
     this.average = average
     this.max = max
     this.variance = variance
     this.populationStandardDeviation = populationStandardDeviation
+    this.gameResult = gameResult
   }
 }
 
@@ -1048,16 +1050,18 @@ export class TimingData {
   average: number
   max: number
   populationStandardDeviaton: number
+  gameResult: string
   version: string
   amMachineLearning: boolean
   amUsingMachineData: boolean
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, _version: string) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
     this.version = _version
     this.amMachineLearning = amMachineLearning
     this.amUsingMachineData = amUsingMachineData
+    this.gameResult = gameResult
   }
 }

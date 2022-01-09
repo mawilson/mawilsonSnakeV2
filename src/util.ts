@@ -1608,7 +1608,7 @@ export function createGameDataId(gameState: GameState): string {
 }
 
 // given an array of numbers, calculates the average, highest, variance, & standard deviation of those numbers
-export function calculateTimingData(numbers: number[]): TimingStats {
+export function calculateTimingData(numbers: number[], gameResult: string): TimingStats {
   let average: number = 0
   let max: number = 0
 
@@ -1630,7 +1630,7 @@ export function calculateTimingData(numbers: number[]): TimingStats {
     logToFile(consoleWriteStream, `of ${numbers.length} total times, average time: ${average}; highest time: ${max}; variance: ${variance}; standard deviation: ${standardDeviation}`)
   }
 
-  return new TimingStats(average, max, variance, standardDeviation)
+  return new TimingStats(average, max, variance, standardDeviation, gameResult)
 }
 
 export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for randomizing array contents

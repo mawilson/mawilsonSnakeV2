@@ -1,4 +1,4 @@
-export const version: string = "1.0.3" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.4" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
@@ -13,10 +13,10 @@ let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
-const amMachineLearning: boolean = true // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
+const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
 export const amUsingMachineData: boolean = true && !amMachineLearning // should never use machine learning data while also collecting it, but also may choose not to use it
 
 export let gameData: {[key: string]: GameData} = {}
@@ -59,26 +59,25 @@ export async function start(gameState: GameState): Promise<void> {
 export async function end(gameState: GameState): Promise<void> {
   let gameDataId = createGameDataId(gameState)
   let thisGameData = gameData? gameData[gameDataId] : undefined
+
+  let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
+    return snake.id === gameState.you.id
+  })
+  let isTie = gameState.board.snakes.length === 0
+  let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
   
   if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
-      let timeStats = calculateTimingData(thisGameData.timesTaken)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, version)
+      let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
       await timingCollection.insertOne(timeData)
     }
-    
-    let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
-      return snake.id === gameState.you.id
-    })
 
     if (amMachineLearning) { // if I am learning, add the results to the thing
-      let isTie = gameState.board.snakes.length === 0
-      let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
-
       const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
 
       if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
@@ -100,7 +99,6 @@ export async function end(gameState: GameState): Promise<void> {
 }
 
 // TODO
-// replace all lets with consts where appropriate
 // change tsconfig to noImplicitAny: true
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, startLookahead: number): MoveWithEval {
