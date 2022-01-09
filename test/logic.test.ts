@@ -2238,13 +2238,13 @@ describe('sandwich tests', () => {
 
 describe('SnakeScore hash key tests', () => {
   it('can correctly create a hashKey out of a snake score', () => {
-    let snakeScore = new SnakeScore(500, 8, FoodCountTier.less7, HazardCountTier.less31, 4, 4, 6, "1.0.0")
+    let snakeScore = new SnakeScore(500, 8, FoodCountTier.less7, HazardCountTier.less31, 4, 4, "1.0.0")
     let snakeScoreHash = snakeScore.hashKey()
 
-    expect(snakeScoreHash).toBe("8;2;1;4;4;6")
+    expect(snakeScoreHash).toBe("8;2;1;4;4")
   })
   it('can correctly create a SnakeScore out of a hash key', () => {
-    let snakeScoreHash = "15;3;0;3;4;5"
+    let snakeScoreHash = "15;3;0;3;4"
     let snakeScore = getSnakeScoreFromHashKey(snakeScoreHash, 500)
 
     expect(snakeScore).toBeDefined()
@@ -2254,7 +2254,6 @@ describe('SnakeScore hash key tests', () => {
       expect(snakeScore.hazardCountTier).toBe(HazardCountTier.zero)
       expect(snakeScore.snakeCount).toBe(3)
       expect(snakeScore.depth).toBe(4)
-      expect(snakeScore.startLookahead).toBe(5)
     }
   })
 })

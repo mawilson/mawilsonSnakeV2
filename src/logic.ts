@@ -262,7 +262,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let effectiveLookahead = lookahead === undefined? 0 : lookahead
     let foodCountTier = getFoodCountTier(gameState.board.food.length)
     let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
-    let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, startLookahead)
+    let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead)
     let averageMoveScore: number | undefined = evaluationsForMachineLearning[snakeScoreHash]
     let doneEvaluating: boolean = false
     availableMoves.forEach(function evaluateMove(move) {
@@ -377,13 +377,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
-    let canLearn: boolean = averageMoveScore !== undefined // can still learn if we didn't have data for this move
+    let canLearn: boolean = averageMoveScore === undefined // can still learn if we didn't have data for this move
     if ((amMachineLearning || canLearn) && (myself.id === gameState.you.id) && (bestMove.score !== undefined)) { // only add machine learning data for my own moves
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
         let foodCountTier = getFoodCountTier(gameState.board.food.length)
         let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
-        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, startLookahead, version)
+        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, version)
         thisGameData.evaluationsForLookaheads.push(newSnakeScore)
       }
     }

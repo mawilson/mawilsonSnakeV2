@@ -981,24 +981,22 @@ export class SnakeScore {
   snakeCount: number
   // game variables that contextualize a score
   depth: number
-  startLookahead: number // the lookahead that the root _decideMove was called with
   version: string // the version of Jaguar this score was generated with
   gameResult: string // SnakeScore won't know this upon creation, it's up to end() to update it properly. Should be 'win', 'loss', 'tie', or 'unknown'
 
-  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number, _version: string) {
+  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, _version: string) {
     this.score = score
     this.snakeLength = snakeLength
     this.foodCountTier = foodCountTier
     this.hazardCountTier = hazardCountTier
     this.snakeCount = snakeCount
     this.depth = depth // the depth of lookahead this score corresponds with
-    this.startLookahead = startLookahead
     this.gameResult = "unknown" // the fourth gameResult - unknown. To be adjusted later once known.
     this.version = _version
   }
 
   hashKey(): string {
-    return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth, this.startLookahead)
+    return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth)
   }
 }
 

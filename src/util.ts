@@ -1652,14 +1652,14 @@ export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for rando
 }
 
 // function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
-export function getSnakeScoreHashKey(snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number): string {
-  return `${snakeLength};${foodCountTier};${hazardCountTier};${snakeCount};${depth};${startLookahead}`
+export function getSnakeScoreHashKey(snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number): string {
+  return `${snakeLength};${foodCountTier};${hazardCountTier};${snakeCount};${depth}`
 }
 
 // given a snake score hash key, we should be able to reliably rebuild the SnakeScore
 export function getSnakeScoreFromHashKey(hashKey: string, score: number): SnakeScore | undefined {
   let parts = hashKey.split(";")
-  if (parts.length < 6) {
+  if (parts.length !== 5) {
     return undefined
   } else {
     let snakeLength: number = parseInt(parts[0], 10)
@@ -1686,12 +1686,8 @@ export function getSnakeScoreFromHashKey(hashKey: string, score: number): SnakeS
     if (isNaN(depth)) {
       return undefined
     }
-    let startLookahead: number = parseInt(parts[5], 10)
-    if (isNaN(startLookahead)) {
-      return undefined
-    }
     // if we get here, all parts appear to be valid - create a new SnakeScore & return it
-    return new SnakeScore(score, snakeLength, foodCountTier, hazardCountTier, snakeCount, depth, startLookahead, version)
+    return new SnakeScore(score, snakeLength, foodCountTier, hazardCountTier, snakeCount, depth, version)
   }
 }
 
