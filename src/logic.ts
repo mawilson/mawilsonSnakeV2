@@ -377,7 +377,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
-    let canLearn: boolean = amUsingMachineData && !doneEvaluating // can still learn if we didn't short circuit at all
+    let canLearn: boolean = averageMoveScore !== undefined // can still learn if we didn't have data for this move
     if ((amMachineLearning || canLearn) && (myself.id === gameState.you.id) && (bestMove.score !== undefined)) { // only add machine learning data for my own moves
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
