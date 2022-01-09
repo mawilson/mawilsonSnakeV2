@@ -20,7 +20,7 @@ app.get("/", (req: Request, res: Response) => {
     res.send(info())
 });
 
-app.post("/start", async (req: Request, res: Response) => {
+app.post("/start", (req: Request, res: Response) => {
     res.send(start(req.body))
 });
 
@@ -28,7 +28,7 @@ app.post("/move", (req: Request, res: Response) => {
     res.send(move(req.body))
 });
 
-app.post("/end", async (req: Request, res: Response) => {
+app.post("/end", (req: Request, res: Response) => {
     res.send(end(req.body))
 });
 

@@ -981,24 +981,22 @@ export class SnakeScore {
   snakeCount: number
   // game variables that contextualize a score
   depth: number
-  startLookahead: number // the lookahead that the root _decideMove was called with
   version: string // the version of Jaguar this score was generated with
   gameResult: string // SnakeScore won't know this upon creation, it's up to end() to update it properly. Should be 'win', 'loss', 'tie', or 'unknown'
 
-  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, startLookahead: number, _version: string) {
+  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, _version: string) {
     this.score = score
     this.snakeLength = snakeLength
     this.foodCountTier = foodCountTier
     this.hazardCountTier = hazardCountTier
     this.snakeCount = snakeCount
     this.depth = depth // the depth of lookahead this score corresponds with
-    this.startLookahead = startLookahead
     this.gameResult = "unknown" // the fourth gameResult - unknown. To be adjusted later once known.
     this.version = _version
   }
 
   hashKey(): string {
-    return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth, this.startLookahead)
+    return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth)
   }
 }
 
@@ -1035,12 +1033,14 @@ export class TimingStats {
   max: number
   variance: number
   populationStandardDeviation: number
+  gameResult: string
 
-  constructor(average: number, max: number, variance: number, populationStandardDeviation: number) {
+  constructor(average: number, max: number, variance: number, populationStandardDeviation: number, gameResult: string) {
     this.average = average
     this.max = max
     this.variance = variance
     this.populationStandardDeviation = populationStandardDeviation
+    this.gameResult = gameResult
   }
 }
 
@@ -1048,16 +1048,18 @@ export class TimingData {
   average: number
   max: number
   populationStandardDeviaton: number
+  gameResult: string
   version: string
   amMachineLearning: boolean
   amUsingMachineData: boolean
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, _version: string) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
     this.version = _version
     this.amMachineLearning = amMachineLearning
     this.amUsingMachineData = amUsingMachineData
+    this.gameResult = gameResult
   }
 }
