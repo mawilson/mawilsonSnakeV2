@@ -254,7 +254,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
   const evalSandwichPenalty = -50 // as with cutoffs, but sandwiches are less reliable. Even so, a state to avoid
   const evalFaceoffPenalty = -10 // getting faced off is the least troubling of the three, but still problematic
-  const evalCornerProximityPenalty = -300 // shoving oneself in the corner while other snakes are nearby is very bad
+  const evalCornerProximityPenalty = isOriginalSnake? -300 : 0 // shoving oneself in the corner while other snakes are nearby is very bad. Let other snakes do it
   const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
@@ -606,6 +606,18 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let foodToHunt : Coord[] = []
 
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
+  let wantToEat: boolean
+  if (myCell && myCell.hazard) { // if I am currently in hazard, want food
+    wantToEat = true
+  } else if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
+    wantToEat = true
+  } else if (snakeDelta === 6 && !snakeHasEaten(myself, lookahead)) { // If I am exactly 6 bigger & I haven't just eaten, stop wanting food
+    wantToEat = false
+  } else if (snakeDelta > 6) { // If I am more than 6 bigger, stop wanting food
+    wantToEat = false
+  } else { // if neither pass, normal food seeking
+    wantToEat = true
+  }
   let safeToEat: boolean = !canBeCutoffBySnake && !canBeSandwichedBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
   if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
@@ -618,7 +630,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself) && safeToEat) { // only reward snake for eating if it was safe to eat, otherwise just give it the normal health eval
+  if (snakeHasEaten(myself) && safeToEat && wantToEat) { // only reward snake for eating if it was safe to eat & it wanted to eat, otherwise just give it the normal health eval
     buildLogString(`got food, add ${evalHasEaten}`)
     evaluation = evaluation + evalHasEaten
   } else {
@@ -627,36 +639,38 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + healthEval
   }
 
-  let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
-  let foodCalc : number = 0
-  for (let i: number = 0; i <= foodSearchDepth; i++) {
-    foodToHunt = nearbyFood[i]
-    if (foodToHunt && foodToHunt.length > 0) {
-      // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
-
-      let foodToHuntLength: number = foodToHunt.length
-      if (!isSolo && i === 0) {
-        foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
+  if (wantToEat) { // only add food calc if snake wants to eat
+    let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
+    let foodCalc : number = 0
+    for (let i: number = 0; i <= foodSearchDepth; i++) {
+      foodToHunt = nearbyFood[i]
+      if (foodToHunt && foodToHunt.length > 0) {
+        // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
+  
+        let foodToHuntLength: number = foodToHunt.length
+        if (!isSolo && i === 0) {
+          foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
+        }
+        foodToHunt.forEach(function adjustFoodValues(fud) {
+          if (isCorner(gameState.board, fud)) {
+            foodToHuntLength = foodToHuntLength - 0.8 // corner food is worth 0.2 that of normal food
+          }
+          let foodCell = board2d.getCell(fud)
+          if (foodCell && foodCell.hazard) {
+            foodToHuntLength = foodToHuntLength - 0.6 // hazard food is worth 0.4 that of normal food
+          }
+        })
+        let foodCalcStep = 0
+        foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
+        buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
+        foodCalc = foodCalc + foodCalcStep
       }
-      foodToHunt.forEach(function adjustFoodValues(fud) {
-        if (isCorner(gameState.board, fud)) {
-          foodToHuntLength = foodToHuntLength - 0.8 // corner food is worth 0.2 that of normal food
-        }
-        let foodCell = board2d.getCell(fud)
-        if (foodCell && foodCell.hazard) {
-          foodToHuntLength = foodToHuntLength - 0.6 // hazard food is worth 0.4 that of normal food
-        }
-      })
-      let foodCalcStep = 0
-      foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
-      buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
-      foodCalc = foodCalc + foodCalcStep
+      j = j - 1
     }
-    j = j - 1
-  }
 
-  buildLogString(`adding food calc ${foodCalc}`)
-  evaluation = evaluation + foodCalc
+    buildLogString(`adding food calc ${foodCalc}`)
+    evaluation = evaluation + foodCalc
+  }
 
   if (isHeadOnCorner) { // corners are bad don't go into them unless totally necessary
     let closestSnakeDist: number | undefined
@@ -665,10 +679,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       if (myself !== undefined) {
         let thisDist = getDistance(snake.head, myself.head)
         if (closestSnakeDist === undefined) {
-          //closestSnake = snake
           closestSnakeDist = thisDist
         } else if (closestSnakeDist > thisDist) {
-          //closestSnake = snake
           closestSnakeDist = thisDist
         }
       }
