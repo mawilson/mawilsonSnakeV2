@@ -5,6 +5,7 @@ import { info, start, move, end, amUsingMachineData } from "./logic";
 import { Collection, MongoClient } from "mongodb"
 import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
 import { SnakeScoreMongoAggregate } from "./types"
+import { Server } from "http";
 
 const app = express()
 app.use(express.json())
@@ -32,6 +33,8 @@ app.post("/end", (req: Request, res: Response) => {
     res.send(end(req.body))
 });
 
+export let server: Server
+
 async function getMachineLearningData(): Promise<void> {
     if (amUsingMachineData) { // only necessary to get machine learning data if we plan on using it
         const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
@@ -53,9 +56,10 @@ async function getMachineLearningData(): Promise<void> {
     }
 }
 
-// Start the Express server
-getMachineLearningData().then(() => { // once machine learning data is ready, start server
-    app.listen(port, () => {
+export const machineLearningDataResult = getMachineLearningData() // jest needs to know when this is done before beforeAll can return
+
+machineLearningDataResult.then(() => { // once machine learning data is ready, start server
+    server = app.listen(port, () => { // Start the Express server
         console.log(`Starting Battlesnake Server at http://0.0.0.0:${port}...`)
     });
 })

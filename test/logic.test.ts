@@ -3,6 +3,7 @@ import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard, getSnakeScoreFromHashKey, getSnakeScoreHashKey } from '../src/util'
 import { evaluate } from '../src/eval'
+import { machineLearningDataResult, server } from '../src/index'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
 // for multi-snake diagrams, a - b - c are body, u - v - w are tail, i - j - k are head
@@ -46,6 +47,14 @@ export function createGameState(me: Battlesnake): GameState {
       you: me
   }
 }
+
+beforeAll(() => {
+  return machineLearningDataResult // wait for machine learning data to be processed
+})
+
+afterAll(() => {
+  return server.close()
+})
 
 // tests whose use case may still be valid, but which can no longer be effectively tested when different lookaheads are in place
 describe('Tests deprecated by lookahead', () => {
@@ -662,7 +671,7 @@ describe('Kiss of death tests', () => {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 1, y: 7}, {x: 2, y: 7}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
       const gameState = createGameState(snek)
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 0, y: 6}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "30", "", "")
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 6}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
       gameState.board.food = [{x: 7, y: 8}, {x: 9, y: 0}]
@@ -671,6 +680,25 @@ describe('Kiss of death tests', () => {
 
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // snek can tie by going left, but will cut otherSnek off in a few turns by going up, should prefer that
+    }
+  })
+  it('avoids a tie kiss of death in a duel if it thinks it can cut the snake off instead, v2', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 3}, {x: 8, y: 3}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 97, [{x: 10, y: 2}, {x: 10, y: 1}, {x: 9, y: 1}, {x: 8, y: 1}, {x: 7, y: 1}, {x: 6, y: 1}, {x: 5, y: 1}, {x: 5, y: 2}, {x: 4, y: 2}, {x: 3, y: 2}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 9, y: 7}, {x: 4, y: 10}]
+
+      gameState.turn = 50
+
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // snek can tie by going right, but will cut otherSnek off & win if it goes up. Note otherSnek has option of going left, but will die in two turns - may break in speed snake.
     }
   })
   it('avoids kisses of death even if it will die in a few turns anyway', () => {
