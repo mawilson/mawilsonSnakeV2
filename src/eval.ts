@@ -214,23 +214,23 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfDeathCertaintyMutual = -400 // another snake would have to kamikaze to hit us here, but it's still risky
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
   const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -300 // this is less than a 50/50, but still bad. Our predator doesn't want to take this chance either & may avoid this, but may not if it can't
-  const evalPriorKissOfDeath3To1Avoidance = 0 // while it's usually good our snake avoided possible death by doing these, we still want a small penalty so the lookahead knows it was bad to even have to consider
-  const evalPriorKissOfDeath3To2Avoidance = 0 // this one is better as we at least still had options after avoiding the kiss
-  const evalPriorKissOfDeath2To1Avoidance = 0
+  const evalPriorKissOfDeath3To1Avoidance = isOriginalSnake? 20 : 0 // for baitsnake purposes, we love originalSnake moving towards predators, then away
+  const evalPriorKissOfDeath3To2Avoidance = evalPriorKissOfDeath3To1Avoidance
+  const evalPriorKissOfDeath2To1Avoidance = evalPriorKissOfDeath3To1Avoidance
   const evalPriorKissOfDeathNo = 0
+
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   const evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
-  let evalPriorKissOfMurderAvoidance = isOriginalSnake? 0 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, avoid this, as this is prone to being baited.
+  let evalPriorKissOfMurderAvoidance = isOriginalSnake? 0 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, do not prioritize this, as this is prone to being baited.
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
   const evalKissOfDeathCertaintyMutual = -200 // another snake will have to kamikaze to his us here, but it's still risky
   const evalKissOfDeathMaybe = -200 // a 50/50 on whether we will be kissed to death next turn
   const evalKissOfDeathMaybeMutual = isDuel? 0 : -150 // a bit less than a 50/50, as neither party particularly wants to take this chance
-  const evalKissOfDeath3To1Avoidance = 0
-  const evalKissOfDeath3To2Avoidance = 0
-  const evalKissOfDeath2To1Avoidance = 0
+  const evalKissOfDeathAvoidance = isOriginalSnake? 10 : 0 // for baitSnake purposes, we love originalSnake moving towards predators, then away
+
   const evalKissOfDeathNo = 0
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
@@ -345,7 +345,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
-  if (kissStates.canAvoidPossibleDeath(moves)) { // death is avoidable for at least one possible move
+  if (kissStates.canTauntDeath(moves)) { // baitsnake time!
+    buildLogString(`KissOfDeathAvoidance nearby, taunting death & adding ${evalKissOfDeathAvoidance}`)
+    evaluation = evaluation + evalKissOfDeathNo
+  } else if (kissStates.canAvoidPossibleDeath(moves)) { // death is avoidable for at least one possible move
     buildLogString(`No kisses of death nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
   } else if (kissStates.canAvoidCertainDeath(moves)) { // death has a chance of being avoidable for at least one possible move
