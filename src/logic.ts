@@ -302,7 +302,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                             adjustedMove = newMove
                           } else if (gameState.you.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                             adjustedMove = newMove
-                          } else if (newMove.score > determineEvalNoSnakes(newGameState, snake)) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose
+                          } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
                             adjustedMove = newMove
                           } // if it fails all three of those, we won't rechoose
                         }

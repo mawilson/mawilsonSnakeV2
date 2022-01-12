@@ -686,6 +686,7 @@ describe('Kiss of death tests', () => {
     }
   })
   it('avoids a tie kiss of death in a duel if it thinks it can cut the snake off instead, v2', () => {
+    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 3}, {x: 8, y: 3}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}], "30", "", "")
       const gameState = createGameState(snek)
@@ -2063,7 +2064,6 @@ describe('Food prioritization and acquisition', () => {
     }
   })
   it('acquires starting food', () => { // starting food is diagonal from starting position, in one of four directions
-    debugger
     for (let i: number = 0; i < 4; i++) {
       const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 9}], "30", "", "")
       const gameState = createGameState(snek)

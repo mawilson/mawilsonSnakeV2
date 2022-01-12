@@ -610,9 +610,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   let wantToEat: boolean
-  if (myCell && myCell.hazard) { // if I am currently in hazard, want food
-    wantToEat = true
-  } else if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
+  if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
   } else if (snakeDelta === 6 && !snakeHasEaten(myself, lookahead)) { // If I am exactly 6 bigger & I haven't just eaten, stop wanting food
     wantToEat = false
