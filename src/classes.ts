@@ -14,7 +14,7 @@ export enum Direction {
   Right
 }
 
-export function directionToString(dir: Direction | undefined) {
+export function directionToString(dir: Direction): string | undefined {
   switch (dir) {
     case Direction.Up:
       return "up"
@@ -25,7 +25,22 @@ export function directionToString(dir: Direction | undefined) {
     case Direction.Right:
       return "right"
     default:
-      return "undefined"
+      return undefined
+  }
+}
+
+export function stringToDirection(str: string): Direction | undefined {
+  switch (str) {
+    case "up":
+      return Direction.Up
+    case "down":
+      return Direction.Down
+    case "left":
+      return Direction.Left
+    case "right":
+      return Direction.Right
+    default:
+      return undefined
   }
 }
 
@@ -86,7 +101,11 @@ export class MoveWithEval {
   }
 
   toString() : string {
-    return `Direction: ${directionToString(this.direction)}, score: ${this.score}`
+    if (this.direction === undefined) {
+      return `Direction: undefined, score: ${this.score}`
+    } else {
+      return `Direction: ${directionToString(this.direction)}, score: ${this.score}`
+    }
   }
 }
 
@@ -857,7 +876,7 @@ export class KissStates {
 
   // given a set of moves, returns true if any of the moves that are true have a state of "kissOfDeathNo" or an avoidance state
   canAvoidPossibleDeath(moves: Moves): boolean {
-    // not including kiss of death maybe & certainty mutual, as opposing snakes are likely to avoid this kill, as those are still possible deaths
+    // not including kiss of death maybe & certainty mutual, as opposing snakes are likely to avoid this kill, but those are still possible deaths
     let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeathNo, KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance]
     if (moves.validMoves().length === 0) {
       return true // snake is doomed, but not due to kisses of death
@@ -870,6 +889,25 @@ export class KissStates {
     } else if (moves.right && goodStates.includes(this.kissOfDeathState.right)) {
       return true
     } else { // all valid options in moves will lead to possible death
+      return false
+    }
+  }
+
+   // given a set of moves, returns true if any of the moves that are true have a kissOfDeathAvoidance state
+   canTauntDeath(moves: Moves): boolean {
+    // not including kiss of death maybe & certainty mutual, as opposing snakes are likely to avoid this kill, as those are still possible deaths
+    let goodStates : KissOfDeathState[] = [KissOfDeathState.kissOfDeath3To2Avoidance, KissOfDeathState.kissOfDeath3To1Avoidance, KissOfDeathState.kissOfDeath2To1Avoidance]
+    if (moves.validMoves().length === 0) {
+      return false // snake is doomed, but not due to kisses of death
+    } else if (moves.up && goodStates.includes(this.kissOfDeathState.up)) {
+      return true
+    } else if (moves.down && goodStates.includes(this.kissOfDeathState.down)) {
+      return true
+    } else if (moves.left && goodStates.includes(this.kissOfDeathState.left)) {
+      return true
+    } else if (moves.right && goodStates.includes(this.kissOfDeathState.right)) {
+      return true
+    } else { // none of our moves can taunt death
       return false
     }
   }

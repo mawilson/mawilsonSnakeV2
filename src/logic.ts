@@ -1,4 +1,4 @@
-export const version: string = "1.0.4" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.5" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
@@ -242,22 +242,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
     }
 
-    // shuffle availableMoves array, then sort it by distance from center so machineLearning/timeout snake doesn't prefer one direction
+    // shuffle availableMoves array so machineLearning/timeout snake doesn't prefer one direction
     shuffle(availableMoves)
-    availableMoves.sort(function sortByDistanceFromCenter (a: Direction, b: Direction): number {
-      let aCoord = getCoordAfterMove(myself.head, a)
-      let bCoord = getCoordAfterMove(myself.head, b)
-      let distFromCenterA = getDistance(aCoord, center)
-      let distFromCenterB = getDistance(bCoord, center)
-
-      if (distFromCenterA < distFromCenterB) {
-        return -1
-      } else if (distFromCenterA > distFromCenterB) {
-        return 1
-      } else {
-        return 0
-      }
-    })
 
     let effectiveLookahead = lookahead === undefined? 0 : lookahead
     let foodCountTier = getFoodCountTier(gameState.board.food.length)
@@ -267,8 +253,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let doneEvaluating: boolean = false
     availableMoves.forEach(function evaluateMove(move) {
       if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && myself.id === gameState.you.id) { // machine learning check! Only do for self
-        if (averageMoveScore !== undefined && bestMove.score >= averageMoveScore) { // if an average move score exists for this game state
-          doneEvaluating = true
+        if (averageMoveScore !== undefined) { // if an average move score exists for this game state
+          if (averageMoveScore > 0 && bestMove.score >= (averageMoveScore * 1.1)) { // if the average move score isn't objectively bad, & bestMove is appreciably better than it
+            doneEvaluating = true
+          }
         }
       }
 
@@ -310,11 +298,15 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                         if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
                           adjustedMove = newMove
                         } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
-                          if (newGameState.board.snakes.length > 2) { // it's not a duel, a tie is bad no matter what, rechoose
-                            adjustedMove = newMove
+                          if (newGameState.board.snakes.length > 2) { // it's not a duel
+                            if (gameState.you.length > snake.length) { // if it's not a tie, should choose elsewhere.
+                              adjustedMove = newMove
+                            } else if (availableMoves.length === 1) { // if it is a tie, only rechoose if originalSnake had no other options
+                              adjustedMove = newMove
+                            }
                           } else if (gameState.you.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                             adjustedMove = newMove
-                          } else if (newMove.score > determineEvalNoSnakes(newGameState, snake)) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose
+                          } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
                             adjustedMove = newMove
                           } // if it fails all three of those, we won't rechoose
                         }
@@ -377,7 +369,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
-    let canLearn: boolean = averageMoveScore === undefined // can still learn if we didn't have data for this move
+    let canLearn: boolean = averageMoveScore === undefined || averageMoveScore < 0 // can still learn if we didn't have data for this move, or the only data we had was worthless
     if ((amMachineLearning || canLearn) && (myself.id === gameState.you.id) && (bestMove.score !== undefined)) { // only add machine learning data for my own moves
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
@@ -500,5 +492,5 @@ export function move(gameState: GameState): MoveResponse {
     timesTaken.push(timeTaken)
   }
 
-  return {move: directionToString(chosenMoveDirection)}
+  return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
 }

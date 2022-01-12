@@ -3,7 +3,7 @@ import { version } from './logic'
 
 export async function connectToDatabase(): Promise<MongoClient> {
     // Connection url
-    const url = "mongodb://localhost:27017";
+    const url = "mongodb://45.79.100.226:27017";
 
     // Connect using a MongoClient instance
     const mongoClient: MongoClient = new MongoClient(url)
@@ -35,6 +35,94 @@ export const snakeScoreAggregations = [
       }, 
       'averageScore': {
         '$avg': '$score'
+      }
+    }
+  }
+]
+
+// not used for anything currently, but I wanted it to be in repo
+const timingAggregations = [
+  {
+    '$match': {
+      'average': {
+        '$lt': 500
+      }
+    }
+  }, {
+    '$group': {
+      '_id': {
+        'version': '$version', 
+        'amMachineLearning': '$amMachineLearning', 
+        'amUsingMachineData': '$amUsingMachineData'
+      }, 
+      'averageAverage': {
+        '$avg': '$average'
+      }, 
+      'averageMax': {
+        '$avg': '$max'
+      }, 
+      'averageStdDev': {
+        '$avg': '$populationStandardDeviaton'
+      }, 
+      'wins': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$gameResult', 'win'
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'losses': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$gameResult', 'loss'
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'ties': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$gameResult', 'tie'
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'total': {
+        '$sum': 1
+      }
+    }
+  }, {
+    '$project': {
+      'version': '$_id.version', 
+      'amMachineLearning': '$_id.amMachineLearning', 
+      'amUsingMachineData': '$_id.amUsingMachineData', 
+      'averageAverage': '$averageAverage', 
+      'averageMax': '$averageMax', 
+      'averageStdDev': '$averageStdDev', 
+      'winRate': {
+        '$divide': [
+          '$wins', '$total'
+        ]
+      }, 
+      'lossRate': {
+        '$divide': [
+          '$losses', '$total'
+        ]
+      }, 
+      'tieRate': {
+        '$divide': [
+          '$ties', '$total'
+        ]
       }
     }
   }
