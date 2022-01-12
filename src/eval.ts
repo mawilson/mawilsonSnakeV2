@@ -710,7 +710,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   if (isDuel && hazardDamage === 0 && myself.length > 20) { // in long-running duels without hazard, chasing one's tail is the best thing you can do barring a kill
     let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
-    evalTailChase = -5 // strong pull towards tail
+    if (snakeDelta < 0) {
+      evalTailChase = -3 // less strong, want to leave room for food hunting
+    } else {
+      evalTailChase = -5 // strong pull towards tail
+    }
     buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
     evaluation = evaluation + (evalTailChase * tailDist)
   } else if (safeCellPercentage < evalTailChasePercentage || (isDuel && snakeDelta < 0)) {
