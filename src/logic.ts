@@ -298,8 +298,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                         if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
                           adjustedMove = newMove
                         } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
-                          if (newGameState.board.snakes.length > 2) { // it's not a duel, a tie is bad no matter what, rechoose
-                            adjustedMove = newMove
+                          if (newGameState.board.snakes.length > 2) { // it's not a duel
+                            if (gameState.you.length > snake.length) { // if it's not a tie, should choose elsewhere.
+                              adjustedMove = newMove
+                            } else if (availableMoves.length === 1) { // if it is a tie, only rechoose if originalSnake had no other options
+                              adjustedMove = newMove
+                            }
                           } else if (gameState.you.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                             adjustedMove = newMove
                           } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove

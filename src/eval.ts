@@ -171,7 +171,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (((gameState.turn + 1) % 25) > 21) {// turns 21, 22, 23, & increments of 25
     evalHazardWallPenalty = -2
   }
-  const evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
+  let evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   let evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
   if (isDuel) { // if in a duel, give stronger rewards towards middle for myself, but not other snakes
@@ -303,6 +303,30 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (isOnVWall) {
     buildLogString(`self head y on vertical wall at ${myself.head.y}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
+  }
+
+  const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
+  let longestSnake = getLongestSnake(myself, otherSnakes)
+
+  // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
+  if (isDuel && hazardDamage > 0) {
+    let opponentCell = board2d.getCell(longestSnake.head) // in a duel, longestSnake is just the opponent snake
+    if (opponentCell && opponentCell.hazard) {
+      evalHazardWallPenalty = 5 // if our duel opponent is actually in hazard, it's *better* to sit on the border & try to form a wall
+      evalCenterDistancePenalty = 0 // in this particular case, we want our snake to really prioritize walling the other snake off - so turn center metric off
+      evalFoodVal = 0 // turn food metric off too
+      evalHazardPenalty = evalHazardPenalty * 2 // we do want to chase the opponent, but do not want to let it lure us into hazard
+
+      let opponentDistanceCalq = getDistance(myself.head, longestSnake.head) * evalHazardSnakeSeekerStep
+      buildLogString(`hazard snake seeker, adding ${opponentDistanceCalq}`)
+      evaluation = evaluation + opponentDistanceCalq
+    }
+  }
+
+  // penalize or rewards spaces next to hazard
+  if (isAdjacentToHazard(myself.head, board2d, gameState)) {
+    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
+    evaluation = evaluation + evalHazardWallPenalty
   }
 
   // in addition to wall/corner penalty, give a bonus to being closer to center
@@ -519,12 +543,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalKissOfMurderSelfBonus
   }
 
-  // penalize or rewards spaces next to hazard
-  if (isAdjacentToHazard(myself.head, board2d, gameState)) {
-    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
-    evaluation = evaluation + evalHazardWallPenalty
-  }
-
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
   if (myCell !== undefined && myCell.hazard) {
@@ -582,8 +600,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
-  const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
-  let longestSnake = getLongestSnake(myself, otherSnakes)
   if (kingOfTheSnakes) { // want to give slight positive evals towards states closer to longestSnake
     if (!(snakeDelta === 2 && snakeHasEaten(myself, lookahead))) { // only add kingsnake calc if I didn't just become king snake, otherwise will mess with other non king states
       if (longestSnake.id !== myself.id) { // if I am not the longest snake, seek it out
@@ -591,16 +607,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         buildLogString(`kingSnake seeker, adding ${kingSnakeCalq}`)
         evaluation = evaluation + kingSnakeCalq
       }
-    }
-  }
-
-  // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
-  if (isDuel && hazardDamage > 0) {
-    let opponentCell = board2d.getCell(longestSnake.head) // in a duel, longestSnake is just the opponent snake
-    if (opponentCell && opponentCell.hazard) {
-      let opponentDistanceCalq = getDistance(myself.head, longestSnake.head) * evalHazardSnakeSeekerStep
-      buildLogString(`hazard snake seeker, adding ${opponentDistanceCalq}`)
-      evaluation = evaluation + opponentDistanceCalq
     }
   }
 

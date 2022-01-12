@@ -735,6 +735,27 @@ describe('Kiss of death tests', () => {
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("up") // otherSnek has every reason to take the food, & if we go there we'll be eaten
   })
+  it('avoids a tie kiss of death in a non-duel situation', () => {
+    const snek = new Battlesnake("snek", "snek", 95, [{x: 2, y: 8}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 65, [{x: 1, y: 7}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 2, y: 5}, {x: 2, y: 4}, {x: 2, y: 3}, {x: 3, y: 3}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 40, [{x: 0, y: 8}, {x: 0, y: 7}, {x: 0, y: 6}, {x: 0, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 80, [{x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 7, y: 3}], "30", "", "")
+    gameState.board.snakes.push(otherSnek3)
+
+    gameState.board.food = [{x: 4, y: 10}]
+
+    createHazardRow(gameState.board, 10)
+    createHazardRow(gameState.board, 0)
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up") // down is certain death, left is almost certainly a tie death with otherSnek. Up is only sensible choice
+  })
 })
 
 describe('Kiss of murder tests', () => {
