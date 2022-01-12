@@ -14,7 +14,7 @@ export enum Direction {
   Right
 }
 
-export function directionToString(dir: Direction | undefined) {
+export function directionToString(dir: Direction): string | undefined {
   switch (dir) {
     case Direction.Up:
       return "up"
@@ -25,7 +25,22 @@ export function directionToString(dir: Direction | undefined) {
     case Direction.Right:
       return "right"
     default:
-      return "undefined"
+      return undefined
+  }
+}
+
+export function stringToDirection(str: string): Direction | undefined {
+  switch (str) {
+    case "up":
+      return Direction.Up
+    case "down":
+      return Direction.Down
+    case "left":
+      return Direction.Left
+    case "right":
+      return Direction.Right
+    default:
+      return undefined
   }
 }
 
@@ -86,7 +101,11 @@ export class MoveWithEval {
   }
 
   toString() : string {
-    return `Direction: ${directionToString(this.direction)}, score: ${this.score}`
+    if (this.direction === undefined) {
+      return `Direction: undefined, score: ${this.score}`
+    } else {
+      return `Direction: ${directionToString(this.direction)}, score: ${this.score}`
+    }
   }
 }
 

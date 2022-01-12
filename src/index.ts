@@ -61,5 +61,8 @@ export const machineLearningDataResult = getMachineLearningData() // jest needs 
 machineLearningDataResult.then(() => { // once machine learning data is ready, start server
     server = app.listen(port, () => { // Start the Express server
         console.log(`Starting Battlesnake Server at http://0.0.0.0:${port}...`)
+        if (amUsingMachineData && Object.keys(evaluationsForMachineLearning).length === 0) {
+            console.log(`Wanted to use machine data, but got no data`)
+        }
     });
 })

@@ -1,6 +1,6 @@
-import { info, move, decideMove } from '../src/logic'
+import { info, move, decideMove, start } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, Direction, directionToString, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
+import { Battlesnake, Coord, Direction, directionToString, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
 import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard, getSnakeScoreFromHashKey, getSnakeScoreHashKey } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
@@ -49,6 +49,11 @@ export function createGameState(me: Battlesnake): GameState {
 }
 
 beforeAll(() => {
+  const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 5, y: 5}, {x: 5, y: 5}], "30", "", "")
+  let gameState = createGameState(snek)
+  start(gameState) // initializes gameData
+
+  // TODO: Fix, currently this is just an empty object after returning, despite it theoretically waiting on the promise to finish
   return machineLearningDataResult // wait for machine learning data to be processed
 })
 
@@ -259,8 +264,7 @@ describe('BattleSnake can chase tail', () => {
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
-      let otherSnekMoveDir = directionToString(otherSnekMove.direction)
-      expect(otherSnekMoveDir).toBe("left")
+      expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
   it('should allow otherSnakes to chase other snake tails', () => {
@@ -271,8 +275,7 @@ describe('BattleSnake can chase tail', () => {
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
       let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
-      let otherSnekMoveDir = directionToString(otherSnekMove.direction)
-      expect(otherSnekMoveDir).toBe("left")
+      expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
   it('should not chase its tail if it just ate', () => {
@@ -2018,7 +2021,7 @@ describe('Food prioritization and acquisition', () => {
       expect(moveResponse.move).toBe("left") // snek is large enough, should ignore food cache directly up & right & go back towards center & other snakes
     }
   })
-  it.only('still seeks acquiring food when large enough to no longer want food, but stuck in hazard', () => {
+  it('still seeks acquiring food when large enough to no longer want food, but stuck in hazard', () => {
     for (let i: number = 0; i < 3; i++) {
       // 50 health: snake is a bit wanting for health, so will brave some hazard in order to top up
       const snek = new Battlesnake("snek", "snek", 50, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
@@ -2035,6 +2038,7 @@ describe('Food prioritization and acquisition', () => {
       createHazardColumn(gameState.board, 10)
       createHazardColumn(gameState.board, 9)
       createHazardColumn(gameState.board, 8)
+      createHazardColumn(gameState.board, 7)
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right") // snek should still care about food because it's in hazard, & should loop right->up->left->left to navigate in & out of hazard while retrieving food
@@ -2056,6 +2060,50 @@ describe('Food prioritization and acquisition', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("left") // we're low on food, should seek it out by going either right or up
+    }
+  })
+  it('acquires starting food', () => { // starting food is diagonal from starting position, in one of four directions
+    debugger
+    for (let i: number = 0; i < 4; i++) {
+      const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 9}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 1}, {x: 1, y: 1}, {x: 1, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 9, y: 1}, {x: 9, y: 1}, {x: 9, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek2", "otherSnek3", 100, [{x: 9, y: 9}, {x: 9, y: 9}, {x: 9, y: 9}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.turn = 0
+
+      gameState.board.food = [{x: 8, y: 10}, {x: 2, y: 2}, {x: 8, y: 2}, {x: 5, y: 5}]
+
+      switch(i) {
+        case 0:
+          gameState.board.food.push({x: 0, y: 10})
+          break
+        case 1:
+          gameState.board.food.push({x: 0, y: 8})
+          break
+        case 2:
+          gameState.board.food.push({x: 2, y: 10})
+          break
+        default: //case 3:
+          gameState.board.food.push({x: 2, y: 8})
+          break
+      }
+
+      let moveResponse: MoveResponse = move(gameState)
+      moveSnake(gameState, gameState.you, new Board2d(gameState.board), stringToDirection(moveResponse.move))
+      updateGameStateAfterMove(gameState)
+      moveResponse = move(gameState)
+      moveSnake(gameState, gameState.you, new Board2d(gameState.board), stringToDirection(moveResponse.move))
+      updateGameStateAfterMove(gameState)
+
+      expect(gameState.you.length).toBe(4) // for any starting food spawns, should always retrieve them. Always be length 4 after two moves.
     }
   })
 })

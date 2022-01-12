@@ -621,7 +621,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else { // if neither pass, normal food seeking
     wantToEat = true
   }
-  let safeToEat: boolean = !canBeCutoffBySnake && !canBeSandwichedBySnake && !deathStates.includes(priorKissStates.deathState) // conditions I want a cell to pass to consider rewarding a snake for eating here
+  let safeToEat: boolean = true // conditions I want a cell to pass to consider rewarding a snake for eating here
+  if (canBeCutoffBySnake || canBeSandwichedBySnake) { // if snake can be sandwiched or cutoff, it was not safe to eat this food
+    safeToEat = false
+  } else if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
+    safeToEat = false
+  }
+  
   if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
     let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
