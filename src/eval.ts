@@ -163,12 +163,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalSnakeCountMin = -100 // minimum penalty for a snake to be in game (should at the very least be less than 0)
   const evalSolo: number = 200 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
   const evalWallPenalty: number = isDuel? -10 : -5 //-25
-  let evalHazardWallPenalty: number = -1 // very small penalty, dangerous to hang out along edges where hazard may appear
-  if (gameState.turn % 25 === 0) { // hazard wall has already shown up this turn, but we don't know where. Make hazard wall penalty higher
+  let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
+  if (gameState.turn % 25 === 0) { // turn 25, & increments of 25
     evalHazardWallPenalty = -8
-  } else if (((gameState.turn + 1) % 25) === 0) { // hazards show up every 25 turns. If this is 0, hazard wall is showing up next turn, make hazard wall penalty higher
+  } else if (((gameState.turn + 1) % 25) === 0) { // turn 24, & increments of 25
     evalHazardWallPenalty = -4
-  } else if (((gameState.turn + 1) % 25) < 4) {// as above, but hazard is showing up within the next three turns
+  } else if (((gameState.turn + 1) % 25) > 21) {// turns 21, 22, 23, & increments of 25
     evalHazardWallPenalty = -2
   }
   const evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
@@ -255,7 +255,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalSandwichPenalty = -50 // as with cutoffs, but sandwiches are less reliable. Even so, a state to avoid
   const evalFaceoffPenalty = -10 // getting faced off is the least troubling of the three, but still problematic
   const evalCornerProximityPenalty = isOriginalSnake? -300 : 0 // shoving oneself in the corner while other snakes are nearby is very bad. Let other snakes do it
-  const evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
+  let evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
@@ -702,7 +702,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const numCells: number = board2d.height * board2d.width
   const safeCellPercentage: number = (safeCells * 100) / numCells
 
-  if (safeCellPercentage < evalTailChasePercentage || (isDuel && snakeDelta < 0)) {
+  if (isDuel && hazardDamage === 0 && myself.length > 20) { // in long-running duels without hazard, chasing one's tail is the best thing you can do barring a kill
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
+    evalTailChase = -5 // strong pull towards tail
+    buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
+    evaluation = evaluation + (evalTailChase * tailDist)
+  } else if (safeCellPercentage < evalTailChasePercentage || (isDuel && snakeDelta < 0)) {
     let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
     buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
     evaluation = evaluation + (evalTailChase * tailDist)
