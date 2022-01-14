@@ -1,4 +1,4 @@
-export const version: string = "1.0.5" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.6" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
@@ -169,7 +169,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   //   }
   }
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, priorHealth?: number): MoveWithEval {
     let timeStart: number = 0
     if (isDevelopment) {
       timeStart = Date.now()
@@ -187,7 +187,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
     let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
 
-    let evalThisState: number = evaluate(gameState, myself, evaluateKisses)
+    let evalThisState: number = evaluate(gameState, myself, evaluateKisses, priorHealth)
 
     let moves: Moves = getAvailableMoves(gameState, myself, board2d)
     let availableMoves = moves.validMoves()
@@ -343,9 +343,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           let evalState: MoveWithEval
           let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
-            evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
+            evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, myself.health) // This is the recursive case!!!
           } else { // base case, just run the eval
-            evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs))
+            evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs, priorHealth))
           }
 
           if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)

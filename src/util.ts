@@ -760,43 +760,43 @@ export function createHazardRow(board: Board, height: number) {
 }
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any.
-export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, gameState : GameState) : boolean {  
+export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWalls: HazardWalls, gameState : GameState) : boolean {  
   if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
     return false
   }
   let selfCell = board2d.getCell(coord)
   if (!(selfCell instanceof BoardCell)) {
     return false // return false for cells outside of board2d's bounds
+  } else if (selfCell.hazard) {
+    return true
+  } else {
+    return isAdjacentToHazard(coord, hazardWalls, gameState)
   }
-  if (coord.x === 0 || coord.y === 0 || (coord.x === board2d.width - 1) || (coord.y === board2d.height - 1)) {
-    return true // edges are always adjacent to hazard, unless coord is outside of bounds
-  }
-  let neighbors = getSurroundingCells(coord, board2d)
-  let hazardCell = neighbors.find(function checkForHazard(neighbor) {
-    return neighbor.hazard
-  })
-  return hazardCell !== undefined
 }
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any. Returns false for spaces that are themselves hazard
-export function isAdjacentToHazard(coord: Coord, board2d: Board2d, gameState : GameState) : boolean {  
+export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
   if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
     return false
-  }
-  let selfCell = board2d.getCell(coord)
-  if (!(selfCell instanceof BoardCell)) {
-    return false // return false for cells outside of board2d's bounds
-  } else if (selfCell.hazard) { // return false for cells which are themselves hazard
+  } else if (hazardWalls.left === undefined && coord.x === 0) { // if hazardWalls.left is undefined & coord.x is on the left wall, it's adjacent to hazard
+    return true
+  } else if (hazardWalls.left !== undefined && (coord.x - hazardWalls.left === 1)) { // if coord.x is exactly one right of hazardWalls.left, it's adjacent to left hazard
+    return true
+  } else if (hazardWalls.right === undefined && coord.x === (gameState.board.width - 1)) { // if hazardWalls.right is undefined & coord.x is on the right wall, it's adjacent to hazard
+    return true
+  } else if (hazardWalls.right !== undefined && (hazardWalls.right - coord.x === 1)) { // if coord.x is exactly one left of hazardWalls.right, it's adjacent to right hazard
+    return true
+  } else if (hazardWalls.down === undefined && coord.y === 0) { // if hazardWalls.down is undefined && coord.y is on the bottom wall, it's adjacent to hazard
+    return true
+  } else if (hazardWalls.down !== undefined && (coord.y - hazardWalls.down === 1)) { // if coord.y is exactly one above hazardWalls.down, it's adjacent to hazard
+    return true
+  } else if (hazardWalls.up === undefined && coord.y === (gameState.board.height - 1)) { // if hazardWalls.up is undefined & coord.y is on the top wall, it's adjacent to hazard
+    return true
+  } else if (hazardWalls.up !== undefined && (hazardWalls.up - coord.y === 1)) { // if coord.y is exactly one below hazardWalls.up, it's adjacent to top hazard
+    return true
+  } else {
     return false
   }
-  if (coord.x === 0 || coord.y === 0 || (coord.x === board2d.width - 1) || (coord.y === board2d.height - 1)) {
-    return true // edges are always adjacent to hazard, unless coord is outside of bounds
-  }
-  let neighbors = getSurroundingCells(coord, board2d)
-  let hazardCell = neighbors.find(function checkForHazard(neighbor) {
-    return neighbor.hazard
-  })
-  return hazardCell !== undefined
 }
 
 // return # of cells on board that have no snake & no hazard
