@@ -248,8 +248,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
   const evalHazardSnakeSeekerStep = -3 // negative means that higher distances from hazard snake will result in lower score
   
-  let evalCutoffReward = isDuel? 60 : 35 // reward for getting a snake into a cutoff situation. Very strong in duel as it should lead directly to a win
-  let evalCutoffHazardReward = isDuel? 48 : 25 // reward for getting a snake into a hazard cutoff situation. Stronger in duel.
+  let evalCutoffReward = isDuel? 100 : 35 // reward for getting a snake into a cutoff situation. Very strong in duel as it should lead directly to a win
+  let evalCutoffHazardReward = isDuel? 75 : 25 // reward for getting a snake into a hazard cutoff situation. Stronger in duel.
   let evalSandwichReward = 20 // reward for getting a snake into a sandwich situation - less than cutoff, as it requires another snake to cooperate & is thus less reliable
   const evalFaceoffReward = 50 // reward for getting a snake into a faceoff. While not as definitive as the above two, it's also not typically a bad thing for a snake to do
   const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
@@ -432,6 +432,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let canBeFacedOff: boolean = false
 
   let isInAState: boolean = false // these are all mutually exclusive, so we only want to run all of these calculations if we don't end up matching any of them
+
+  let wantToEat: boolean = true // condition for whether we currently want food
+  let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
   // need to calculate cutoffs before priorKisses, as evalPriorKissOfMurderAvoidance can change based on whether this is a cutoff
   canCutoffSnake = otherSnakes.find(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake
@@ -679,17 +682,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let foodToHunt : Coord[] = []
 
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
-  let wantToEat: boolean
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
   } else if (snakeDelta === 6 && !snakeHasEaten(myself, lookahead)) { // If I am exactly 6 bigger & I haven't just eaten, stop wanting food
     wantToEat = false
   } else if (snakeDelta > 6) { // If I am more than 6 bigger, stop wanting food
     wantToEat = false
-  } else { // if neither pass, normal food seeking
-    wantToEat = true
   }
-  let safeToEat: boolean = true // conditions I want a cell to pass to consider rewarding a snake for eating here
   if (canBeCutoffBySnake || canBeCutoffHazardBySnake || canBeSandwichedBySnake) { // if snake can be sandwiched or cutoff, it was not safe to eat this food
     safeToEat = false
   } else if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe

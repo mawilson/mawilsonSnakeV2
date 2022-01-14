@@ -1571,8 +1571,6 @@ describe('Snake cutoff tests', () => {
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 85, [{x: 2, y: 6}, {x: 3, y: 6}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 4, y: 3}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 6, y: 5}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      gameState.board.food = [{x: 5, y: 7}, {x: 8, y: 6}, {x: 5, y: 9}, {x: 6, y: 9}, {x: 2, y: 10}]
-
       createHazardColumn(gameState.board, 0)
       createHazardColumn(gameState.board, 10)
       createHazardColumn(gameState.board, 9)
@@ -1597,17 +1595,35 @@ describe('Snake cutoff tests', () => {
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 45, [{x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
 
-      gameState.board.food = [{x: 0, y: 2}, {x: 1, y: 7}, {x: 1, y: 10}, {x: 8, y: 7}]
-
       createHazardRow(gameState.board, 0)
       createHazardRow(gameState.board, 10)
 
-      gameState.board.food = [{x: 1, y: 6}, {x: 0, y: 10}, {x: 8, y: 4}, {x: 9, y: 4}]
+      gameState.board.food = [{x: 0, y: 2}, {x: 1, y: 7}, {x: 1, y: 10}, {x: 8, y: 7}]
 
       gameState.turn = 70
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right") // can pin otherSnek up against hazard by continuing to move right
+    }
+  })
+  it('ignores food while seeking a cutoff pinning snake against hazard in a duel', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 2}, {x: 4, y :2}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}], "30", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 6, y: 1}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 5, y: 3}] // this is the bait that snek should not take because it's in a hazard cutoff, should not wantToEat
+
+      createHazardRow(gameState.board, 0)
+
+      gameState.turn = 43
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // can pin otherSnek up against hazard by continuing to move right, should not get food by going up
     }
   })
 })

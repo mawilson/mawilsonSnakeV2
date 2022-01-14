@@ -70,7 +70,7 @@ export async function end(gameState: GameState): Promise<void> {
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
       let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 

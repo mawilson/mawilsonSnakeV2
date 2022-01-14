@@ -46,6 +46,9 @@ const timingAggregations = [
     '$match': {
       'average': {
         '$lt': 500
+      }, 
+      'timeout': {
+        '$exists': true
       }
     }
   }, {
@@ -53,7 +56,8 @@ const timingAggregations = [
       '_id': {
         'version': '$version', 
         'amMachineLearning': '$amMachineLearning', 
-        'amUsingMachineData': '$amUsingMachineData'
+        'amUsingMachineData': '$amUsingMachineData', 
+        'timeout': '$timeout'
       }, 
       'averageAverage': {
         '$avg': '$average'
@@ -106,6 +110,7 @@ const timingAggregations = [
       'version': '$_id.version', 
       'amMachineLearning': '$_id.amMachineLearning', 
       'amUsingMachineData': '$_id.amUsingMachineData', 
+      'timeout': '$_id.timeout', 
       'averageAverage': '$averageAverage', 
       'averageMax': '$averageMax', 
       'averageStdDev': '$averageStdDev', 
@@ -123,7 +128,7 @@ const timingAggregations = [
         '$divide': [
           '$ties', '$total'
         ]
-      },
+      }, 
       'total': '$total'
     }
   }
