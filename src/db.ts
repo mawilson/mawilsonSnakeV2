@@ -123,7 +123,8 @@ const timingAggregations = [
         '$divide': [
           '$ties', '$total'
         ]
-      }
+      },
+      'total': '$total'
     }
   }
 ]
