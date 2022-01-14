@@ -1090,8 +1090,9 @@ export class TimingData {
   version: string
   amMachineLearning: boolean
   amUsingMachineData: boolean
+  timeout: number
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1099,5 +1100,6 @@ export class TimingData {
     this.amMachineLearning = amMachineLearning
     this.amUsingMachineData = amUsingMachineData
     this.gameResult = gameResult
+    this.timeout = timeout
   }
 }
