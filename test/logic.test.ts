@@ -1385,25 +1385,27 @@ describe('Can accurately get adjacency to hazard', () => {
     createHazardRow(gameState.board, 10)
     const board2d = new Board2d(gameState.board)
     
-    expect(isInOrAdjacentToHazard(snek.body[0], board2d, gameState)).toBe(true)
-    expect(isInOrAdjacentToHazard(snek.body[1], board2d, gameState)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 2, y: 6}, board2d, gameState)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 2, y: 7}, board2d, gameState)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 3, y: 7}, board2d, gameState)).toBe(false)
-    expect(isInOrAdjacentToHazard({x: 7, y: 7}, board2d, gameState)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 6, y: 7}, board2d, gameState)).toBe(false)
-    expect(isInOrAdjacentToHazard({x: 6, y: 6}, board2d, gameState)).toBe(true)
+    let hazardWalls: HazardWalls = new HazardWalls(gameState)
 
-    expect(isInOrAdjacentToHazard({x: 1, y: 7}, board2d, gameState)).toBe(true) // in the hazard should also return true
-    expect(isInOrAdjacentToHazard({x: 3, y: 5}, board2d, gameState)).toBe(true)
-    expect(isInOrAdjacentToHazard({x: 3, y: 10}, board2d, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard(snek.body[0], board2d, hazardWalls, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard(snek.body[1], board2d, hazardWalls, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 2, y: 6}, board2d, hazardWalls, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 2, y: 7}, board2d, hazardWalls, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 3, y: 7}, board2d, hazardWalls, gameState)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 7, y: 7}, board2d, hazardWalls, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 6, y: 7}, board2d, hazardWalls, gameState)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 6, y: 6}, board2d, hazardWalls, gameState)).toBe(true)
 
-    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d, gameState)).toBe(true) // is adjacent to a hazard, but that hazard has a snake, so STILL consider it a hazard
+    expect(isInOrAdjacentToHazard({x: 1, y: 7}, board2d, hazardWalls, gameState)).toBe(true) // in the hazard should also return true
+    expect(isInOrAdjacentToHazard({x: 3, y: 5}, board2d, hazardWalls, gameState)).toBe(true)
+    expect(isInOrAdjacentToHazard({x: 3, y: 10}, board2d, hazardWalls, gameState)).toBe(true)
 
-    expect(isInOrAdjacentToHazard({x: 11, y: 10}, board2d, gameState)).toBe(false) // doesn't exist & thus has no neighbors, even if it is numerically one away from it
+    expect(isInOrAdjacentToHazard({x: 6, y: 9}, board2d, hazardWalls, gameState)).toBe(true) // is adjacent to a hazard, but that hazard has a snake, so STILL consider it a hazard
+
+    expect(isInOrAdjacentToHazard({x: 11, y: 10}, board2d, hazardWalls, gameState)).toBe(false) // doesn't exist & thus has no neighbors, even if it is numerically one away from it
 
     gameState.game.ruleset.settings.hazardDamagePerTurn = 0 // if hazard damage is 0, function should always return false
-    expect(isInOrAdjacentToHazard({x: 0, y: 0}, board2d, gameState)).toBe(false)
+    expect(isInOrAdjacentToHazard({x: 0, y: 0}, board2d, hazardWalls, gameState)).toBe(false)
   })
 })
 

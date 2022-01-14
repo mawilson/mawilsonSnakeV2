@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, isInOrAdjacentToHazard, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, getNeckDirection } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, getNeckDirection } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -306,13 +306,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
-  let longestSnake = getLongestSnake(myself, otherSnakes)
+  let longestSnake = isDuel? otherSnakes[0] : getLongestSnake(myself, otherSnakes) // in a duel, longestSnake other than me is just the other snake
 
   // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
   if (isDuel && hazardDamage > 0) {
-    let opponentCell = board2d.getCell(longestSnake.head) // in a duel, longestSnake is just the opponent snake
+    let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell && opponentCell.hazard) {
-      evalHazardWallPenalty = 5 // if our duel opponent is actually in hazard, it's *better* to sit on the border & try to form a wall
+      if (!isOnHWall && !isOnVWall) { // no sense building hazard walls on the edge of the board
+        evalHazardWallPenalty = 5 // if our duel opponent is actually in hazard, it's *better* to sit on the border & try to form a wall
+      }
       evalCenterDistancePenalty = 0 // in this particular case, we want our snake to really prioritize walling the other snake off - so turn center metric off
       evalTailChase = 0 // likewise with tail chase metric
       if (snakeDelta > 0) { // still need to try to stay larger than otherSnakes. If wall fails, could come out of our gambit in a bad spot if we neglected food
@@ -327,7 +329,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // penalize or rewards spaces next to hazard
-  if (isAdjacentToHazard(myself.head, board2d, gameState)) {
+  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
     buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
     evaluation = evaluation + evalHazardWallPenalty
   }
