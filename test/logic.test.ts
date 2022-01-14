@@ -1561,7 +1561,7 @@ describe('Snake cutoff tests', () => {
       expect(moveResponse.move).toBe("down") // should move down to finish otherSnek off & stop wasting time we could spend gathering food for war against otherSnek2
     }
   })
-  it.skip('avoids a cutoff when pinned against hazard', () => {
+  it('avoids a cutoff when pinned against hazard', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 70, [{x: 1, y: 5}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}, {x: 4, y: 1}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}], "30", "", "")
       
@@ -1586,6 +1586,28 @@ describe('Snake cutoff tests', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right") // left is hazard death. Up gets us larger, but otherSnek can easily cut us off against hazard & kill us. Right gives us an escape route
+    }
+  })
+  it('seeks a cutoff pinning snake against hazard', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 93, [{x: 4, y: 2}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 2, y: 4}, {x: 2, y: 3}, {x: 3, y: 3}, {x: 4, y: 3}], "30", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 45, [{x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 2}, {x: 1, y: 7}, {x: 1, y: 10}, {x: 8, y: 7}]
+
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 10)
+
+      gameState.board.food = [{x: 1, y: 6}, {x: 0, y: 10}, {x: 8, y: 4}, {x: 9, y: 4}]
+
+      gameState.turn = 70
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // can pin otherSnek up against hazard by continuing to move right
     }
   })
 })
