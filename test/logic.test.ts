@@ -377,7 +377,7 @@ describe('Board2d accurately maps game state', () => {
   })
 })
 
-describe('BattleSnake will not eat a left wall', () => {
+describe('Wall tests', () => {
   it('should not go left if there is a wall there', () => {
     // x x x
     // h s t
@@ -389,9 +389,6 @@ describe('BattleSnake will not eat a left wall', () => {
       expect(moveResponse.move).not.toBe("left")
     }
   })
-})
-
-describe('BattleSnake will not eat a right wall', () => {
   it('should not go right if there is a wall there', () => {
     // x x x
     // t s h
@@ -403,9 +400,6 @@ describe('BattleSnake will not eat a right wall', () => {
       expect(moveResponse.move).not.toBe("right")
     }
   })
-})
-
-describe('BattleSnake will not eat an up wall', () => {
   it('should not go up if there is a wall there', () => {
     // x h x
     // x s x
@@ -417,9 +411,6 @@ describe('BattleSnake will not eat an up wall', () => {
       expect(moveResponse.move).not.toBe("up")
     }
   })
-})
-
-describe('BattleSnake will not eat a down wall', () => {
   it('should not go down if there is a wall there', () => {
     // x t x
     // x s x
@@ -433,7 +424,7 @@ describe('BattleSnake will not eat a down wall', () => {
   })
 })
 
-describe('Battlesnake will not eat its own body', () => {
+describe('Body tests', () => {
   it('should not move into its own body, other than the tail', () => {
     // x s s
     // x s h
@@ -445,9 +436,6 @@ describe('Battlesnake will not eat its own body', () => {
       expect(["down", "right"]).toContain(moveResponse.move)
     }
   })
-})
-
-describe('Snake should not walk into another snake body', () => {
   it('should go somewhere that does not have a snake body', () => {
     // x x  x
     // s h  x
@@ -465,20 +453,7 @@ describe('Snake should not walk into another snake body', () => {
   })
 })
 
-describe('Battlesnake knows if it is king snake', () => {
-  it('should know if it is at least two longer than any other snake', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
-    const gameState = createGameState(snek)
-
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}], "30", "", "")
-    gameState.board.snakes.push(otherSnek)
-
-    const kingOfSnakes = isKingOfTheSnakes(snek, gameState.board)
-    expect(kingOfSnakes).toBe(true)
-  })
-})
-
-describe('Longest snake function tester', () => {
+describe('Longest snake tests', () => {
   it('should return the longest, closest snake other than itself', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
     const gameState = createGameState(snek)
@@ -491,6 +466,16 @@ describe('Longest snake function tester', () => {
 
     const longestSnake = getLongestSnake(snek, gameState.board.snakes)
     expect(longestSnake.id).toBe("otherSnek") // otherSnek is closer to snek, both otherSnek and otherSnek2 are length 2
+  })
+  it('should know if it is at least two longer than any other snake', () => {
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 0, y: 2}, {x: 1, y: 2}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const kingOfSnakes = isKingOfTheSnakes(snek, gameState.board)
+    expect(kingOfSnakes).toBe(true)
   })
 })
 
@@ -550,7 +535,6 @@ describe('Kiss of death tests', () => {
       expect(allowedMoves).toContain(moveResponse.move)
     }
   })
-  // while I still think this test is valid, lookahead may have it failing. I think the situation is just really bad, & snek is doomed on proximate turns anyway.
   it('should navigate towards a kiss that might happen instead of a kiss that ought to happen', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 4}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 3, y: 2}], "30", "", "")
@@ -611,7 +595,8 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
     }
   })
-  it('does not avoid a tie kiss of death if in a duel', () => {
+  it.only('does not avoid a tie kiss of death if in a duel', () => {
+    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
@@ -686,7 +671,6 @@ describe('Kiss of death tests', () => {
     }
   })
   it('avoids a tie kiss of death in a duel if it thinks it can cut the snake off instead, v2', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 9, y: 3}, {x: 8, y: 3}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}], "30", "", "")
       const gameState = createGameState(snek)
@@ -756,6 +740,20 @@ describe('Kiss of death tests', () => {
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // down is certain death, left is almost certainly a tie death with otherSnek. Up is sensible choice
   })
+  it('avoids moving towards a cell that would result in kisses of death', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 10}, {x: 3, y: 10}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 5, y: 8}, {x: 7, y: 5}]
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // down will put me in a situation where I will be kissed to death the next turn
+    }
+  })
 })
 
 describe('Kiss of murder tests', () => {
@@ -811,35 +809,6 @@ describe('Kiss of murder tests', () => {
       expect(moveResponse.move).toBe("up") // down is puts us in a box, right is a 50/50 kill but puts us in a box if we miss. Up is also a 50/50, & if we miss, it shoves otherSnek in said box.
     }
   })
-})
-
-describe('Snake should account for possible kisses after it moves', () => {
-  it('avoids moving towards a cell that would result in kisses of death', () => {
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 10}, {x: 3, y: 10}, {x: 3, y: 9}, {x: 3, y: 8}, {x: 3, y: 7}, {x: 3, y: 6}, {x: 3, y: 5}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 5, y: 8}, {x: 7, y: 5}]
-
-      let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("right") // down will put me in a situation where I will be kissed to death the next turn
-    }
-  })
-})
-
-describe('Snake should not attempt to murder in a square that will likely immediately get it killed', () => {
-  // x x x x x x x b b b x
-  // x x x t s x x b x u x
-  // x x x x s s b b x x x
-  // x x x x x s b x x x x
-  // x x x x x s b x x x x
-  // x x x x s s b i x x x
-  // x x x x h x c c c c c
-  // x x x x x j c x x x c
-  // x x x x x x x x x x c
   it('prioritizes kill moves in safer tiles', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 3, y: 9}], "30", "", "")
@@ -866,18 +835,6 @@ describe('Snake should not attempt to murder in a square that will likely immedi
     let moveResponse : MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // as above, otherSnek should never go left, so snek should never close itself in by trying to eat it going down
   })
-})
-
-describe('Snake should not try to murder another snake of one less length if that snake has just eaten', () => {
-  // x x x x x x x x x x x
-  // x x x t s x x x x x x
-  // x x x x s s x x x x x
-  // x x x x x s x x x x x
-  // x x x x x s x x x x x
-  // x x x x s s x x x x x
-  // x x x x h x c c c c c
-  // x x x x x j c x x x c
-  // x x x x x x x x x x x
   it('will equal the other snake length after the other snake grows', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 4, y: 8}, {x: 4, y: 9}, {x: 3, y: 9}], "30", "", "")
@@ -893,18 +850,6 @@ describe('Snake should not try to murder another snake of one less length if tha
       expect(moveResponse.move).toBe("left") // snek should avoid otherSnek2 as they are effectively the same length now that otherSnek2 has eaten
     }
   })
-})
-
-describe('Snake should not try to eat a snake of identical length if it just ate', () => {
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
-  // x x x x x x x x x x x
   it('will go up or right to avoid a chicken situation', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 100, [{x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 7, y: 5}], "30", "", "")
@@ -918,8 +863,8 @@ describe('Snake should not try to eat a snake of identical length if it just ate
   })
 })
 
-describe('Cloned game state should not have any references left to original game state', () => {
-  it('should contain identical values which can be changed without changing the original', () => {
+describe('Cloned game state tests', () => {
+  it('Cloned game state should contain identical values which can be changed without changing the original', () => {
     const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
 
@@ -1034,9 +979,6 @@ describe('Cloned game state should not have any references left to original game
 
     expect (gameState.you.name).toBe("snek")
   })
-})
-
-describe('Cloned game state should be identical to source game state', () => {
   it('should have the same snakes, rulesets, etc', () => {
     const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
@@ -1101,7 +1043,7 @@ describe('Cloned game state should be identical to source game state', () => {
   })
 })
 
-describe('Moving a snake results in changes to body, head, health', () => {
+describe('MoveSnake tests', () => {
   it('should have correct body and health after moving', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
@@ -1129,9 +1071,6 @@ describe('Moving a snake results in changes to body, head, health', () => {
     expect(snek.body[4].x).toBe(4)
     expect(snek.body[4].y).toBe(1)
   })
-})
-
-describe('Moving a snake into hazard results in changes to body, head, health', () => {
   it('should have correct body and health after moving into hazard', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
@@ -1159,9 +1098,6 @@ describe('Moving a snake into hazard results in changes to body, head, health', 
     expect(snek.body[4].x).toBe(4)
     expect(snek.body[4].y).toBe(1)
   })
-})
-
-describe('Moving a snake into food results in changes to body, head, health', () => {
   it('should have correct body and health after moving into food', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
@@ -1193,9 +1129,6 @@ describe('Moving a snake into food results in changes to body, head, health', ()
     // expect(snek.body[5].x).toBe(5) // tail doesn't grow until next turn
     // expect(snek.body[5].y).toBe(1)
   })
-})
-
-describe('Moving a snake from food results in changes to body, head, health', () => {
   it('should have correct body and health after moving from food', () => {
     const snek = new Battlesnake("snek", "snek", 100, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 1}], "30", "", "")
     const gameState = createGameState(snek)
