@@ -274,11 +274,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   let evaluation = evalBase
 
+  if (gameState.board.snakes.length === 0) {
+    return determineEvalNoSnakes(gameState, gameState.you) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
+  }
   if (myself === undefined) {
     return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
-  }
-  if (gameState.board.snakes.length === 0) {
-    return determineEvalNoSnakes(gameState, myself) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (!isSolo && otherSnakes.length === 0) { // if it's not a solo game & there are no snakes left, we've won
     buildLogString(`no other snakes, add ${evalSolo}`)

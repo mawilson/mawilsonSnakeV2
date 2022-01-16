@@ -259,7 +259,16 @@ export function cloneGameState(gameState: GameState) : GameState {
   let cloneYouProbably : Battlesnake | undefined = cloneBoard.snakes.find(function findSnake(snake) {
     return snake.id === gameState.you.id
   })
-  let cloneYou : Battlesnake = cloneYouProbably instanceof Battlesnake ? cloneYouProbably : cloneSnakes[0] // it shouldn't ever need to assign cloneSnakes[0], but typescript wants this in case the find returns undefined
+  let cloneYou: Battlesnake
+  if (cloneYouProbably === undefined) { // if youSnake is no longer in the game, use the old gameState.you
+    let newBody: Coord[] = []
+    gameState.you.body.forEach(function addPart(coord: Coord) {
+      newBody.push(new Coord(coord.x, coord.y))
+    })
+    cloneYou = new Battlesnake(gameState.you.id, gameState.you.name, gameState.you.health, newBody, gameState.you.latency, gameState.you.shout, gameState.you.squad)
+  } else {
+    cloneYou = cloneYouProbably
+  }
 
   let cloneGameState : GameState = {
     game: cloneGame,

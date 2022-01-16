@@ -1,4 +1,4 @@
-export const version: string = "1.0.9" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.10" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
@@ -198,7 +198,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
-    if (!stillHaveTime) { // if we need to leave early due to time
+    if (false && !stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
@@ -280,12 +280,25 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place        
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
 
+            otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
+              return b.length - a.length
+            })
             otherSnakes.forEach(function mvsnk(snake) { // move each of the snakes at the same time, without updating gameState until each has moved
               if (moveSnakes[snake.id]) { // if I have already decided upon this snake's move, see if it dies doing said move
                 let newHead = getCoordAfterMove(snake.head, moveSnakes[snake.id].direction)
                 let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
+
+                let murderSnake: Battlesnake | undefined = otherSnakes.find(murderSnake => { // check if any snake has murdered this snake, including originalSnake
+                  if (murderSnake.id !== snake.id) { // don't compare self to self
+                    // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
+                    let murderSnakeLength: number = murderSnake.health === 100 ? murderSnake.length - 1 : murderSnake.length // if it just ate, decrement its length, else just consider its length
+                    return (coordsEqual(newHead, murderSnake.head) && murderSnakeLength >= snake.length)
+                  } else { // return false for self
+                    return false
+                  }
+                })
                 // allow snakes that died to reroll their move
-                if (coordsEqual(newHead, newGameState.you.head) && gameState.you.length >= snake.length) { // use self length from before the move, in case this move caused it to grow
+                if (murderSnake !== undefined) {
                   let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(newGameState, snake, new Board2d(newGameState.board)).validMoves()
                   switch (otherSnakeAvailableMoves.length) { // allow otherSnake to choose again if that may make a difference
                     case 0: // otherSnake has no other options, don't change its move
@@ -298,17 +311,23 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                         if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
                           adjustedMove = newMove
                         } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
-                          if (newGameState.board.snakes.length > 2) { // it's not a duel
-                            if (gameState.you.length > snake.length) { // if it's not a tie, should choose elsewhere.
+                          let murderSnakeBeforeMove: Battlesnake | undefined = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
+                            return murderSnake !== undefined && priorSnake.id === murderSnake.id
+                          })
+                          if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
+                            let murderSnakeBeforeMoveAvailableMoves = murderSnakeBeforeMove.id === gameState.you.id? availableMoves : getAvailableMoves(gameState, murderSnakeBeforeMove, board2d).validMoves() // get available moves murderSnake had before moving - can use availableMoves if murderSnake is myself
+                            if (newGameState.board.snakes.length > 2) { // it's not a duel
+                              if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
+                                adjustedMove = newMove
+                              } else if (murderSnakeBeforeMoveAvailableMoves.length === 1) { // if it is a tie, only rechoose if originalSnake had no other options
+                                adjustedMove = newMove
+                              }
+                            } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                               adjustedMove = newMove
-                            } else if (availableMoves.length === 1) { // if it is a tie, only rechoose if originalSnake had no other options
+                            } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
                               adjustedMove = newMove
-                            }
-                          } else if (gameState.you.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
-                            adjustedMove = newMove
-                          } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
-                            adjustedMove = newMove
-                          } // if it fails all three of those, we won't rechoose
+                            } // if it fails all three of those, we won't rechoose
+                          }
                         }
                       }
                       break

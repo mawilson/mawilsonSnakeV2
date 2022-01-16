@@ -595,8 +595,7 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
     }
   })
-  it.only('does not avoid a tie kiss of death if in a duel', () => {
-    debugger
+  it('does not avoid a tie kiss of death if in a duel', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
