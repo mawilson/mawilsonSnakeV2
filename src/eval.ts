@@ -155,6 +155,51 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 1 // originalSnake uses gameData lookahead, otherSnakes use 1
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
+  // returns the evaluation value associated with the given kissOfDeathState
+  function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState): number {
+    switch (kissOfDeathState) {
+      case KissOfDeathState.kissOfDeathCertainty:
+        return evalPriorKissOfDeathCertainty
+      case KissOfDeathState.kissOfDeathCertaintyMutual:
+        return evalPriorKissOfDeathCertaintyMutual
+      case KissOfDeathState.kissOfDeathMaybe:
+        return evalPriorKissOfDeathMaybe
+      case KissOfDeathState.kissOfDeathMaybeMutual:
+        return evalPriorKissOfDeathMaybeMutual
+      case KissOfDeathState.kissOfDeath3To1Avoidance:
+        return evalPriorKissOfDeath3To1Avoidance
+      case KissOfDeathState.kissOfDeath3To2Avoidance:
+        return evalPriorKissOfDeath3To2Avoidance
+      case KissOfDeathState.kissOfDeath2To1Avoidance:
+        return evalPriorKissOfDeath2To1Avoidance
+      case KissOfDeathState.kissOfDeathNo:
+        return evalPriorKissOfDeathNo
+      default:
+        return 0
+    }
+  }
+
+  // returns the evaluation value associated with the given kissOfMurderState
+  function getPriorKissOfMurderValue(kissOfMurderState: KissOfMurderState): number {
+    switch (kissOfMurderState) {
+      case KissOfMurderState.kissOfMurderCertainty:
+        evalHazardPenalty = 0 // do not penalize certain kill for being in hazard
+        evalCenterDistancePenalty = 0 // do not penalize snake for straying from center to pursue a certain kill
+        return evalPriorKissOfMurderCertainty
+      case KissOfMurderState.kissOfMurderMaybe:
+        return evalPriorKissOfMurderMaybe
+      case KissOfMurderState.kissOfMurderFaceoff:
+        evalHazardPenalty = 0 // do not penalize closing the faceoff for being in hazard
+        evalCenterDistancePenalty = 0 // do not penalize snake for straying from center to pursue a faceoff
+        return evalPriorKissOfMurderFaceoff
+      case KissOfMurderState.kissOfMurderAvoidance:
+        return evalPriorKissOfMurderAvoidance
+      case KissOfMurderState.kissOfMurderNo:
+      default:
+        return 0
+    }
+  }
+
   // values to tweak
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
@@ -274,11 +319,17 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   let evaluation = evalBase
 
-  if (myself === undefined) {
-    return evalNoMe // if mySnake is not still in the game board, it's dead. This is a bad evaluation.
-  }
   if (gameState.board.snakes.length === 0) {
-    return determineEvalNoSnakes(gameState, myself) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
+    return determineEvalNoSnakes(gameState, gameState.you) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
+  }
+  if (myself === undefined) {
+    if (_myself !== undefined && _myself.health <= 0) { // if I starved, return evalNoMe, this is certain death
+      return evalNoMe
+    } else if (priorKissStates.deathState !== KissOfDeathState.kissOfDeathNo) {
+      return getPriorKissOfDeathValue(priorKissStates.deathState) // Return the kissofDeath value that got me here (if applicable). This represents an uncertain death - though bad, it's not as bad as, say, starvation, which is a certainty.
+    } else { // other deaths, such as death by snake body, are also a certainty
+      return evalNoMe
+    }
   }
   if (!isSolo && otherSnakes.length === 0) { // if it's not a solo game & there are no snakes left, we've won
     buildLogString(`no other snakes, add ${evalSolo}`)
@@ -335,17 +386,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
     evaluation = evaluation + evalHazardWallPenalty
   }
-
-  // in addition to wall/corner penalty, give a bonus to being closer to center
-  const centers = calculateCenterWithHazard(gameState, hazardWalls)
-
-  const xDiff = Math.abs(myself.head.x - centers.centerX)
-  const yDiff = Math.abs(myself.head.y - centers.centerY)
-
-  buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
-  evaluation = evaluation + xDiff * evalCenterDistancePenalty
-  buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
-  evaluation = evaluation + yDiff * evalCenterDistancePenalty
 
   if (isDuel) { // if duelling, pay closer attention to enemy's health in an attempt to starve it out if possible
     if (hazardDamage > 0) {
@@ -536,68 +576,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
   
-  // for kisses from the previous move state
-  // The only one that really matters is the one indicating 50/50. kissOfDeathCertainty is also bad but likely we're already dead at that point
-  switch (priorKissStates.deathState) {
-    case KissOfDeathState.kissOfDeathCertainty:
-      buildLogString(`KissOfDeathCertainty, adding ${evalPriorKissOfDeathCertainty}`)
-      evaluation = evaluation + evalPriorKissOfDeathCertainty
-      break
-    case KissOfDeathState.kissOfDeathCertaintyMutual:
-      buildLogString(`KissOfDeathCertaintyMutual, adding ${evalPriorKissOfDeathCertaintyMutual}`)
-      evaluation = evaluation + evalPriorKissOfDeathCertaintyMutual
-      break
-    case KissOfDeathState.kissOfDeathMaybe:
-      buildLogString(`KissOfDeathMaybe, adding ${evalPriorKissOfDeathMaybe}`)
-      evaluation = evaluation + evalPriorKissOfDeathMaybe
-      break
-    case KissOfDeathState.kissOfDeathMaybeMutual:
-      buildLogString(`KissOfDeathMaybeMutual, adding ${evalPriorKissOfDeathMaybeMutual}`)
-      evaluation = evaluation + evalPriorKissOfDeathMaybeMutual
-      break
-    case KissOfDeathState.kissOfDeath3To1Avoidance:
-      buildLogString(`KissOfDeath3To1Avoidance, adding ${evalPriorKissOfDeath3To1Avoidance}`)
-      evaluation = evaluation + evalPriorKissOfDeath3To1Avoidance
-      break
-    case KissOfDeathState.kissOfDeath3To2Avoidance:
-      buildLogString(`KissOfDeath3To2Avoidance, adding ${evalPriorKissOfDeath3To2Avoidance}`)
-      evaluation = evaluation + evalPriorKissOfDeath3To2Avoidance
-      break
-    case KissOfDeathState.kissOfDeath2To1Avoidance:
-      buildLogString(`KissOfDeath2To1Avoidance, adding ${evalPriorKissOfDeath2To1Avoidance}`)
-      evaluation = evaluation + evalPriorKissOfDeath2To1Avoidance
-      break
-    case KissOfDeathState.kissOfDeathNo:
-      buildLogString(`KissOfDeathNo, adding ${evalPriorKissOfDeathNo}`)
-      evaluation = evaluation + evalPriorKissOfDeathNo
-      break
-    default:
-      break
-  }
+  let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState)
+  buildLogString(`Prior kiss of death state ${priorKissStates.deathState}, adding ${priorKissOfDeathValue}`)
+  evaluation = evaluation + priorKissOfDeathValue
 
-  switch (priorKissStates.murderState) {
-    case KissOfMurderState.kissOfMurderCertainty:
-      buildLogString(`KissOfMurderCertainty, adding ${evalPriorKissOfMurderCertainty}`)
-      evaluation = evaluation + evalPriorKissOfMurderCertainty
-      evalHazardPenalty = 0 // do not penalize certain kill for being in hazard
-      break
-    case KissOfMurderState.kissOfMurderMaybe:
-      buildLogString(`KissOfMurderMaybe, adding ${evalPriorKissOfMurderMaybe}`)
-      evaluation = evaluation + evalPriorKissOfMurderMaybe
-      break
-    case KissOfMurderState.kissOfMurderFaceoff:
-      buildLogString(`KissOfMurderFaceoff, adding ${evalPriorKissOfMurderFaceoff}`)
-      evaluation = evaluation + evalPriorKissOfMurderFaceoff
-      evalHazardPenalty = 0 // do not penalize closing the faceoff for being in hazard
-      break
-    case KissOfMurderState.kissOfMurderAvoidance:
-      buildLogString(`KissOfMurderAvoidance, adding ${evalPriorKissOfMurderAvoidance}`)
-      evaluation = evaluation + evalPriorKissOfMurderAvoidance
-      break
-    case KissOfMurderState.kissOfMurderNo:
-    default:
-      break
-  }
+  let priorKissOfMurderValue = getPriorKissOfMurderValue(priorKissStates.murderState)
+  buildLogString(`Prior kiss of murder state ${priorKissStates.murderState}, adding ${priorKissOfMurderValue}`)
+  evaluation = evaluation + priorKissOfMurderValue
+
   // if this state's murder prey was my snake & it's not a duel, give a reward so I assume other snakes are out to get me
   if (!isOriginalSnake && priorKissStates.prey !== undefined && priorKissStates.prey.id === gameState.you.id) {
     buildLogString(`prior prey was ${gameState.you.name}, adding ${evalPriorKissOfMurderSelfBonus}`)
@@ -770,6 +756,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let safeCells: number = getSafeCells(board2d)
   const numCells: number = board2d.height * board2d.width
   const safeCellPercentage: number = (safeCells * 100) / numCells
+
+  // in addition to wall/corner penalty, give a bonus to being closer to center
+  const centers = calculateCenterWithHazard(gameState, hazardWalls)
+
+  const xDiff = Math.abs(myself.head.x - centers.centerX)
+  const yDiff = Math.abs(myself.head.y - centers.centerY)
+
+  if (isDuel) { // in a duel, centering should be avoided if we have otherSnake in a bind
+    if (canCutoffSnake || canCutoffHazardSnake || canFaceoffSnake) {
+      evalCenterDistancePenalty = 0
+    }
+  }
+  buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
+  evaluation = evaluation + xDiff * evalCenterDistancePenalty
+  buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
+  evaluation = evaluation + yDiff * evalCenterDistancePenalty
 
   if (isDuel && hazardDamage === 0 && myself.length > 20) { // in long-running duels without hazard, chasing one's tail is the best thing you can do barring a kill
     let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
