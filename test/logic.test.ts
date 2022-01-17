@@ -688,6 +688,31 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).toBe("up") // snek can tie by going right, but will cut otherSnek off & win if it goes up. Note otherSnek has option of going left, but will die in two turns - may break in speed snake.
     }
   })
+  it.only('does not avoid a tie kiss of death in a non-duel if it saves my life', () => {
+    debugger
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 92, [{x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 91, [{x: 3, y: 4}, {x: 2, y: 4}, {x: 2, y: 3}, {x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 6, y: 3}, {x: 7, y: 3}, {x: 7, y: 4}, {x: 8, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 85, [{x: 10, y: 5}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.board.food = [{x: 2, y: 0}, {x: 3, y: 1}, {x: 10, y: 4}, {x: 1, y: 10}]
+
+      createHazardRow(gameState.board, 10)
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 9)
+      createHazardColumn(gameState.board, 10)
+
+      gameState.turn = 117
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // left is a tie cell, but otherSnek likely won't go for it, since in a non-duel, ties are losses. Down kills us in a few turns, so should go left.
+    }
+  })
   it('avoids kisses of death even if it will die in a few turns anyway', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
     const gameState = createGameState(snek)
