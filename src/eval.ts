@@ -254,9 +254,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalLengthMult = 5 // larger values result in more food prioritization
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
-  const evalPriorKissOfDeathCertaintyMutual = -400 // another snake would have to kamikaze to hit us here, but it's still risky
+  const evalPriorKissOfDeathCertaintyMutual = 0 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so also neutral
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
-  const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -300 // this is less than a 50/50, but still bad. Our predator doesn't want to take this chance either & may avoid this, but may not if it can't
+  const evalPriorKissOfDeathMaybeMutual = 0 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so also neutral
   const evalPriorKissOfDeath3To1Avoidance = isOriginalSnake? 20 : 0 // for baitsnake purposes, we love originalSnake moving towards predators, then away
   const evalPriorKissOfDeath3To2Avoidance = evalPriorKissOfDeath3To1Avoidance
   const evalPriorKissOfDeath2To1Avoidance = evalPriorKissOfDeath3To1Avoidance
@@ -269,9 +269,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
-  const evalKissOfDeathCertaintyMutual = -200 // another snake will have to kamikaze to his us here, but it's still risky
+  const evalKissOfDeathCertaintyMutual = 0 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so also neutral
   const evalKissOfDeathMaybe = -200 // a 50/50 on whether we will be kissed to death next turn
-  const evalKissOfDeathMaybeMutual = isDuel? 0 : -150 // a bit less than a 50/50, as neither party particularly wants to take this chance
+  const evalKissOfDeathMaybeMutual = 0 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so also neutral
   const evalKissOfDeathAvoidance = isOriginalSnake? 10 : 0 // for baitSnake purposes, we love originalSnake moving towards predators, then away
 
   const evalKissOfDeathNo = 0
