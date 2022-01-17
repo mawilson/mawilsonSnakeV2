@@ -1539,7 +1539,6 @@ describe('Snake cutoff tests', () => {
     }
   })
   it('ignores food while seeking a cutoff pinning snake against hazard in a duel', () => {
-    debugger
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 2}, {x: 4, y :2}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}], "30", "", "")
       
@@ -1556,6 +1555,30 @@ describe('Snake cutoff tests', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right") // can pin otherSnek up against hazard by continuing to move right, should not get food by going up
+    }
+  })
+  it('does not give up on a hazard cutoff in a duel in order to chase tail or center', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 7, y: 4}, {x: 7, y: 3}, {x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 4, y: 2}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 3, y: 3}, {x: 3, y: 4}, {x: 4, y: 4}], "30", "", "")
+      
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 8, y: 3}, {x: 8, y: 2}, {x: 8, y: 1}, {x: 8, y: 0}, {x: 7, y: 0}, {x: 6, y: 0}, {x: 5, y: 0}, {x: 4, y: 0}, {x: 3, y: 0}, {x: 2, y: 0}, {x: 2, y: 1}, {x: 3, y: 1}, {x: 4, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 1}, {x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 10}]
+
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 10)
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 1)
+      createHazardColumn(gameState.board, 10)
+      createHazardColumn(gameState.board, 9)
+
+      gameState.turn = 155
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // right gets us eaten, left lets snake out of hazard cutoff. Up continues hazard cutoff.
     }
   })
 })

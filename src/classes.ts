@@ -1103,3 +1103,61 @@ export class TimingData {
     this.timeout = timeout
   }
 }
+
+// at this point just for debugging, useful in visualizing the path snake took to making a decision
+export class Leaf {
+  value: MoveWithEval // the evalState score a state resolved upon
+  children: Leaf[]
+  parent: Leaf | undefined
+  depth: number
+
+  constructor(value: MoveWithEval, children: Leaf[], depth: number, parent?: Leaf) {
+    this.value = value
+    this.children = children
+    this.depth = depth
+    if (parent !== undefined) {
+      parent.children.push(this) 
+    }
+    this.parent = parent
+  }
+}
+
+export class Tree {
+  root: Leaf
+
+  constructor(root?: Leaf) {
+    if (root) {
+      this.root = root
+    } else {
+      this.root = new Leaf(new MoveWithEval(undefined, undefined), [], 0, undefined)
+    }
+  }
+
+  // breadth-first traversal of Tree
+  toString(): string {
+    let str: string = ""
+    let collection: Leaf[] = [this.root]
+
+    while (collection.length) {
+      let leaf = collection.shift()
+      if (leaf) {
+        str = str + leaf.value.toString() + " " // all leaves should be at least a space apart
+        collection.push(...leaf.children)
+        if (collection && collection[0] && collection[0].depth !== leaf.depth) { // if next leaf in tree has a depth that is not leaf's depth, add a new line
+          str = str + "\nDepth: " + collection[0].depth + "\n"
+          if (collection[0].parent) {
+            str = str + "Parent: " + collection[0].parent.value.toString() + "; "
+          }
+        } else if (collection && collection[0] && collection[0].parent !== leaf.parent) { // if next leaf in tree has different parent than leaf's parent, add a line
+          str = str + "\n"
+          if (collection[0].parent) {
+            str = str + "Parent: " + collection[0].parent.value.toString() + "; "
+          }
+        }
+      } else {
+        return "there was an undefined leaf in the tree!"
+      }
+    }
+    return str
+  }
+}
