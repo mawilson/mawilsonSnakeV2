@@ -29,11 +29,18 @@ function createRulesetSettings() : RulesetSettings {
 }
 
 export function createGameState(me: Battlesnake): GameState {
+  let settings = createRulesetSettings()
+  let timeout: number
+  if (settings.hazardDamagePerTurn > 0) {
+    timeout = 600
+  } else {
+    timeout = 500
+  }
   return {
       game: {
           id: "totally-unique-game-id",
-          ruleset: { name: "standard", version: "v1.2.3", settings: createRulesetSettings() },
-          timeout: 500,
+          ruleset: { name: "standard", version: "v1.2.3", settings: settings },
+          timeout: timeout,
           source: "testing"
       },
       turn: 30, // arbitrary
@@ -688,8 +695,7 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).toBe("up") // snek can tie by going right, but will cut otherSnek off & win if it goes up. Note otherSnek has option of going left, but will die in two turns - may break in speed snake.
     }
   })
-  it.only('does not avoid a tie kiss of death in a non-duel if it saves my life', () => {
-    debugger
+  it('does not avoid a tie kiss of death in a non-duel if it saves my life', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 92, [{x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}], "30", "", "")
       const gameState = createGameState(snek)
@@ -911,7 +917,7 @@ describe('Cloned game state tests', () => {
 
     expect(gameState.game.id).toBe("totally-unique-game-id")
     expect(gameState.game.source).toBe("testing")
-    expect(gameState.game.timeout).toBe(500)
+    expect(gameState.game.timeout).toBe(600)
     // modify clone game ruleset, check if originals were affected
     clone.game.ruleset.version = "cloneRulesetVersion"
     clone.game.ruleset.name = "cloneRulesetName"
@@ -996,12 +1002,12 @@ describe('Cloned game state tests', () => {
     // modify clone youSnake, check if original youSnake was affected
     clone.you.id = "cloneSnekYou"
 
-    expect (gameState.you.id).toBe("snek")
+    expect(gameState.you.id).toBe("snek")
 
     // reassign clone youSnake, check if original youSnake was affected
     clone.you = cloneSnek1
 
-    expect (gameState.you.name).toBe("snek")
+    expect(gameState.you.name).toBe("snek")
   })
   it('should have the same snakes, rulesets, etc', () => {
     const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}], "30", "", "")
@@ -1020,7 +1026,7 @@ describe('Cloned game state tests', () => {
 
     expect(clone.game.id).toBe("totally-unique-game-id")
     expect(clone.game.source).toBe("testing")
-    expect(clone.game.timeout).toBe(500)
+    expect(clone.game.timeout).toBe(600)
 
     expect(clone.game.ruleset.name).toBe("standard")
     expect(clone.game.ruleset.version).toBe("v1.2.3")
@@ -1446,7 +1452,7 @@ describe('Snake cutoff tests', () => {
       expect(moveResponse.move).toBe("up") // Down will send us towards the smaller snake, but it won't be smaller soon, so go up
     }
   })
-  // skipping for now, as this only passes if otherSnakes have a lookahead of at least 1
+  // skipping for now, as this exclusively passes if otherSnakes have a lookahead of at least 1
   it.skip('avoids cutoff cells against other snakes before going in the cutoff direction', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 1, y: 7}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
