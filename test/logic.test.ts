@@ -784,6 +784,30 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).toBe("right") // down will put me in a situation where I will be kissed to death the next turn
     }
   })
+  // valid test, but sadly snek just wants that food too badly. Even notching the tie penalty all the way up to 200 wasn't enough.
+  it.skip('avoids tie kiss of death in non-duel if otherSnake is likely to also go there', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 40, [{x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 40, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 5, y: 4}, {x: 5, y: 3}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 6, y: 6}, {x: 7, y: 6}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 7, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 90, [{x: 3, y: 2}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 1, y: 3}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.board.food = [{x: 0, y: 0}, {x: 3, y: 4}, {x: 10, y: 7}]
+
+      createHazardRow(gameState.board, 0)
+      createHazardColumn(gameState.board, 10)
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // I have three options, down is the only possible death. otherSnek2 will want the food & to escape otherSnek3, so will likely go left. Avoid the tie.
+    }
+  })
 })
 
 describe('Kiss of murder tests', () => {

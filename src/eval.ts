@@ -259,9 +259,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathCertaintyMutual = 0
   } else if (!isOriginalSnake) {
-    evalPriorKissOfDeathCertaintyMutual = 40 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
+    evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might
-    evalPriorKissOfDeathCertaintyMutual = -30
+    evalPriorKissOfDeathCertaintyMutual = -100
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
@@ -270,9 +270,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathMaybeMutual = 0
   } else if (!isOriginalSnake) {
-    evalPriorKissOfDeathMaybeMutual = 40 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
-  } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might
-    evalPriorKissOfDeathMaybeMutual = -30
+    evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
+  } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
+    evalPriorKissOfDeathMaybeMutual = -75
   }
   
   //const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
@@ -307,7 +307,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalFoodVal = 3
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 1
-  } else if (isDuel && snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
+  } else if (snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
     evalFoodVal = 3
   }
   const evalFoodStep = 1
