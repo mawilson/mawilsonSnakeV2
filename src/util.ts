@@ -676,6 +676,10 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
     } else {
       return 0
     }
+  } else if (gameState.turn === 0) { // on turn 0, there is 1 food at depth 2, only look for that
+    return 2
+  } else if (gameState.turn === 1) { // on turn 1, we should be 1 away from our starting food, only look for that
+    return 1
   }
   let depth : number = 4
   if (me.health < 10) { // search for food from farther away if health is lower
@@ -1104,14 +1108,16 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
 export function lookaheadDeterminator(gameState: GameState): number {
   let lookahead: number
   if (gameState.turn === 0) {
-    lookahead = 1 // for turn 0, give lookahead of 1. This is the only turn all snakes have four options, so calqing this takes longer than normal.
+    lookahead = 0 // for turn 0, give lookahead of 0. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 5) {
     lookahead = 2 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
   } else if (gameState.turn < 7 && gameState.game.timeout >= 500) {
     lookahead = 3
   } else {
     if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
-      if (gameState.board.snakes.length > 2) {
+      if (gameState.turn < 15) {
+        lookahead = 2
+      } else if (gameState.board.snakes.length > 2) {
         lookahead = 3
       } else {
         lookahead = 3

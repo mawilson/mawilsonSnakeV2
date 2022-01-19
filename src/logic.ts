@@ -1,4 +1,4 @@
-export const version: string = "1.0.12" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.13" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
@@ -322,7 +322,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                       break
                     case 1: // otherSnake has only one other option left. Evaluate it, choose it if it's better than a tie
                     case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie 
-                      let newMove = _decideMove(newGameState, snake, 0, undefined, move) // let snake decide again, no lookahead this time
+                      let newMove = _decideMove(newGameState, snake, 0) // let snake decide again, no lookahead this time, & don't tell it where myself moved this turn - it already moved there
                       // note that in this case, otherSnake will end up moving myself again (e.g. myself snake has moved twice), which may result in it choosing badly
                       if (newMove.score !== undefined) { // don't choose a move whose score is undefined, can't determine if it's better than what we have
                         if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
@@ -482,6 +482,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return snake.id !== gameState.you.id
     })
     otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
+      if (gameState.turn < 3) {
+        return // don't do this on the very first turns of the game. Too expensive to calculate, for no benefit
+      }
       if (initialMoveSnakes === undefined) {
         initialMoveSnakes = {}
       }
