@@ -301,7 +301,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKissOfMurderSelfBonus = 30 // bonus given to otherSnakes for attempting to get close enough to kill me
   let evalFoodVal = 2
 
-  if (isDuel && otherSnakes[0].health < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
+  if (gameState.turn < 3) {
+    evalFoodVal = 50 // simply, should always want to get the starting food
+  } else if (isDuel && otherSnakes[0].health < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = 3
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 1
