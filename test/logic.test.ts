@@ -1,7 +1,7 @@
 import { info, move, decideMove, start } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Coord, Direction, directionToString, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
-import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard, getSnakeScoreFromHashKey, getSnakeScoreHashKey } from '../src/util'
+import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
 
@@ -2522,6 +2522,36 @@ describe('SnakeScore hash key tests', () => {
       expect(snakeScore.hazardCountTier).toBe(HazardCountTier.zero)
       expect(snakeScore.snakeCount).toBe(3)
       expect(snakeScore.depth).toBe(4)
+    }
+  })
+})
+
+describe('Voronoi diagram tests', () => {
+  it('can correctly map out a Voronoi diagram given no snakes of equal length & no food', () => {
+    const snek = new Battlesnake("snek", "snek", 70, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    // as a POC, make the game board small
+    gameState.board.height = 5
+    gameState.board.width = 5
+
+    let board2d: Board2d = new Board2d(gameState.board)
+
+    let reachableCells = calculateReachableCells(board2d, gameState.board.snakes)
+    let snekReachableCells = reachableCells[snek.id]
+    let otherSnekReachableCells = reachableCells[otherSnek.id]
+
+    expect(snekReachableCells).toBeDefined()
+    expect(otherSnekReachableCells).toBeDefined()
+
+    if (snekReachableCells !== undefined) {
+      expect(snekReachableCells).toBe(14)
+    }
+    if (otherSnekReachableCells !== undefined) {
+      expect(otherSnekReachableCells).toBe(11)
     }
   })
 })

@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, getNeckDirection } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -326,6 +326,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
+
+  // Voronoi values
+  const evalVoronoiMultiplier = 5 // multiplier for reachable cells
+  const evalVoronoiDuelMultiplier = 2 // multiplier for reachable cell differential in a duel
+  const evalVoronoiSelfLess3 = -600
+  const evalVoronoiSelfLess5 = -400
+  const evalVoronoiSelfLess8 = -100
+  const evalVoronoiSelfGreater13 = 100
+  const evalVoronoiSelfDefault = 0
+  const evalVoronoiDeltaBonus = 50
+  const evalVoronoiOGLess3 = -evalVoronoiSelfLess3
+  const evalVoronoiOGLess5 = -evalVoronoiSelfLess5
+  const evalVoronoiOGLess8 = -evalVoronoiSelfLess8
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -808,6 +821,76 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
     evaluation = evaluation + (evalTailChase * tailDist)
   }
+
+  let reachableCells = calculateReachableCells(board2d, gameState.board.snakes)
+
+  let voronoiDelta: number = 0
+  const voronoiMyself: number | undefined = reachableCells[myself.id]
+  let voronoiLargest: number = 0
+  otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
+    let voronoiOtherSnake: number | undefined = reachableCells[snake.id]
+    if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
+      voronoiLargest = voronoiOtherSnake
+    }
+  })
+  voronoiDelta = voronoiMyself - voronoiLargest
+
+  // if (reachableCells[myself.id] !== undefined) {
+  //   buildLogString(`reachable cells bonus, adding ${evalVoronoiMultiplier * reachableCells[myself.id]}`)
+  //   evaluation = evaluation + evalVoronoiMultiplier * reachableCells[myself.id]
+  // }
+
+  let voronoiReward: number
+  if (voronoiMyself < 3) {
+    voronoiReward = evalVoronoiSelfLess3 // can barely go anywhere, this is either a trap or some very bad state
+  } else if (voronoiMyself < 5) {
+    voronoiReward = evalVoronoiSelfLess5 // not much better than the above
+  } else if (voronoiMyself < 8) {
+    voronoiReward = evalVoronoiSelfLess8 // starting to get respectable, but this is still cramped
+  } else if (voronoiMyself > 13) {
+    voronoiReward = evalVoronoiSelfGreater13 // small bonus for having mad options
+  } else {
+    voronoiReward = evalVoronoiSelfDefault // for average voronoi values, give no bonus
+  }
+
+  if (voronoiDelta > 0) { // I am the snake with the most open space, give a reward for that
+    voronoiReward = voronoiReward + evalVoronoiDeltaBonus
+  }
+
+  // more minmaxing - tells otherSnakes to reward positions that trap originalSnake
+  if (!isOriginalSnake && originalSnake) {
+    let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
+    if (originalSnakeVoronoi !== undefined) {
+      if (originalSnakeVoronoi < 3) {
+        voronoiReward = voronoiReward + evalVoronoiOGLess3
+      } else if (originalSnakeVoronoi < 5) {
+        voronoiReward = voronoiReward + evalVoronoiOGLess5
+      } else if (originalSnakeVoronoi < 8) {
+        voronoiReward = voronoiReward + evalVoronoiOGLess8
+      }
+    }
+  } else if (isDuel) { // for originalSnake, also give rewards for low otherSnake voronoi, but only in duels
+    let otherSnakeVoronoi: number | undefined = reachableCells[otherSnakes[0].id]
+    if (otherSnakeVoronoi !== undefined) {
+      if (otherSnakeVoronoi < 3) {
+        voronoiReward = voronoiReward + evalVoronoiOGLess3
+      } else if (otherSnakeVoronoi < 5) {
+        voronoiReward = voronoiReward + evalVoronoiOGLess5
+      } else if (otherSnakeVoronoi < 8) {
+        voronoiReward = voronoiReward + evalVoronoiOGLess8
+      }
+    }
+  }
+
+  buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
+  evaluation = evaluation + voronoiReward
+
+  // in a duel, give a bonus for being able to access more cells than the duel opponent, & a penalty for the opposite
+  // if (isDuel && reachableCells[myself.id] !== undefined && reachableCells[otherSnakes[0].id] !== undefined) {
+  //   let voronoiDuelBonus = (reachableCells[myself.id] - reachableCells[otherSnakes[0].id]) * evalVoronoiDuelMultiplier
+  //   buildLogString(`reachable cells duel bonus, adding ${voronoiDuelBonus}`)
+  //   evaluation = evaluation + voronoiDuelBonus
+  // }
 
   buildLogString(`final evaluation: ${evaluation}`)
 //   logToFile(evalWriteStream, `eval log: ${logString}

@@ -1,4 +1,4 @@
-export const version: string = "1.0.13" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.14" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
@@ -495,17 +495,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       })
       if (newSelf !== undefined) {
         newGameState.you = newSelf // need to process the snake as though it were myself, since _decideMove behaves radically different for self & otherSnakes
-        let otherSnakeLookahead = 3
-        if (newGameState.game.timeout < 500) {
-          otherSnakeLookahead = 2
-        }
-        if (otherSnakeLookahead >= startLookahead) {
-          otherSnakeLookahead = startLookahead - 1
-        }
-        if (otherSnakeLookahead < 0) {
-          otherSnakeLookahead = 0
-        }
+        // let otherSnakeLookahead = 2
+        // if (newGameState.game.timeout < 500) {
+        //   otherSnakeLookahead = 1
+        // }
+        // if (otherSnakeLookahead >= startLookahead) {
+        //   otherSnakeLookahead = startLookahead - 1
+        // }
+        // if (otherSnakeLookahead < 0) {
+        //   otherSnakeLookahead = 0
+        // }
 
+        let otherSnakeLookahead = 0
         initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, otherSnakeLookahead) // decide best move for other snakes according to current data, with modest lookahead
       }
     })
@@ -540,6 +541,8 @@ export function move(gameState: GameState): MoveResponse {
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
   let gameDataId = createGameDataId(gameState)
+
+  futureSight = futureSight - 2
 
   let thisGameData = gameData? gameData[gameDataId] : undefined
   if (thisGameData !== undefined) {

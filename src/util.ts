@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -1960,4 +1960,25 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
   } else {
     return HazardCountTier.lots
   }
+}
+
+// given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
+export function calculateReachableCells(board2d: Board2d, snakes: Battlesnake[]): {[key: string]: number} {
+  let cellTotals: {[key: string]: number} = {}
+  snakes.forEach(snake => { cellTotals[snake.id] = 0 }) // instantiate each snake object
+  for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
+    for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
+      let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
+      if (cell !== undefined) {
+        let voronoiKeys = Object.keys(cell.voronoi)
+        voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
+          let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
+          if (voronoiSnake !== undefined) {
+            cellTotals[snakeId] = cellTotals[snakeId] + 1
+          }
+        })
+      }
+    }
+  }
+  return cellTotals
 }
