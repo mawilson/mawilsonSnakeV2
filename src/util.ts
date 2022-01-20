@@ -669,8 +669,7 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
 }
 
 export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
-  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== me.id})
-  if (otherSnakes.length === 0) { // solo game, deprioritize food unless I'm dying
+  if (gameState.board.snakes.length <= 1) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
       return board2d.height + board2d.width
     } else {
@@ -680,21 +679,9 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
     return 2
   } else if (gameState.turn === 1) { // on turn 1, we should be 1 away from our starting food, only look for that
     return 1
+  } else {
+    return board2d.height + board2d.width // unless otherwise specified, we're always hungry
   }
-  let depth : number = 4
-  if (me.health < 10) { // search for food from farther away if health is lower
-    depth = board2d.height + board2d.width
-  } else if (me.health < 20) {
-    depth = board2d.height - 4
-  } else if (me.health < 30) {
-    depth = board2d.height - 5
-  } else if (me.health < 40) {
-    depth = board2d.height - 6
-  } else if (me.health < 50) {
-    depth = board2d.height - 7
-  }
-
-  return depth
 }
 
 // looks for food within depth moves away from snakeHead

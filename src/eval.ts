@@ -251,7 +251,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const evalHasEatenBonus = 50
   let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  const evalLengthMult = 7 // larger values result in more food prioritization
+  const evalLengthMult = 10 // larger values result in more food prioritization
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
 
@@ -284,7 +284,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   const evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
-  let evalPriorKissOfMurderAvoidance = isOriginalSnake? 0 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, do not prioritize this, as this is prone to being baited.
+  let evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance).
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -328,8 +328,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
-  const evalVoronoiMultiplier = 5 // multiplier for reachable cells
-  const evalVoronoiDuelMultiplier = 2 // multiplier for reachable cell differential in a duel
   const evalVoronoiSelfLess3 = -600
   const evalVoronoiSelfLess5 = -400
   const evalVoronoiSelfLess8 = -100
@@ -802,6 +800,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       evalCenterDistancePenalty = 0
     }
   }
+
   buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
   evaluation = evaluation + xDiff * evalCenterDistancePenalty
   buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
