@@ -328,15 +328,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
-  const evalVoronoiSelfLess3 = -600
-  const evalVoronoiSelfLess5 = -400
-  const evalVoronoiSelfLess8 = -100
-  const evalVoronoiSelfGreater13 = 100
-  const evalVoronoiSelfDefault = 0
+  const evalVoronoiNegativeStep = -100
+  const evalVoronoiNegativeMax = -600
+  const evalVoronoiPositiveStep = 20
+  const evalVoronoiPositiveMax = 100
+  const evalVoronoiBaseGood = 9
+  const evalVoronoiBase = 0
   const evalVoronoiDeltaBonus = 50
-  const evalVoronoiOGLess3 = -evalVoronoiSelfLess3
-  const evalVoronoiOGLess5 = -evalVoronoiSelfLess5
-  const evalVoronoiOGLess8 = -evalVoronoiSelfLess8
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -834,22 +832,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   })
   voronoiDelta = voronoiMyself - voronoiLargest
 
-  // if (reachableCells[myself.id] !== undefined) {
-  //   buildLogString(`reachable cells bonus, adding ${evalVoronoiMultiplier * reachableCells[myself.id]}`)
-  //   evaluation = evaluation + evalVoronoiMultiplier * reachableCells[myself.id]
-  // }
-
   let voronoiReward: number
-  if (voronoiMyself < 3) {
-    voronoiReward = evalVoronoiSelfLess3 // can barely go anywhere, this is either a trap or some very bad state
-  } else if (voronoiMyself < 5) {
-    voronoiReward = evalVoronoiSelfLess5 // not much better than the above
-  } else if (voronoiMyself < 8) {
-    voronoiReward = evalVoronoiSelfLess8 // starting to get respectable, but this is still cramped
-  } else if (voronoiMyself > 13) {
-    voronoiReward = evalVoronoiSelfGreater13 // small bonus for having mad options
+  if (voronoiMyself < evalVoronoiBaseGood) {
+    let howBad: number = (evalVoronoiBaseGood - voronoiMyself) * evalVoronoiNegativeStep
+    // so if negative step is -100, base good is 9, & voronoiMyself is 5, that makes for (9 - 5) * -100 = -400
+    howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+    voronoiReward = howBad
+  } else if (voronoiMyself > evalVoronoiBaseGood) {
+    let howGood: number = (voronoiMyself - evalVoronoiBaseGood) * evalVoronoiPositiveStep
+    // so if positive step is 20, base good is 9, & voronoiMyself is 15, that makes for (15 - 9) * 20 = 120
+    howGood = howGood > evalVoronoiPositiveMax? evalVoronoiPositiveMax : howGood // don't let howGood exceed the maximum
+    voronoiReward = howGood
   } else {
-    voronoiReward = evalVoronoiSelfDefault // for average voronoi values, give no bonus
+    voronoiReward = evalVoronoiBase
   }
 
   if (voronoiDelta > 0) { // I am the snake with the most open space, give a reward for that
@@ -860,36 +855,25 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (!isOriginalSnake && originalSnake) {
     let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
     if (originalSnakeVoronoi !== undefined) {
-      if (originalSnakeVoronoi < 3) {
-        voronoiReward = voronoiReward + evalVoronoiOGLess3
-      } else if (originalSnakeVoronoi < 5) {
-        voronoiReward = voronoiReward + evalVoronoiOGLess5
-      } else if (originalSnakeVoronoi < 8) {
-        voronoiReward = voronoiReward + evalVoronoiOGLess8
+      if (originalSnakeVoronoi < evalVoronoiBaseGood) {
+        let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
+        howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
       }
     }
   } else if (isDuel) { // for originalSnake, also give rewards for low otherSnake voronoi, but only in duels
     let otherSnakeVoronoi: number | undefined = reachableCells[otherSnakes[0].id]
     if (otherSnakeVoronoi !== undefined) {
-      if (otherSnakeVoronoi < 3) {
-        voronoiReward = voronoiReward + evalVoronoiOGLess3
-      } else if (otherSnakeVoronoi < 5) {
-        voronoiReward = voronoiReward + evalVoronoiOGLess5
-      } else if (otherSnakeVoronoi < 8) {
-        voronoiReward = voronoiReward + evalVoronoiOGLess8
+      if (otherSnakeVoronoi < evalVoronoiBaseGood) {
+        let howBad: number = (evalVoronoiBaseGood - otherSnakeVoronoi) * evalVoronoiNegativeStep
+        howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
       }
     }
   }
 
   buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
   evaluation = evaluation + voronoiReward
-
-  // in a duel, give a bonus for being able to access more cells than the duel opponent, & a penalty for the opposite
-  // if (isDuel && reachableCells[myself.id] !== undefined && reachableCells[otherSnakes[0].id] !== undefined) {
-  //   let voronoiDuelBonus = (reachableCells[myself.id] - reachableCells[otherSnakes[0].id]) * evalVoronoiDuelMultiplier
-  //   buildLogString(`reachable cells duel bonus, adding ${voronoiDuelBonus}`)
-  //   evaluation = evaluation + voronoiDuelBonus
-  // }
 
   buildLogString(`final evaluation: ${evaluation}`)
 //   logToFile(evalWriteStream, `eval log: ${logString}
