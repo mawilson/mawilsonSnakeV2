@@ -2540,7 +2540,7 @@ describe('Voronoi diagram tests', () => {
 
     let board2d: Board2d = new Board2d(gameState.board)
 
-    let reachableCells = calculateReachableCells(board2d, gameState.board.snakes)
+    let reachableCells = calculateReachableCells(gameState, board2d)
     let snekReachableCells = reachableCells[snek.id]
     let otherSnekReachableCells = reachableCells[otherSnek.id]
 

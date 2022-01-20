@@ -251,7 +251,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const evalHasEatenBonus = 50
   let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  const evalLengthMult = 5 // larger values result in more food prioritization
+  const evalLengthMult = 7 // larger values result in more food prioritization
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
 
@@ -261,7 +261,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake) {
     evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might
-    evalPriorKissOfDeathCertaintyMutual = -100
+    evalPriorKissOfDeathCertaintyMutual = -400
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
@@ -272,7 +272,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
-    evalPriorKissOfDeathMaybeMutual = -75
+    evalPriorKissOfDeathMaybeMutual = -300
   }
   
   //const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
@@ -822,7 +822,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + (evalTailChase * tailDist)
   }
 
-  let reachableCells = calculateReachableCells(board2d, gameState.board.snakes)
+  let reachableCells = calculateReachableCells(gameState, board2d)
 
   let voronoiDelta: number = 0
   const voronoiMyself: number | undefined = reachableCells[myself.id]

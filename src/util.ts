@@ -1963,9 +1963,10 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 }
 
 // given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
-export function calculateReachableCells(board2d: Board2d, snakes: Battlesnake[]): {[key: string]: number} {
+export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: number} {
   let cellTotals: {[key: string]: number} = {}
-  snakes.forEach(snake => { cellTotals[snake.id] = 0 }) // instantiate each snake object
+  let hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
+  gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = 0 }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
@@ -1974,7 +1975,36 @@ export function calculateReachableCells(board2d: Board2d, snakes: Battlesnake[])
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           if (voronoiSnake !== undefined) {
-            cellTotals[snakeId] = cellTotals[snakeId] + 1
+            if (cell && cell.hazard) {
+              let validHazardTurns = voronoiSnake.snake.health / hazardDamage
+              switch (validHazardTurns) { // give snake lesser reward for reachable hazard cells, depending on health remaining
+                case 0:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.2
+                  break
+                case 1:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.3
+                  break
+                case 2:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.4
+                  break
+                case 3:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.5
+                  break
+                case 4:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.6
+                  break
+                case 5:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.7
+                  break
+                case 6:
+                case 7:
+                default:
+                  cellTotals[snakeId] = cellTotals[snakeId] + 0.8
+                  break
+              }
+            } else {
+              cellTotals[snakeId] = cellTotals[snakeId] + 1
+            }
           }
         })
       }
