@@ -233,10 +233,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
   const eval0Move = -700
-  const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = isOriginalSnake? 4 : 40
-  const eval4Moves = isOriginalSnake? 6 : 60
+  const eval1Move = 0 // with Voronoi, this is almost totally obsolete - but we can still heavily penalize 0move
+  const eval2Moves = 0
+  const eval3Moves = 0
+  const eval4Moves = 0
 
   const evalOriginalSnake0Move = 200 // for otherSnakes, should evaluate partly based on originalSnake's position
   const evalOriginalSnake1Move = 0
