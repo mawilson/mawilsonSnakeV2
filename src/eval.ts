@@ -335,6 +335,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalVoronoiBaseGood = 9
   const evalVoronoiBase = 0
   const evalVoronoiDeltaBonus = 50
+  const evalVoronoiOtherSnakeDivider = 3
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -846,9 +847,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else {
     voronoiReward = evalVoronoiBase
   }
+  buildLogString(`Voronoi bonus for self, adding ${voronoiReward}`)
 
   if (voronoiDelta > 0) { // I am the snake with the most open space, give a reward for that
     voronoiReward = voronoiReward + evalVoronoiDeltaBonus
+    buildLogString(`Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus}`)
   }
 
   // more minmaxing - tells otherSnakes to reward positions that trap originalSnake
@@ -858,7 +861,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       if (originalSnakeVoronoi < evalVoronoiBaseGood) {
         let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
         howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
         voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
+        buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
       }
     }
   } else if (isDuel) { // for originalSnake, also give rewards for low otherSnake voronoi, but only in duels
@@ -867,9 +872,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       if (otherSnakeVoronoi < evalVoronoiBaseGood) {
         let howBad: number = (evalVoronoiBaseGood - otherSnakeVoronoi) * evalVoronoiNegativeStep
         howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
         voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
+        buildLogString(`Voronoi bonus for limiting otherSnake Voronoi in duel, adding ${-howBad}`)
       }
     }
+  } else if (!isSolo && gameState.board.snakes.length === 1) { // add max otherSnake reward for last snake so as not to encourage it to keep snakes alive for that sweet reward
+    let lastVoronoiReward: number = -(evalVoronoiNegativeMax / evalVoronoiOtherSnakeDivider) // this will be negative, so negate it to make it a reward
+    voronoiReward = voronoiReward + lastVoronoiReward
+    buildLogString(`Voronoi bonus for being the last snake in a non-solo, adding ${lastVoronoiReward}`)
   }
 
   buildLogString(`Voronoi bonus, adding ${voronoiReward}`)

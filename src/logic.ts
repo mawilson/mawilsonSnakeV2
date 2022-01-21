@@ -223,7 +223,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
       if (lookahead !== undefined) {
-        let evalMultiplier: number = 0
+        let evalMultiplier: number = 1 // as a baseline, want to consider myself
         // final result for a lookahead of 4 should look like: evalThisState * (1.0 + 1.1 + 1.2 + 1.3 + 1.4). 4 lookahead means four future moves, plus this one.
         for (let i: number = 0; i <= lookahead; i++) { // need to apply weights for skipped lookahead steps, as well as this one
           evalMultiplier = evalMultiplier + 1 + lookaheadWeight * i

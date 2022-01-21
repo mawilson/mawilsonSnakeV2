@@ -785,7 +785,7 @@ describe('Kiss of death tests', () => {
     }
   })
   // valid test, but sadly snek just wants that food too badly. Even notching the tie penalty all the way up to 200 wasn't enough.
-  it.skip('avoids tie kiss of death in non-duel if otherSnake is likely to also go there', () => {
+  it('avoids tie kiss of death in non-duel if otherSnake is likely to also go there', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 40, [{x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}], "30", "", "")
       const gameState = createGameState(snek)
@@ -805,7 +805,7 @@ describe('Kiss of death tests', () => {
       createHazardColumn(gameState.board, 10)
 
       let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).not.toBe("down") // I have three options, down is the only possible death. otherSnek2 will want the food & to escape otherSnek3, so will likely go left. Avoid the tie.
+      expect(moveResponse.move).not.toBe("down") // I have three options, down is the sole possible death. otherSnek2 will want the food & to escape otherSnek3, so will likely go left. Avoid the tie.
     }
   })
 })
