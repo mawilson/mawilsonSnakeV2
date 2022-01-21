@@ -12,6 +12,9 @@ export function logToFile(file: WriteStream, str: string) {
   }
 }
 
+const voronoiHazardValueSmall: number = 0.4
+const voronoiHazardValueLarge: number = 0.75
+
 let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 
 export function getRandomInt(min: number, max: number) : number {
@@ -1953,12 +1956,7 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: number} {
   let cellTotals: {[key: string]: number} = {}
   let hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
-  let hazardValue: number
-  if (hazardDamage >= 15) {
-    hazardValue = 0.4
-  } else if (hazardDamage < 15) {
-    hazardValue = 0.75
-  }
+  let hazardValue: number = hazardDamage >= 15? voronoiHazardValueSmall : voronoiHazardValueLarge
   gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = 0 }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
