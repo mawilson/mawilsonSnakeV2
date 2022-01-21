@@ -145,7 +145,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   })
   let isOriginalSnake: boolean = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
-  const board2d = new Board2d(gameState.board)
+  const board2d = new Board2d(gameState.board, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of

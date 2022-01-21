@@ -1115,10 +1115,10 @@ export function lookaheadDeterminator(gameState: GameState): number {
           lookahead = 0
           break
         case 1:
-          lookahead = 7
+          lookahead = 5
           break
         case 2:
-          lookahead = 6
+          lookahead = 5
           break
         case 3:
           let board2d = new Board2d(gameState.board)
@@ -1129,19 +1129,19 @@ export function lookaheadDeterminator(gameState: GameState): number {
               return availableMoves.validMoves().length === 3
             })
             if (otherSnakesHave3Moves) {
-              lookahead = 5
+              lookahead = 3
             } else {
-              lookahead = 6
+              lookahead = 4
             }
           } else {
-            lookahead = 6
+            lookahead = 4
           }
           break
         default: // 4 or more
-          lookahead = 5
+          lookahead = 3
           break
       }
-      if (lookahead > 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
+      if (lookahead >= 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
         let totalSnakeLength: number = 0
         gameState.board.snakes.forEach(function addSnakeLength(snake) {
           totalSnakeLength = totalSnakeLength + snake.length

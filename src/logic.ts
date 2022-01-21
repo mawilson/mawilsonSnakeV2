@@ -104,7 +104,6 @@ export async function end(gameState: GameState): Promise<void> {
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, startLookahead: number): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
   let thisGameData: GameData | undefined = gameData[gameDataString]
-  let initialMoveSnakes : { [key: string]: MoveWithEval} | undefined = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
 
   let root: Leaf | undefined = undefined
   let tree: Tree = new Tree()
@@ -281,17 +280,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             })
 
             otherSnakes.forEach(snake => {
-              if (initialMoveSnakes !== undefined && lookahead === startLookahead) {
-                if (moveNeighbors.preyExists(snake)) { // if snake in danger of being eaten by me, full knowledge of my snake's move is better than 3 lookahead
-                  moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, move)
-                } else if (moveNeighbors.predatorExists(snake)) { // if myself is in danger of being eaten by snake, likewise, this is a min-max esque allowance
-                  moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, move)
-                } else {
-                  moveSnakes[snake.id] = initialMoveSnakes[snake.id] // prediction for the first moves for otherSnakes with extra lookahead
-                }
-              } else {
-                moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, move) // decide best move for other snakes according to current data, & tell them what move I am making
-              }
+              moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, move) // decide best move for other snakes according to current data, & tell them what move I am making
             })
 
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
@@ -474,55 +463,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   } else if (validMoves.length === 0) { // if I have no valid moves, return the default move
     return new MoveWithEval(getDefaultMove(gameState, myself, board2d), undefined)
   } else { // otherwise, start deciding  
-    //let myselfMove: MoveWithEval = _decideMove(gameState, myself, startLookahead)
-    let timeStart: number = 0
-    timeStart = Date.now()
-
-    let otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
-      return snake.id !== gameState.you.id
-    })
-    otherSnakes.forEach(function mvsnk(snake) { // before evaluating myself snake's next move, get the moves of each other snake as if it moved the way I would
-      if (gameState.turn < 3) {
-        return // don't do this on the very first turns of the game. Too expensive to calculate, for no benefit
-      }
-      if (initialMoveSnakes === undefined) {
-        initialMoveSnakes = {}
-      }
-      let newGameState: GameState = cloneGameState(gameState)
-      let newSelf: Battlesnake | undefined
-      newSelf = newGameState.board.snakes.find(function findSnake(newGameStateSnake) {
-        return snake.id === newGameStateSnake.id
-      })
-      if (newSelf !== undefined) {
-        newGameState.you = newSelf // need to process the snake as though it were myself, since _decideMove behaves radically different for self & otherSnakes
-        // let otherSnakeLookahead = 2
-        // if (newGameState.game.timeout < 500) {
-        //   otherSnakeLookahead = 1
-        // }
-        // if (otherSnakeLookahead >= startLookahead) {
-        //   otherSnakeLookahead = startLookahead - 1
-        // }
-        // if (otherSnakeLookahead < 0) {
-        //   otherSnakeLookahead = 0
-        // }
-
-        let otherSnakeLookahead = 0
-        initialMoveSnakes[snake.id] = _decideMove(newGameState, newSelf, otherSnakeLookahead) // decide best move for other snakes according to current data, with modest lookahead
-      }
-    })
-    let timeEnd = Date.now()
-    let timeTaken = timeEnd - timeStart
-    if (isDevelopment && timeStart !== 0) {
-      logToFile(consoleWriteStream, `time taken calculating otherSnakes' first moves for on turn ${gameState.turn}: ${timeTaken}`)
-    }
-
-    let myselfMove: MoveWithEval
-    if (timeTaken > 30) { // if it took inordinately long to get otherSnakes' starting moves, decrease lookahead for myself by one
-      startLookahead = startLookahead - 1
-      myselfMove = _decideMove(gameState, myself, startLookahead)
-    } else {
-      myselfMove = _decideMove(gameState, myself, startLookahead)
-    }
+    let myselfMove: MoveWithEval = _decideMove(gameState, myself, startLookahead)
 
     if (isDevelopment && amUsingMachineData) { // if I'm using machine learning data, log how many times I took advantage of the data
       logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves forEach ${movesShortCircuited} times.`)
@@ -541,8 +482,6 @@ export function move(gameState: GameState): MoveResponse {
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
   let gameDataId = createGameDataId(gameState)
-
-  futureSight = futureSight - 2
 
   let thisGameData = gameData? gameData[gameDataId] : undefined
   if (thisGameData !== undefined) {

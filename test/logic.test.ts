@@ -2541,7 +2541,7 @@ describe('Voronoi diagram tests', () => {
     gameState.board.height = 5
     gameState.board.width = 5
 
-    let board2d: Board2d = new Board2d(gameState.board)
+    let board2d: Board2d = new Board2d(gameState.board, true)
 
     let reachableCells = calculateReachableCells(gameState, board2d)
     let snekReachableCells = reachableCells[snek.id]
