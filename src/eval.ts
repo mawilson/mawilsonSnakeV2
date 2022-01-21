@@ -823,7 +823,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let reachableCells = calculateReachableCells(gameState, board2d)
 
   let voronoiDelta: number = 0
-  const voronoiMyself: number | undefined = reachableCells[myself.id]
+  const voronoiMyself: number = reachableCells[myself.id]
   let voronoiLargest: number = 0
   otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
     let voronoiOtherSnake: number | undefined = reachableCells[snake.id]
@@ -849,9 +849,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   buildLogString(`Voronoi bonus for self, adding ${voronoiReward}`)
 
-  if (voronoiDelta > 0) { // I am the snake with the most open space, give a reward for that
-    voronoiReward = voronoiReward + evalVoronoiDeltaBonus
-    buildLogString(`Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus}`)
+  if (isDuel) { // give stronger & more specific rewards for board control in duel
+    let voronoiOtherSnake: number = reachableCells[otherSnakes[0].id]
+    let ratio = voronoiMyself / voronoiOtherSnake
+    let reward: number = 0
+    if (ratio > 1) { // give varying rewards depending on how much more board control I have
+      if (ratio < 2) { // if my reachable cells are less than double that of otherSnake
+        reward = evalVoronoiDeltaBonus // just a 50 reward
+      } else if (ratio < 3) { // if my reachable cells are less than triple that of otherSnake
+        reward = evalVoronoiDeltaBonus * 2 // 100 reward
+      } else { // my reachable cells are more than triple that of otherSnake
+        reward = evalVoronoiDeltaBonus * 4 // 200 reward
+      }
+    }
+    voronoiReward = voronoiReward + reward
+    buildLogString(`Voronoi bonus for having largest Voronoi, adding ${reward}`)
+  } else {
+    if (voronoiDelta > 0) { // reward for having better board control
+      voronoiReward = voronoiReward + evalVoronoiDeltaBonus
+      buildLogString(`Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus}`)
+    }
   }
 
   // more minmaxing - tells otherSnakes to reward positions that trap originalSnake
@@ -864,17 +881,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
         voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
         buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
-      }
-    }
-  } else if (isDuel) { // for originalSnake, also give rewards for low otherSnake voronoi, but only in duels
-    let otherSnakeVoronoi: number | undefined = reachableCells[otherSnakes[0].id]
-    if (otherSnakeVoronoi !== undefined) {
-      if (otherSnakeVoronoi < evalVoronoiBaseGood) {
-        let howBad: number = (evalVoronoiBaseGood - otherSnakeVoronoi) * evalVoronoiNegativeStep
-        howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
-        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
-        voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
-        buildLogString(`Voronoi bonus for limiting otherSnake Voronoi in duel, adding ${-howBad}`)
       }
     }
   } else if (!isSolo && gameState.board.snakes.length === 1) { // add max otherSnake reward for last snake so as not to encourage it to keep snakes alive for that sweet reward
