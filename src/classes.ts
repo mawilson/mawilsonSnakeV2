@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten, getSnakeScoreHashKey } from "./util"
+import { logToFile, getRelativeDirection, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -137,15 +137,27 @@ export class Battlesnake implements IBattlesnake {
 
 export class SnakeCell {
   snake: Battlesnake
+  bodyIndex: number
   isHead: boolean
   isTail: boolean
   hasEaten: boolean
 
-  constructor(snake: Battlesnake, head: boolean, tail: boolean) {
+  constructor(snake: Battlesnake, bodyIndex: number) {
     this.snake = snake
-    this.isHead = head
-    this.isTail = tail
     this.hasEaten = snakeHasEaten(snake)
+    this.bodyIndex = bodyIndex
+    this.isHead = bodyIndex === 0 // is head if bodyIndex is front of the array
+    this.isTail = bodyIndex === (snake.length - 1) // is tail is bodyIndex is end of the array
+  }
+}
+
+export class VoronoiSnake {
+  snake: Battlesnake
+  depth: number
+
+  constructor(snake: Battlesnake, depth: number) {
+    this.snake = snake
+    this.depth = depth
   }
 }
 
@@ -154,12 +166,14 @@ export class BoardCell {
   food: boolean;
   hazard: boolean;
   coord: Coord;
+  voronoi: {[key: string]: VoronoiSnake} // will populate when calculating VoronoiCells. Most of the time this will be a single snake, but due to ties, can possibly hold multiple
 
   constructor(_coord: Coord, _food: boolean, _hazard: boolean, _snakeCell?: SnakeCell) {
     this.snakeCell = _snakeCell;
     this.food = _food;
     this.hazard = _hazard;
     this.coord = _coord;
+    this.voronoi = {}
   }
 
   logSelf(str? : string) : string {
@@ -172,6 +186,15 @@ export class BoardCell {
     logToFile(consoleWriteStream, ret);
     return ret
   }
+
+  voronoiDepth(): number | undefined {
+    let voronoiKeys = Object.keys(this.voronoi)
+    if (voronoiKeys.length === 0) {
+      return undefined
+    } else {
+      return this.voronoi[voronoiKeys[0]].depth
+    }
+  }
 }
 
 export class Board2d {
@@ -179,18 +202,25 @@ export class Board2d {
   width: number;
   height: number;
 
-  constructor(board: Board) {
+  constructor(board: Board, populateVoronoi?: boolean) {
     this.width = board.width;
     this.height = board.height;
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
+    let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
+
     function processSnake(inputSnake : Battlesnake) : void {
-      inputSnake.body.forEach(function addSnakeCell(part : Coord) : void {
-        let newSnakeCell = new SnakeCell(inputSnake, coordsEqual(part, inputSnake.head), coordsEqual(part, inputSnake.body[inputSnake.body.length - 1])),
-            board2dCell = self.getCell(part)
+      inputSnake.body.forEach(function addSnakeCell(part: Coord, idx: number) : void {
+        let isHead: boolean = coordsEqual(part, inputSnake.head)
+        let newSnakeCell = new SnakeCell(inputSnake, idx)
+        let board2dCell = self.getCell(part)
         if (board2dCell) {
           board2dCell.snakeCell = newSnakeCell
+          if (isHead && populateVoronoi) {
+            board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
+            voronoiPoints.push(board2dCell)
+          }
         }
       })
     }
@@ -205,13 +235,68 @@ export class Board2d {
       }
     })
 
-    let _this = this;
     board.hazards.forEach(function addHazard(coord: Coord) : void {
       let board2dCell = self.getCell(coord)
       if (board2dCell instanceof BoardCell) {
         board2dCell.hazard = true;
       }
     })
+
+    // populate Voronoi properties of boardCells
+
+    if (populateVoronoi) {
+      // TODO: consider food at each depth, & increase snake's hypothetical length when determining tail cells. Snake can only eat once per depth
+      let depth: number = 1 // depth 0 is the snake heads, depth 1 is their immediate neighbors, & so on
+      while(voronoiPoints.length) { // so long as any voronoiPoints are left, must keep calculating them
+        //let eatDepths: {[key: string]: boolean} = {} // keeps track of whether snake with this ID has eaten at this depth
+
+        let point = voronoiPoints.shift() // get the top point off the list
+
+        if (point !== undefined) {
+          let neighbors = getSurroundingCells(point.coord, self)
+          neighbors.forEach(neighbor => { // for each neighbor, update its voronoi array if applicable
+            let isNewVoronoiBoardCell: boolean = false // if any VoronoiSnakes are added to this neighbor, set this to true so we can add it to voronoiPoints array
+            if (point !== undefined) {
+              let voronoiKeys = Object.keys(point.voronoi)
+
+
+              voronoiKeys.forEach(snakeId => { // propagate Voronoi out for each snake at this point. TieSnakes will end up sharing a lot of spaces.
+                let voronoiSnake: VoronoiSnake | undefined = point?.voronoi[snakeId]
+                if (voronoiSnake !== undefined) {
+                  // in order to allow for tails, cells with snakeCells whose length would have removed the tail by this depth will be allowed
+                  if (neighbor.snakeCell === undefined || ((neighbor.snakeCell.snake.length - neighbor.snakeCell.bodyIndex) <= depth)) {
+                    // so for a snake of length 5, at the tail, this means: (5 - 4) <= 1, or <= 2, 3, etc. This evaluates to true, which is correct - that's a tail cell, even at depth 1, it's valid
+                    // for the same snake of length 5, at index 2 (middle), this is only a tail if on depth 3 or greater - depth 1 is immediate neighbor, depth 2 is turn after that, depth 3 allows two shrinks. (5 - 2) <= 3
+                    let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
+                    if (!neighborVoronoiKeys.includes(snakeId)) { // if another voronoiPoint has already added this snakeId to this cell, no need to revisit
+                      if (neighborVoronoiKeys.length === 0) { // if I am the first one to this boardCell, add myself to its voronoi array
+                        neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth)
+                        isNewVoronoiBoardCell = true
+                      } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && (voronoiSnake.snake.length > neighbor.voronoi[neighborVoronoiKeys[0]].snake.length)) { // else if I am at the same depth as, & larger than the existing snakes in this board cell, remove them, & add myself
+                        neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
+                        neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth)
+                        isNewVoronoiBoardCell = true
+                      } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && voronoiSnake.snake.length === neighbor.voronoi[neighborVoronoiKeys[0]].snake.length) { // else if I am at the same depth as, & equal to the existing snakes in this board cell, add myself
+                        neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth)
+                        isNewVoronoiBoardCell = true
+                      } // if no cases pass, this cell is no longer open to me
+                    }
+                  }
+                }
+              })
+            }
+            if (isNewVoronoiBoardCell) {
+              voronoiPoints.push(neighbor)
+            }
+          })
+
+          // once we've processed all VoronoiPoints at this depth, can move on to the next depth
+          if (voronoiPoints[0] !== undefined && voronoiPoints[0].voronoiDepth() !== point.voronoiDepth()) {
+            depth = depth + 1
+          }
+        }
+      }
+    }
   }
 
   getCell(coord: Coord) : BoardCell | undefined {
@@ -272,6 +357,39 @@ export class Board2d {
             str = str + "H"
           } else { // empty cell
             str = str + "x"
+          }
+        }
+      }
+      str = str + "\n"
+    }
+    logToFile(consoleWriteStream, str)
+    return str
+  }
+
+  printBoardVoronoi(): string {
+    let str : string = ""
+    for (let j = this.height - 1; j >= 0; j--) {
+      for (let i = 0; i < this.width; i++) {
+        let tempCell = this.getCell({x: i, y: j})
+        if (tempCell) {
+          if (i !== 0) {
+            str = str + "  "
+          }
+          let voronoiKeys = Object.keys(tempCell.voronoi)
+          if (voronoiKeys.length === 0) {
+            str = str + "None " // each cell should be size 5
+          } else if (voronoiKeys.length === 1) {
+            if (tempCell.voronoi[voronoiKeys[0]].depth > 9) {
+              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 5) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
+            } else {
+              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 4) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
+            }
+          } else {
+            if (tempCell.voronoi[voronoiKeys[0]].depth > 9) {
+              str = str + "Tie" + tempCell.voronoi[voronoiKeys[0]].depth
+            } else {
+              str = str + "Tie" + tempCell.voronoi[voronoiKeys[0]].depth + " "
+            }
           }
         }
       }

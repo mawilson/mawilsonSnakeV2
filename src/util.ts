@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -669,8 +669,7 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
 }
 
 export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
-  const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) { return snake.id !== me.id})
-  if (otherSnakes.length === 0) { // solo game, deprioritize food unless I'm dying
+  if (gameState.board.snakes.length <= 1) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
       return board2d.height + board2d.width
     } else {
@@ -680,21 +679,9 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
     return 2
   } else if (gameState.turn === 1) { // on turn 1, we should be 1 away from our starting food, only look for that
     return 1
+  } else {
+    return board2d.height + board2d.width // unless otherwise specified, we're always hungry
   }
-  let depth : number = 4
-  if (me.health < 10) { // search for food from farther away if health is lower
-    depth = board2d.height + board2d.width
-  } else if (me.health < 20) {
-    depth = board2d.height - 4
-  } else if (me.health < 30) {
-    depth = board2d.height - 5
-  } else if (me.health < 40) {
-    depth = board2d.height - 6
-  } else if (me.health < 50) {
-    depth = board2d.height - 7
-  }
-
-  return depth
 }
 
 // looks for food within depth moves away from snakeHead
@@ -1128,10 +1115,10 @@ export function lookaheadDeterminator(gameState: GameState): number {
           lookahead = 0
           break
         case 1:
-          lookahead = 7
+          lookahead = 5
           break
         case 2:
-          lookahead = 6
+          lookahead = 5
           break
         case 3:
           let board2d = new Board2d(gameState.board)
@@ -1142,19 +1129,19 @@ export function lookaheadDeterminator(gameState: GameState): number {
               return availableMoves.validMoves().length === 3
             })
             if (otherSnakesHave3Moves) {
-              lookahead = 5
+              lookahead = 3
             } else {
-              lookahead = 6
+              lookahead = 4
             }
           } else {
-            lookahead = 6
+            lookahead = 4
           }
           break
         default: // 4 or more
-          lookahead = 5
+          lookahead = 3
           break
       }
-      if (lookahead > 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
+      if (lookahead >= 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
         let totalSnakeLength: number = 0
         gameState.board.snakes.forEach(function addSnakeLength(snake) {
           totalSnakeLength = totalSnakeLength + snake.length
@@ -1960,4 +1947,36 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
   } else {
     return HazardCountTier.lots
   }
+}
+
+// given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
+export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: number} {
+  let cellTotals: {[key: string]: number} = {}
+  let hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
+  let hazardValue: number
+  if (hazardDamage >= 15) {
+    hazardValue = 0.4
+  } else if (hazardDamage < 15) {
+    hazardValue = 0.75
+  }
+  gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = 0 }) // instantiate each snake object
+  for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
+    for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
+      let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
+      if (cell !== undefined) {
+        let voronoiKeys = Object.keys(cell.voronoi)
+        voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
+          let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
+          if (voronoiSnake !== undefined) {
+            if (cell && cell.hazard) {
+              cellTotals[snakeId] = cellTotals[snakeId] + hazardValue
+            } else {
+              cellTotals[snakeId] = cellTotals[snakeId] + 1
+            }
+          }
+        })
+      }
+    }
+  }
+  return cellTotals
 }

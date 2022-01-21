@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, getNeckDirection } from "./util"
+import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -145,7 +145,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   })
   let isOriginalSnake: boolean = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
-  const board2d = new Board2d(gameState.board)
+  const board2d = new Board2d(gameState.board, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
@@ -233,10 +233,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
   const eval0Move = -700
-  const eval1Move = 0 // was -50, but I don't think 1 move is actually too bad - I want other considerations to matter between 2 moves & 1
-  const eval2Moves = isOriginalSnake? 2 : 20 // want this to be higher than the difference then eval1Move & evalWallPenalty, so that we choose wall & 2 move over no wall & 1 move
-  const eval3Moves = isOriginalSnake? 4 : 40
-  const eval4Moves = isOriginalSnake? 6 : 60
+  const eval1Move = 0 // with Voronoi, this is almost totally obsolete - but we can still heavily penalize 0move
+  const eval2Moves = 0
+  const eval3Moves = 0
+  const eval4Moves = 0
 
   const evalOriginalSnake0Move = 200 // for otherSnakes, should evaluate partly based on originalSnake's position
   const evalOriginalSnake1Move = 0
@@ -251,7 +251,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const evalHasEatenBonus = 50
   let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  const evalLengthMult = 5 // larger values result in more food prioritization
+  const evalLengthMult = 10 // larger values result in more food prioritization
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
 
@@ -261,7 +261,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake) {
     evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might
-    evalPriorKissOfDeathCertaintyMutual = -100
+    evalPriorKissOfDeathCertaintyMutual = -400
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
   const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
@@ -272,7 +272,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
-    evalPriorKissOfDeathMaybeMutual = -75
+    evalPriorKissOfDeathMaybeMutual = -300
   }
   
   //const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
@@ -284,7 +284,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   const evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
-  let evalPriorKissOfMurderAvoidance = isOriginalSnake? 0 : 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance). For myself, do not prioritize this, as this is prone to being baited.
+  let evalPriorKissOfMurderAvoidance = 15 // this state may have killed a snake, but they did have an escape route (3to2, 3to1, or 2to1 avoidance).
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
@@ -326,6 +326,16 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
   const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
+
+  // Voronoi values
+  const evalVoronoiNegativeStep = -100
+  const evalVoronoiNegativeMax = -600
+  const evalVoronoiPositiveStep = 20
+  const evalVoronoiPositiveMax = 100
+  const evalVoronoiBaseGood = 9
+  const evalVoronoiBase = 0
+  const evalVoronoiDeltaBonus = 50
+  const evalVoronoiOtherSnakeDivider = 3
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -789,6 +799,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       evalCenterDistancePenalty = 0
     }
   }
+
   buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
   evaluation = evaluation + xDiff * evalCenterDistancePenalty
   buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
@@ -808,6 +819,72 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`chasing tail, adding ${evalTailChase * tailDist}`)
     evaluation = evaluation + (evalTailChase * tailDist)
   }
+
+  let reachableCells = calculateReachableCells(gameState, board2d)
+
+  let voronoiDelta: number = 0
+  const voronoiMyself: number | undefined = reachableCells[myself.id]
+  let voronoiLargest: number = 0
+  otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
+    let voronoiOtherSnake: number | undefined = reachableCells[snake.id]
+    if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
+      voronoiLargest = voronoiOtherSnake
+    }
+  })
+  voronoiDelta = voronoiMyself - voronoiLargest
+
+  let voronoiReward: number
+  if (voronoiMyself < evalVoronoiBaseGood) {
+    let howBad: number = (evalVoronoiBaseGood - voronoiMyself) * evalVoronoiNegativeStep
+    // so if negative step is -100, base good is 9, & voronoiMyself is 5, that makes for (9 - 5) * -100 = -400
+    howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+    voronoiReward = howBad
+  } else if (voronoiMyself > evalVoronoiBaseGood) {
+    let howGood: number = (voronoiMyself - evalVoronoiBaseGood) * evalVoronoiPositiveStep
+    // so if positive step is 20, base good is 9, & voronoiMyself is 15, that makes for (15 - 9) * 20 = 120
+    howGood = howGood > evalVoronoiPositiveMax? evalVoronoiPositiveMax : howGood // don't let howGood exceed the maximum
+    voronoiReward = howGood
+  } else {
+    voronoiReward = evalVoronoiBase
+  }
+  buildLogString(`Voronoi bonus for self, adding ${voronoiReward}`)
+
+  if (voronoiDelta > 0) { // I am the snake with the most open space, give a reward for that
+    voronoiReward = voronoiReward + evalVoronoiDeltaBonus
+    buildLogString(`Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus}`)
+  }
+
+  // more minmaxing - tells otherSnakes to reward positions that trap originalSnake
+  if (!isOriginalSnake && originalSnake) {
+    let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
+    if (originalSnakeVoronoi !== undefined) {
+      if (originalSnakeVoronoi < evalVoronoiBaseGood) {
+        let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
+        howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
+        voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
+        buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
+      }
+    }
+  } else if (isDuel) { // for originalSnake, also give rewards for low otherSnake voronoi, but only in duels
+    let otherSnakeVoronoi: number | undefined = reachableCells[otherSnakes[0].id]
+    if (otherSnakeVoronoi !== undefined) {
+      if (otherSnakeVoronoi < evalVoronoiBaseGood) {
+        let howBad: number = (evalVoronoiBaseGood - otherSnakeVoronoi) * evalVoronoiNegativeStep
+        howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
+        voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
+        buildLogString(`Voronoi bonus for limiting otherSnake Voronoi in duel, adding ${-howBad}`)
+      }
+    }
+  } else if (!isSolo && gameState.board.snakes.length === 1) { // add max otherSnake reward for last snake so as not to encourage it to keep snakes alive for that sweet reward
+    let lastVoronoiReward: number = -(evalVoronoiNegativeMax / evalVoronoiOtherSnakeDivider) // this will be negative, so negate it to make it a reward
+    voronoiReward = voronoiReward + lastVoronoiReward
+    buildLogString(`Voronoi bonus for being the last snake in a non-solo, adding ${lastVoronoiReward}`)
+  }
+
+  buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
+  evaluation = evaluation + voronoiReward
 
   buildLogString(`final evaluation: ${evaluation}`)
 //   logToFile(evalWriteStream, `eval log: ${logString}
