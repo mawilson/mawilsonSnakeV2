@@ -183,7 +183,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return snake.id === myself.id
     })
     
-    let board2d = new Board2d(gameState.board)
+    let board2d = new Board2d(gameState)
 
     let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
     let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
@@ -305,7 +305,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 })
                 // allow snakes that died to reroll their move
                 if (murderSnake !== undefined) {
-                  let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(newGameState, snake, new Board2d(newGameState.board)).validMoves()
+                  let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(newGameState, snake, new Board2d(newGameState)).validMoves()
                   switch (otherSnakeAvailableMoves.length) { // allow otherSnake to choose again if that may make a difference
                     case 0: // otherSnake has no other options, don't change its move
                       break
@@ -454,7 +454,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return bestMove
   }
 
-  let board2d: Board2d = new Board2d(gameState.board)
+  let board2d: Board2d = new Board2d(gameState)
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
   let validMoves = availableMoves.validMoves()
   // before jumping into recursion, first check to see if I have any choices to make
@@ -491,7 +491,7 @@ export function move(gameState: GameState): MoveResponse {
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
-  let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState.board)) // if decideMove has somehow not decided up on a move, get a default direction to go in
+  let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState)) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {
     let timeTaken: number = Date.now() - timeBeginning

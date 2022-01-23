@@ -145,7 +145,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   })
   let isOriginalSnake: boolean = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
 
-  const board2d = new Board2d(gameState.board, true)
+  const board2d = new Board2d(gameState, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
@@ -275,7 +275,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalPriorKissOfDeathMaybeMutual = -300
   }
   
-  //const evalPriorKissOfDeathMaybeMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
   const evalPriorKissOfDeath3To1Avoidance = isOriginalSnake && priorKissStates.predator !== undefined ? 20 : 0 // for baitsnake purposes, we love originalSnake moving towards predators, then away
   const evalPriorKissOfDeath3To2Avoidance = evalPriorKissOfDeath3To1Avoidance
   const evalPriorKissOfDeath2To1Avoidance = evalPriorKissOfDeath3To1Avoidance
