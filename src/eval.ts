@@ -258,9 +258,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalPriorKissOfDeathCertaintyMutual: number
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathCertaintyMutual = 0
-  } else if (!isOriginalSnake) {
+  } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
-  } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might
+  } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might
     evalPriorKissOfDeathCertaintyMutual = -400
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
@@ -269,9 +269,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalPriorKissOfDeathMaybeMutual: number
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathMaybeMutual = 0
-  } else if (!isOriginalSnake) {
+  } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
-  } else { // it's not a duel & it's original snake, give small penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
+  } else { // it's not a duel & it's original snake or another snake not vs me, give small penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
     evalPriorKissOfDeathMaybeMutual = -300
   }
   

@@ -602,6 +602,25 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
     }
   })
+  it('avoids a tie kiss of death v2', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 6}, {x: 5, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 3, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 5, y: 4}, {x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 4}, {x: 4, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 95, [{x: 6, y: 3}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 7, y: 3}, {x: 7, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 95, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.turn = 13
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // down puts us in a possible kissOfDeath tie with otherSnek, whose only two options are kisses of death. We can just avoid this by going right.
+    }
+  })
   it('does not avoid a tie kiss of death if in a duel', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
