@@ -800,8 +800,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`Voronoi bonus for being the last snake in a non-solo, adding ${lastVoronoiReward}`)
   }
 
-  buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
-  evaluation = evaluation + voronoiReward
+  if (gameState.turn > 1) { // don't calculate on early turns, just get early food
+    buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
+    evaluation = evaluation + voronoiReward
+  }
 
   buildLogString(`final evaluation: ${evaluation}`)
 //   logToFile(evalWriteStream, `eval log: ${logString}
