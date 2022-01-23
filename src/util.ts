@@ -1124,7 +1124,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
           lookahead = 5
           break
         case 3:
-          let board2d = new Board2d(gameState.board)
+          let board2d = new Board2d(gameState)
           let myselfAvailableMoves = getAvailableMoves(gameState, gameState.you, board2d)
           if (myselfAvailableMoves.validMoves().length === 3) { // if I have three available moves, may need to decrement lookahead if all other snakes also do
             let otherSnakesHave3Moves = gameState.board.snakes.every(function hasThreeMoves(snake) {

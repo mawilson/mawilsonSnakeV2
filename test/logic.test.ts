@@ -351,7 +351,7 @@ describe('Board2d accurately maps game state', () => {
     gameBoard.food = [{x: 1, y: 1}, {x: 1, y: 2}]
     gameBoard.hazards = [{x: 2, y: 0}, {x: 2, y: 1}, {x: 2, y: 2}]
 
-    let board2d = new Board2d(gameBoard)
+    let board2d = new Board2d(gameState)
 
     snek.body.forEach(function checkBodyPart(part, index, arr) {
       let boardCell = board2d.getCell(part)
@@ -600,6 +600,25 @@ describe('Kiss of death tests', () => {
       gameState.board.snakes.push(otherSnek2)
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("up") // a tie kiss is still a death kiss, don't risk it given better alternatives
+    }
+  })
+  it('avoids a tie kiss of death v2', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 95, [{x: 5, y: 6}, {x: 5, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 3, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 5, y: 4}, {x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 4}, {x: 4, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 95, [{x: 6, y: 3}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 7, y: 3}, {x: 7, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 95, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.turn = 13
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // down puts us in a possible kissOfDeath tie with otherSnek, whose only two options are kisses of death. We can just avoid this by going right.
     }
   })
   it('does not avoid a tie kiss of death if in a duel', () => {
@@ -1106,7 +1125,7 @@ describe('MoveSnake tests', () => {
 
     gameState.board.hazards = [{x:0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    const board2d = new Board2d(gameState.board)
+    const board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Up)
 
@@ -1133,7 +1152,7 @@ describe('MoveSnake tests', () => {
 
     gameState.board.hazards = [{x: 2, y: 0}, {x: 2, y: 1}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 2, y: 7}, {x: 2, y: 8}, {x: 2, y: 9}, {x: 2, y: 10}]
 
-    const board2d = new Board2d(gameState.board)
+    const board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Up)
 
@@ -1160,7 +1179,7 @@ describe('MoveSnake tests', () => {
 
     gameState.board.hazards = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    const board2d = new Board2d(gameState.board)
+    const board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Up)
 
@@ -1191,7 +1210,7 @@ describe('MoveSnake tests', () => {
 
     gameState.board.hazards = [{x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}]
 
-    const board2d = new Board2d(gameState.board)
+    const board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Up)
 
@@ -1370,7 +1389,7 @@ describe('Can accurately get adjacency to hazard', () => {
     createHazardRow(gameState.board, 4)
     createHazardRow(gameState.board, 5)
     createHazardRow(gameState.board, 10)
-    const board2d = new Board2d(gameState.board)
+    const board2d = new Board2d(gameState)
     
     let hazardWalls: HazardWalls = new HazardWalls(gameState)
 
@@ -1773,7 +1792,7 @@ describe('updateGameState tests', () => {
 
       createHazardRow(gameState.board, 10)
 
-      let board2d = new Board2d(gameState.board)
+      let board2d = new Board2d(gameState)
 
       moveSnake(gameState, snek, board2d, Direction.Left) // this should starve the snake out due to hazard
       moveSnake(gameState, otherSnek, board2d, Direction.Up) // this snake should be safe moving any direction
@@ -1811,7 +1830,7 @@ describe('updateGameState tests', () => {
 
     gameState.board.food = [{x: 5, y: 6}, {x: 5, y: 4}]
 
-    let board2d = new Board2d(gameState.board)
+    let board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Up) // snek should get the food at (5,6)
     moveSnake(gameState, otherSnek, board2d, Direction.Down)
@@ -1883,7 +1902,7 @@ describe('updateGameState tests', () => {
 
     createHazardColumn(gameState.board, 0)
 
-    let board2d = new Board2d(gameState.board)
+    let board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Down) // snek moves down to die at the jaws of snekOpponent, who is larger
     moveSnake(gameState, snekOpponent, board2d, Direction.Up) // snekOpponent moves up to kill snek, who is smaller
@@ -1951,7 +1970,7 @@ describe('updateGameState tests', () => {
 
     createHazardRow(gameState.board, 0)
 
-    let board2d = new Board2d(gameState.board)
+    let board2d = new Board2d(gameState)
 
     moveSnake(gameState, snek, board2d, Direction.Left) // snek will avoid colliding with snekOpponent by moving its head left
     moveSnake(gameState, snekOpponent, board2d, Direction.Left) // otherSnek will collide with snek's neck at (1,9) - note that because snek also moves, this won't be a head-to-head
@@ -2208,10 +2227,10 @@ describe('Food prioritization and acquisition', () => {
       }
 
       let moveResponse: MoveResponse = move(gameState)
-      moveSnake(gameState, gameState.you, new Board2d(gameState.board), stringToDirection(moveResponse.move))
+      moveSnake(gameState, gameState.you, new Board2d(gameState), stringToDirection(moveResponse.move))
       updateGameStateAfterMove(gameState)
       moveResponse = move(gameState)
-      moveSnake(gameState, gameState.you, new Board2d(gameState.board), stringToDirection(moveResponse.move))
+      moveSnake(gameState, gameState.you, new Board2d(gameState), stringToDirection(moveResponse.move))
       updateGameStateAfterMove(gameState)
 
       expect(gameState.you.length).toBe(4) // for any starting food spawns, should always retrieve them. Always be length 4 after two moves.
@@ -2541,7 +2560,7 @@ describe('Voronoi diagram tests', () => {
     gameState.board.height = 5
     gameState.board.width = 5
 
-    let board2d: Board2d = new Board2d(gameState.board, true)
+    let board2d: Board2d = new Board2d(gameState, true)
 
     let reachableCells = calculateReachableCells(gameState, board2d)
     let snekReachableCells = reachableCells[snek.id]
@@ -2555,6 +2574,36 @@ describe('Voronoi diagram tests', () => {
     }
     if (otherSnekReachableCells !== undefined) {
       expect(otherSnekReachableCells).toBe(11)
+    }
+  })
+  it('can consider hazard when plotting Voronoi diagram', () => {
+    const snek = new Battlesnake("snek", "snek", 20, [{x: 2, y: 2}, {x: 1, y: 2}, {x: 1, y: 3}, {x: 1, y: 4}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 3, y: 2}, {x: 3, y: 1}, {x: 3, y: 0}, {x: 4, y: 0}, {x: 4, y: 1}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.board.height = 5
+    gameState.board.width = 5
+
+    // hazards make it harder for snek to Voronoi points with its low health, but it still gates otherSnek off from reaching them
+    createHazardRow(gameState.board, 4)
+    createHazardColumn(gameState.board, 0)
+
+    let board2d: Board2d = new Board2d(gameState, true)
+
+    let reachableCells = calculateReachableCells(gameState, board2d)
+    let snekReachableCells = reachableCells[snek.id]
+    let otherSnekReachableCells = reachableCells[otherSnek.id]
+
+    expect(snekReachableCells).toBeDefined()
+    expect(otherSnekReachableCells).toBeDefined()
+
+    if (snekReachableCells !== undefined) {
+      expect(snekReachableCells).toBeCloseTo(12.4) // can reach 10 non-hazards, & 6 hazards. 7th, final hazard in top left corner unreachable due to health. 10*1 + 6*0.4 = 12.4
+    }
+    if (otherSnekReachableCells !== undefined) {
+      expect(otherSnekReachableCells).toBeCloseTo(6.8) // can reach 6 non-hazards, & 2 hazards. 6*1 + 2*0.4 = 6.8
     }
   })
 })
