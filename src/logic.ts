@@ -294,7 +294,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                   if (murderSnake.id !== snake.id) { // don't compare self to self
                     // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
                     let murderSnakeLength: number = murderSnake.health === 100 ? murderSnake.length - 1 : murderSnake.length // if it just ate, decrement its length, else just consider its length
-                    if (murderSnake.id === newGameState.you.id && lookahead !== startLookahead) { // for anything but startLookahead, snake chose this cell with full knowledge that I would go here - don't let it rechoose again
+                    if (murderSnake.id === newGameState.you.id) { // snake chose this cell with full knowledge that I would go here - don't let it rechoose again
                       return false
                     } else {
                       return (coordsEqual(newHead, murderSnake.head) && murderSnakeLength >= snake.length)

@@ -122,6 +122,12 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake)
   newGameState.board.snakes.push(newSnakeSelf)
   newGameState.board.snakes.push(newSnakeOther)
 
+  // addresses an edge case where tie score is wildly higher due food immediacy bonuses. That score is not representative of a neutral state.
+  if (newSnakeSelf.health === newSnakeOther.health && newSnakeSelf.health === 100) {
+    newSnakeSelf.health = 90 // less health than max - lookahead
+    newSnakeOther.health = newSnakeSelf.health
+  }
+
   let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
   evaluation = evaluation - 50 // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluation
