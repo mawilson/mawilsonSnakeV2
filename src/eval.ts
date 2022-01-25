@@ -143,7 +143,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       otherSnakes.push(snake)
     }
   })
-  let isOriginalSnake: boolean = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
+  let isOriginalSnake: boolean = _myself !== undefined && _myself.id === gameState.you.id // true if _myself's id matches the original you of the game
   let otherSnakeHealth: number = 0
   otherSnakes.forEach(snake => {
     otherSnakeHealth = otherSnakeHealth + snake.health
@@ -246,7 +246,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalPriorKissOfDeathMaybeMutual = 0
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
-  } else { // it's not a duel & it's original snake or another snake not vs me, give small penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
+  } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
     evalPriorKissOfDeathMaybeMutual = -300
   }
   
@@ -262,9 +262,24 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderSelfBonus = 80 // the bonus we give to otherSnakes for attempting to kill me. Need to assume they will try in general or we'll take unnecessary risks
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
-  const evalKissOfDeathCertaintyMutual = 0 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so also neutral
-  const evalKissOfDeathMaybe = -200 // a 50/50 on whether we will be kissed to death next turn
-  const evalKissOfDeathMaybeMutual = 0 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so also neutral
+  let evalKissOfDeathCertaintyMutual: number
+  if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
+    evalKissOfDeathCertaintyMutual = 0
+  } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
+    evalKissOfDeathCertaintyMutual = 25 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
+  } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely would kill me
+    evalKissOfDeathCertaintyMutual = -200
+  }
+  const evalKissOfDeathMaybe: number = -200 // a 50/50 on whether we will be kissed to death next turn
+  let evalKissOfDeathMaybeMutual: number
+  if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
+    evalKissOfDeathMaybeMutual = 0
+  } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
+    evalKissOfDeathMaybeMutual = 15 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
+  } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely would kill me
+    evalKissOfDeathMaybeMutual = -150
+  }
+
   const evalKissOfDeathAvoidance = 0
 
   const evalKissOfDeathNo = 0
