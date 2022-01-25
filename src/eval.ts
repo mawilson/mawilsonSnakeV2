@@ -162,7 +162,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const isSolo: boolean = gameState.game.ruleset.name === "solo"
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
-  const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 1 // originalSnake uses gameData lookahead, otherSnakes use 1
+  const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
   // returns the evaluation value associated with the given kissOfDeathState
@@ -230,9 +230,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalHealthOthersnakeDuelStep = -3
   const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
 
-  const evalHasEatenBonus = 50
-  let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  const evalLengthMult = isSolo? 0 : 10 // larger values result in more food prioritization. No preference towards length in solo
+  const evalLengthMult = isSolo? -20 : 15 // larger values result in more food prioritization. Negative preference towards length in solo
+  let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
 
   const evalPriorKissOfDeathCertainty = isOriginalSnake? -800 : 0 // otherSnakes can pick again, let them evaluate this without fear of death
 
@@ -304,6 +303,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalFoodVal = 1
   } else if (snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
     evalFoodVal = 3
+  } else if (isSolo) {
+    evalFoodVal = 0.3 // very small nudge towards food, even when starving
   }
   const evalFoodStep = 1
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
@@ -344,12 +345,28 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
-  // turn off food seeking if dueling, larger, & opponent is in hazard
+  // penalize spaces that ARE hazard
+  let myCell = board2d.getCell(myself.head)
+  if (myCell !== undefined && myCell.hazard) {
+    buildLogString(`hazard space penalty, add ${evalHazardPenalty}`)
+    evaluation = evaluation + evalHazardPenalty
+  }
+
+  // penalize or rewards spaces next to hazard, near when hazard will soon appear
+  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
+    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
+    evaluation = evaluation + evalHazardWallPenalty
+  }
+
+  let wantToEat: boolean = true // condition for whether we currently want food
+  let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
+
+  // turn off food seeking if dueling, healthy, opponent is in hazard, & I'm not - hazard walling
   if (isDuel && hazardDamage > 0) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
-    if (opponentCell && opponentCell.hazard) {
+    if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
       if (snakeDelta > 0) { // still need to try to stay larger than otherSnakes. If wall fails, could come out of our gambit in a bad spot if we neglected food
-        evalFoodVal = 0 // turn food metric off too
+        wantToEat = false
       }
     }
   }
@@ -425,9 +442,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`No kisses of murder nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo
   }
-
-  let wantToEat: boolean = true // condition for whether we currently want food
-  let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
   
   let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState)
   buildLogString(`Prior kiss of death state ${priorKissStates.deathState}, adding ${priorKissOfDeathValue}`)
@@ -449,23 +463,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalKissOfMurderSelfBonus
   }
 
-  // penalize spaces that ARE hazard
-  let myCell = board2d.getCell(myself.head)
-  if (myCell !== undefined && myCell.hazard) {
-    buildLogString(`hazard space penalty, add ${evalHazardPenalty}`)
-    evaluation = evaluation + evalHazardPenalty
-  }
-
-  // penalize or rewards spaces next to hazard, near when hazard will soon appear
-  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
-    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
-    evaluation = evaluation + evalHazardWallPenalty
-  }
-
-  // general snake length metric. More long more good
-  buildLogString(`snake length reward, add ${evalLengthMult * myself.length}`)
-  evaluation = evaluation + evalLengthMult * myself.length
-
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
@@ -481,7 +478,42 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
   }
-  
+
+  let delta = snakeDelta
+  // general snake length metric. More long more good
+  if (snakeHasEaten(myself) && !safeToEat) { // if it just ate & it's not safe to eat, don't reward it for the new extra length
+    delta = snakeDelta - 1
+  }
+
+  if (isSolo) { // Penalize solo snake for being larger
+    let penalty: number = myself.length * evalLengthMult // straight penalty for each length I am larger
+    buildLogString(`snake delta reward, add ${penalty}`)
+    evaluation = evaluation + penalty
+  } else if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
+    let penalty: number = -(delta * evalLengthMult) // straight penalty for each length I am smaller than otherSnakes
+    buildLogString(`snake delta reward, add ${penalty}`)
+    evaluation = evaluation + penalty
+  } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
+    let award: number = 0
+    let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
+    for (let i: number = 1; i <= cap; i++) {
+      if (i === 0) {
+        award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
+      } else if (i === 1) {
+        award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
+      } else {
+        award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
+      }
+    }
+    buildLogString(`snake delta reward, add ${award}`)
+    evaluation = evaluation + award
+  } else { // I am same length as otherSnakes, give penalty/reward accordingly
+    if (otherSnakes.length > 1) { // small penalty for being the same length as otherSnakes in a non-duel
+      buildLogString(`snake delta penalty, add ${-(delta * evalLengthMult)}`)
+      evaluation = evaluation - (delta * evalLengthMult)
+    } // no penalty in duel, we love ties
+  }
+
   if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
     let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
@@ -493,13 +525,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // health considerations, which are effectively hazard considerations
-  if (snakeHasEaten(myself) && safeToEat && wantToEat) { // only reward snake for eating if it was safe to eat & it wanted to eat, otherwise just give it the normal health eval
-    buildLogString(`got food, add ${evalHasEaten}`)
-    evaluation = evaluation + evalHasEaten
-  } else {
-    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
-    buildLogString(`Health eval for myself, adding ${healthEval}`)
-    evaluation = evaluation + healthEval
+  let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+  buildLogString(`Health eval for myself, adding ${healthEval}`)
+  evaluation = evaluation + healthEval
+
+  if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
+    wantToEat = false
+  } else if (isSolo && snakeHasEaten(myself, lookahead)) {
+    wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat

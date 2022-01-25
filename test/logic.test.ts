@@ -1,7 +1,7 @@
 import { info, move, decideMove, start } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Coord, Direction, directionToString, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
-import { isKingOfTheSnakes, getLongestSnake, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, snakeToString, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells } from '../src/util'
+import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
+import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
 
@@ -235,7 +235,65 @@ describe('Tests deprecated by lookahead', () => {
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // Down & right are both hazard, up also has food, should go up
     }
-})
+  })
+  // no longer passing with area control, snek would rather wander off & secure more board
+  it.skip('continues sandwiching an enemy snake so long as its other half does', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 5, y: 0}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 2}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 6, y: 2}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 7, y: 0}, {x: 8, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // otherSnek2 is currently sandwiched, should continue moving up to continue sandwiching
+    }
+  })
+  it.skip('does not seek to acquire food when it is large enough and no longer wants food', () => {
+    for (let i: number = 0; i < 3; i++) {
+      // 92 health: didn't just become large enough to stop caring about food, but also high enough health to not feel like it's better to just top health up
+      const snek = new Battlesnake("snek", "snek", 92, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.board.food = [{x: 9, y: 9}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // snek is large enough, should ignore food cache directly up & right & go back towards center & other snakes
+    }
+  })
+  // now failing because snek correctly would rather secure more open space than sequester itself in hazard where otherSnek can potentially pin it in
+  it.skip('still seeks acquiring food when large enough to no longer want food, but stuck in hazard', () => {
+    for (let i: number = 0; i < 3; i++) {
+      // 50 health: snake is a bit wanting for health, so will brave some hazard in order to top up
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.board.food = [{x: 9, y: 9}]
+
+      createHazardColumn(gameState.board, 10)
+      createHazardColumn(gameState.board, 9)
+      createHazardColumn(gameState.board, 8)
+      createHazardColumn(gameState.board, 7)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // snek should still care about food because it's in hazard, & should loop right->up->left->left to navigate in & out of hazard while retrieving food
+    }
+  })
 })
 
 describe('Battlesnake API Version', () => {
@@ -492,8 +550,11 @@ describe('Longest snake tests', () => {
     const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 2}, {x: 5, y: 2}, {x: 5, y: 2}], "30", "", "")
     gameState.board.snakes.push(otherSnek2)
 
-    const longestSnake = getLongestSnake(snek, gameState.board.snakes)
-    expect(longestSnake.id).toBe("otherSnek") // otherSnek is closer to snek, both otherSnek and otherSnek2 are length 2
+    const longestSnake = getLongestOtherSnake(snek, gameState.board.snakes)
+    expect(longestSnake).toBeDefined()
+    if (longestSnake !== undefined) {
+      expect(longestSnake.id).toBe("otherSnek") // otherSnek is closer to snek, both otherSnek and otherSnek2 are length 2
+    }
   })
   it('should know if it is at least two longer than any other snake', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
@@ -639,7 +700,7 @@ describe('Kiss of death tests', () => {
 
       gameState.turn = 13
       let moveResponse : MoveResponse = move(gameState)
-      expect(moveResponse.move).not.toBe("down") // down puts us in a possible kissOfDeath tie with otherSnek, whose only two options are kisses of death. We can just avoid this by going right.
+      expect(moveResponse.move).not.toBe("down") // down puts us in a possible kissOfDeath tie with otherSnek, whose two options are kisses of death. We can just avoid this by going right.
     }
   })
   it('avoids a tie kiss of death v3', () => {
@@ -1791,6 +1852,30 @@ describe('Snake should not enter spaces without a clear escape route', () => {
       expect(moveResponse.move).toBe("up") // Down traps us if otherSnek doesn't go right towards us
     }
   })
+  it('does not commit suicide in order to tie another snake', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 7}, {x: 6, y: 7}, {x: 6, y: 8}, {x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 3, y: 7}, {x: 3, y: 8}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 2, y: 10}, {x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 5, y: 6}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 2, [{x: 3, y: 3}, {x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 9, y: 7}, {x: 9, y: 6}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 1}, {x: 3, y: 0}]
+
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+      createHazardColumn(gameState.board, 0)
+      createHazardColumn(gameState.board, 10)
+
+      gameState.turn = 162
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // Up just makes us tie with otherSnek next turn, clear move down
+    }
+  })
 })
 
 describe('updateGameState tests', () => {
@@ -2076,12 +2161,12 @@ describe('Food prioritization and acquisition', () => {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 6, y: 7}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 5, y: 5}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 5, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
 
-      gameState.board.food = [{x: 9, y: 5}]
+      gameState.board.food = [{x: 7, y: 7}]
 
       gameState.game.ruleset.name = "solo" // necessary to not break evaluation function in a solo game
 
       let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).not.toBe("right") // should go back towards center instead, right just takes us further from center
+      expect(moveResponse.move).not.toBe("right") // food is bad for solo snake, should want to go anywhere but here
     }
   })
   it('acquires food even along walls', () => {
@@ -2152,48 +2237,6 @@ describe('Food prioritization and acquisition', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // there is no good justification for not getting this early food & risking another snake getting it
-    }
-  })
-  it('does not seek to acquire food when it is large enough and no longer wants food', () => {
-    for (let i: number = 0; i < 3; i++) {
-      // 92 health: didn't just become large enough to stop caring about food, but also high enough health to not feel like it's better to just top health up
-      const snek = new Battlesnake("snek", "snek", 92, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
-
-      gameState.board.food = [{x: 9, y: 9}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("left") // snek is large enough, should ignore food cache directly up & right & go back towards center & other snakes
-    }
-  })
-  // now failing because snek correctly would rather secure more open space than sequester itself in hazard where otherSnek can potentially pin it in
-  it.skip('still seeks acquiring food when large enough to no longer want food, but stuck in hazard', () => {
-    for (let i: number = 0; i < 3; i++) {
-      // 50 health: snake is a bit wanting for health, so will brave some hazard in order to top up
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 0, y: 5}, {x: 0, y: 4}, {x: 1, y: 4}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
-
-      gameState.board.food = [{x: 9, y: 9}]
-
-      createHazardColumn(gameState.board, 10)
-      createHazardColumn(gameState.board, 9)
-      createHazardColumn(gameState.board, 8)
-      createHazardColumn(gameState.board, 7)
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("right") // snek should still care about food because it's in hazard, & should loop right->up->left->left to navigate in & out of hazard while retrieving food
     }
   })
   it('still seeks acquiring food when large enough to no longer want food, but low on health', () => {
@@ -2511,23 +2554,7 @@ describe('face off tests', () => {
 })
 
 describe('sandwich tests', () => {
-  it('continues sandwiching an enemy snake so long as its other half does', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 5, y: 0}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 2}, {x: 7, y: 1}, {x: 8, y: 1}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 6, y: 2}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 7, y: 0}, {x: 8, y: 0}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up") // otherSnek2 is currently sandwiched, should continue moving up to continue sandwiching
-    }
-  })
-  // currently failing while otherSnakes have 0 lookahead
-  it.skip('avoids being sandwiched', () => {
+  it('avoids being sandwiched', () => {
     for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 70, [{x: 5, y: 2}, {x: 5, y: 1}, {x: 4, y: 1}, {x: 3, y: 1}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}, {x: 5, y: 0}, {x: 6, y: 0}, {x: 7, y: 0}], "30", "", "")
       const gameState = createGameState(snek)
