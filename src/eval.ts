@@ -228,7 +228,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
   const evalLengthMult = isSolo? 0 : 10 // larger values result in more food prioritization. No preference towards length in solo
 
-  const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
+  const evalPriorKissOfDeathCertainty = isOriginalSnake? -800 : 0 // otherSnakes can pick again, let them evaluate this without fear of death
 
   let evalPriorKissOfDeathCertaintyMutual: number
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
@@ -239,7 +239,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalPriorKissOfDeathCertaintyMutual = -400
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
-  const evalPriorKissOfDeathMaybe = -400 // this cell is a 50/50
+  const evalPriorKissOfDeathMaybe = isOriginalSnake? -400 : 0 // this cell is a 50/50. otherSnakes can pick again, let them evaluate this without fear of death
   
   let evalPriorKissOfDeathMaybeMutual: number
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
@@ -250,7 +250,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalPriorKissOfDeathMaybeMutual = -300
   }
   
-  const evalPriorKissOfDeath3To1Avoidance = isOriginalSnake && priorKissStates.predator !== undefined ? 20 : 0 // for baitsnake purposes, we love originalSnake moving towards predators, then away
+  const evalPriorKissOfDeath3To1Avoidance = 0
   const evalPriorKissOfDeath3To2Avoidance = evalPriorKissOfDeath3To1Avoidance
   const evalPriorKissOfDeath2To1Avoidance = evalPriorKissOfDeath3To1Avoidance
   const evalPriorKissOfDeathNo = 0
