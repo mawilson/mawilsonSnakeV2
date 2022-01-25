@@ -1,7 +1,7 @@
 import { GameState } from "./types"
-import { Direction, Battlesnake, Board2d, Moves, MoveNeighbors, Coord, SnakeCell, BoardCell, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { checkForSnakesHealthAndWalls, logToFile, getSurroundingCells, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, isKingOfTheSnakes, findFood, getLongestSnake, getDistance, snakeLengthDelta, snakeToString, snakeHasEaten, getSafeCells, kissDecider, getSnakeDirection, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -144,6 +144,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   })
   let isOriginalSnake: boolean = myself !== undefined && myself.id === gameState.you.id // true if snake's id matches the original you of the game
+  let otherSnakeHealth: number = 0
+  otherSnakes.forEach(snake => {
+    otherSnakeHealth = otherSnakeHealth + snake.health
+  })
 
   const board2d = new Board2d(gameState, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
@@ -201,11 +205,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   // values to tweak
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
-  const evalSnakeCountBase = -200 // base penalty for a single otherSnake left in game
-  const evalSnakeCountStep = 30 // reduction in penalty for each snake after the last one. e.g., the 3rd otherSnake penalty is (-200 + 30*3) = -110
-  const evalSnakeCountMin = -100 // minimum penalty for a snake to be in game (should at the very least be less than 0)
-  const evalSolo: number = 200 // this means we've won. Won't be considered in games that were always solo. Setting to too large a number leads Jaguar to make some wild bets, so only do that if we know exactly what our opponent has done
-  const evalWallPenalty: number = 0 // Voronoi will determine the goodness of walls
   let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
   if (gameState.turn % 25 === 0) { // turn 25, & increments of 25
     evalHazardWallPenalty = -8
@@ -220,8 +219,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = 3
   const evalHealthTierDifference = 10
-  const evalHealthEnemyThreshold = hazardDamage > 0? 50 : 10 // health level at which we start starving out a snake in a duel
-  const evalHealthEnemyReward = 50
+
+  const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
+  const evalHealthOthersnakeDuelStep = -3
+  const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
 
   const evalHasEatenBonus = 50
   let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
@@ -276,7 +277,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isDuel && otherSnakes[0].health < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
+  } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = 3
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 1
@@ -330,33 +331,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       return evalNoMe
     }
   }
-  if (!isSolo && otherSnakes.length === 0) { // if it's not a solo game & there are no snakes left, we've won
-    buildLogString(`no other snakes, add ${evalSolo}`)
-    evaluation = evaluation + evalSolo // it's great if no other snakes exist, but solo games are still a thing. Give it a high score to indicate superiority to games with other snakes still in it, but continue evaluating so solo games can still evaluate scores
-  } else {
-    let snakeCountPenalty : number = 0
-    for (let i: number = 0; i < otherSnakes.length; i++) {
-      let snakePenalty: number = evalSnakeCountBase + evalSnakeCountStep * i
-      snakePenalty = snakePenalty > evalSnakeCountMin? evalSnakeCountMin : snakePenalty // snake penalty should never be greater than -100
-      snakeCountPenalty = snakeCountPenalty + snakePenalty
-    }
-    buildLogString(`other snakes are in game, multiply their number by evalSnakeCount & add to eval: ${snakeCountPenalty}`)
-    evaluation = evaluation + snakeCountPenalty
-  }
 
-  // give walls a penalty, & corners a double penalty
-  let isOnHWall: boolean = isOnHorizontalWall(gameState.board, myself.head)
-  let isOnVWall: boolean = isOnVerticalWall(gameState.board, myself.head)
-  if (isOnHWall) {
-    buildLogString(`self head on horizontal wall at ${myself.head.x}, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  }
-  if (isOnVWall) {
-    buildLogString(`self head y on vertical wall at ${myself.head.y}, add ${evalWallPenalty}`)
-    evaluation = evaluation + evalWallPenalty
-  }
-
-  // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
+  // turn off food seeking if dueling, larger, & opponent is in hazard
   if (isDuel && hazardDamage > 0) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell && opponentCell.hazard) {
@@ -366,28 +342,21 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
-  // penalize or rewards spaces next to hazard
-  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
-    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
-    evaluation = evaluation + evalHazardWallPenalty
-  }
-
-  if (isDuel) { // if duelling, pay closer attention to enemy's health in an attempt to starve it out if possible
-    if (hazardDamage > 0) {
-      // calculate health eval with a lower tier difference & health step, which should result in a smaller variation based on this metric than our own health metric
-      // we don't want to base all of our movements on enemy health, just a small nudge if it's vulnerable towards eating its food
-      // note the value for starvationPenalty: -evalSolo. Want to give a reward equivalent to the reward for being the last snake if we actually do starve the other snake out.
-      let healthEval: number = determineHealthEval(otherSnakes[0], hazardDamage, evalHealthStep - 1, Math.floor(evalHealthTierDifference / 3), evalHealthBase, -evalSolo)
-      healthEval = -1 * healthEval // for otherSnake, we want this value to be lower, so need to reward by inverting it
-      buildLogString(`Health eval for duel opponent, adding ${healthEval}`)
-      evaluation = evaluation + healthEval // should be a positive value, higher for lower enemy snake health values, & very high if the enemy snake starved out
-    } else { // if no hazard, starvation is not likely, only try if they're really low
-      if (otherSnakes[0].health < evalHealthEnemyThreshold) {
-        let healthEval: number = evalHealthEnemyReward // if health threshold is 10, this will be 45 at health 9, 40 at 8, 35 at 7, etc., down to 5 at 1
-        buildLogString(`Health eval for non-duel opponent, adding ${healthEval}`)
-        evaluation = evaluation + healthEval // should be a positive value to reward Jaguar for keeping his opponent low on health for longer periods of time
+  if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
+    let otherSnakeHealthPenalty: number = 0
+    let otherSnakesSortedByHealth: Battlesnake[] = otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sorts by health in descending order
+      return b.health - a.health
+    })
+    otherSnakesSortedByHealth.forEach((snake, idx) => {
+      if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
+        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep // largest remaining snake gets
+      } else { // give remaining snakes a smaller penalty for health
+        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
       }
-    }
+    })
+
+    buildLogString(`Health penalty for opponents, adding ${otherSnakeHealthPenalty}`)
+    evaluation = evaluation + otherSnakeHealthPenalty
   }
 
   let moves: Moves = getAvailableMoves(gameState, myself, board2d)
@@ -586,6 +555,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (myCell !== undefined && myCell.hazard) {
     buildLogString(`hazard space penalty, add ${evalHazardPenalty}`)
     evaluation = evaluation + evalHazardPenalty
+  }
+
+  // penalize or rewards spaces next to hazard, near when hazard will soon appear
+  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
+    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
+    evaluation = evaluation + evalHazardWallPenalty
   }
 
   // general snake length metric. More long more good
