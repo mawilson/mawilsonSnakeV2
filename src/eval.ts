@@ -285,15 +285,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalFoodVal = 3
   }
   const evalFoodStep = 1
-  
-  let evalCutoffReward = isDuel? 100 : 35 // reward for getting a snake into a cutoff situation. Very strong in duel as it should lead directly to a win
-  let evalCutoffHazardReward = isDuel? 75 : 25 // reward for getting a snake into a hazard cutoff situation. Stronger in duel.
-  let evalSandwichReward = 20 // reward for getting a snake into a sandwich situation - less than cutoff, as it requires another snake to cooperate & is thus less reliable
-  const evalFaceoffReward = 50 // reward for getting a snake into a faceoff. While not as definitive as the above two, it's also not typically a bad thing for a snake to do
-  const evalCutoffPenalty = -75 // while not all snakes will do the cutoff, this is nonetheless a very bad state for us
-  const evalCutoffHazardPenalty = -60 // while not quite as bad as a standard cutoff, this is nonetheless a very bad state for us
-  const evalSandwichPenalty = -50 // as with cutoffs, but sandwiches are less reliable. Even so, a state to avoid
-  const evalFaceoffPenalty = -10 // getting faced off is the least troubling of the three, but still problematic
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
@@ -414,121 +405,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalKissOfDeathNo
   }
 
-  // cutoff, hazard cutoff, sandwhich, faceoff params for & against my snake
-  let canCutoffSnake: Battlesnake | undefined = undefined
-  let canCutoffHazardSnake: Battlesnake | undefined = undefined
-  let canSandwichSnake: Battlesnake | undefined = undefined
-  let canFaceoffSnake: boolean = false
-
-  let canBeCutoffBySnake: boolean = false
-  let canBeCutoffHazardBySnake: boolean = false
-  let canBeSandwichedBySnake: boolean = false
-  let canBeFacedOff: boolean = false
-
-  let isInAState: boolean = false // these are all mutually exclusive, so we only want to run all of these calculations if we don't end up matching any of them
-
   let wantToEat: boolean = true // condition for whether we currently want food
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
-
-  // need to calculate cutoffs before priorKisses, as evalPriorKissOfMurderAvoidance can change based on whether this is a cutoff
-  canCutoffSnake = otherSnakes.find(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake
-    return isCutoff(gameState, myself, snake, board2d) // returns true if myself can cut snake off
-  })
-  if (canCutoffSnake) {
-    isInAState = true
-    evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a cutoff, this is not a murder we want to avoid
-    if (!isOriginalSnake && originalSnake && canCutoffSnake.id === originalSnake.id) { // the snake we can cut off is originalSnake, give a bonus
-      evalCutoffReward = evalCutoffReward + 50
-    }
-    buildLogString(`attempting cutoff, adding ${evalCutoffReward}`)
-    evaluation = evaluation + evalCutoffReward
-  }
-
-  if (!isInAState) {
-    canCutoffHazardSnake = otherSnakes.find(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
-      return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
-    })
-    if (canCutoffHazardSnake) {
-      isInAState = true
-      evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
-      if (!isOriginalSnake && originalSnake && canCutoffHazardSnake.id === originalSnake.id) { // the snake we can cut off is originalSnake, give a bonus
-        evalCutoffHazardReward = evalCutoffHazardReward + 50
-      }
-      buildLogString(`attempting hazard cutoff, adding ${evalCutoffHazardReward}`)
-      evaluation = evaluation + evalCutoffHazardReward
-    }
-  }
-
-  if (!isInAState) {
-    canBeCutoffBySnake = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can cut myself off
-      return isCutoff(gameState, snake, myself, board2d) // returns true if snake can cut myself off
-    })
-    if (canBeCutoffBySnake) {
-      isInAState = true
-      buildLogString(`can be cut off, adding ${evalCutoffPenalty}`)
-      evaluation = evaluation + evalCutoffPenalty
-    }
-  }
-
-  if (!isInAState) {
-    canBeCutoffHazardBySnake = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
-      return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
-    })
-    if (canBeCutoffHazardBySnake) {
-      isInAState = true
-      buildLogString(`can be hazard cut off, adding ${evalCutoffHazardPenalty}`)
-      evaluation = evaluation + evalCutoffHazardPenalty
-    }
-  }
-
-  if (!isInAState) {
-    canSandwichSnake = otherSnakes.find(function findSnakeToSandwich(snake) { // returns true if myself can sandwich any otherSnake
-      return isSandwich(gameState, myself, snake, board2d)
-    })
-    if (canSandwichSnake) {
-      isInAState = true
-      evalPriorKissOfMurderAvoidance = 50 // if the kiss of murder that the other snake avoided led it into a sandwich, this is not a murder we want to avoid
-      if (!isOriginalSnake && originalSnake && canSandwichSnake.id === originalSnake.id) { // the snake we can sandwich is originalSnake, give a bonus
-        evalSandwichReward = evalSandwichReward + 50
-      }
-      buildLogString(`attempting sandwich, adding ${evalSandwichReward}`)
-      evaluation = evaluation + evalSandwichReward
-    }
-  }
-
-  if (!isInAState) {
-    canBeSandwichedBySnake = otherSnakes.some(function findSnakeToBeSandwichedBy(snake) { // returns true if any otherSnake can sandwich me
-      return isSandwich(gameState, snake, myself, board2d) // returns true if snake can sandwich me
-    })
-    if (canBeSandwichedBySnake) {
-      isInAState = true
-      buildLogString(`can be sandwiched, adding ${evalSandwichPenalty}`)
-      evaluation = evaluation + evalSandwichPenalty
-    }
-  }
-
-  if (!isInAState) {
-    canFaceoffSnake = otherSnakes.some(function findSnakeToFaceoff(snake) { // returns true if myself can faceoff any otherSnake
-      return isFaceoff(gameState, myself, snake, board2d)
-    })
-    if (canFaceoffSnake) {
-      isInAState = true
-      evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 25? 25 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a faceoff, this is not a murder we want to avoid
-      buildLogString(`attempting faceoff, adding ${evalFaceoffReward}`)
-      evaluation = evaluation + evalFaceoffReward
-    }
-  }
-
-  if (!isInAState) {
-    canBeFacedOff = otherSnakes.some(function findSnakeToBeFacedOffBy(snake) {
-      return isFaceoff(gameState, snake, myself, board2d)
-    })
-    if (canBeFacedOff) {
-      isInAState = true
-      buildLogString(`can be faced off, adding ${evalFaceoffPenalty}`)
-      evaluation = evaluation + evalFaceoffPenalty
-    }
-  }
   
   let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState)
   buildLogString(`Prior kiss of death state ${priorKissStates.deathState}, adding ${priorKissOfDeathValue}`)
@@ -579,9 +457,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (snakeDelta > 6) { // If I am more than 6 bigger, stop wanting food
     wantToEat = false
   }
-  if (canBeCutoffBySnake || canBeCutoffHazardBySnake || canBeSandwichedBySnake) { // if snake can be sandwiched or cutoff, it was not safe to eat this food
-    safeToEat = false
-  } else if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
+  if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
   }
   
