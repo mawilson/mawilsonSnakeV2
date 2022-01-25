@@ -184,13 +184,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     switch (kissOfMurderState) {
       case KissOfMurderState.kissOfMurderCertainty:
         evalHazardPenalty = 0 // do not penalize certain kill for being in hazard
-        evalCenterDistancePenalty = 0 // do not penalize snake for straying from center to pursue a certain kill
         return evalPriorKissOfMurderCertainty
       case KissOfMurderState.kissOfMurderMaybe:
         return evalPriorKissOfMurderMaybe
       case KissOfMurderState.kissOfMurderFaceoff:
         evalHazardPenalty = 0 // do not penalize closing the faceoff for being in hazard
-        evalCenterDistancePenalty = 0 // do not penalize snake for straying from center to pursue a faceoff
         return evalPriorKissOfMurderFaceoff
       case KissOfMurderState.kissOfMurderAvoidance:
         return evalPriorKissOfMurderAvoidance
@@ -218,30 +216,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   let evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
-  let evalCenterDistancePenalty: number = isDuel && isOriginalSnake? -3 : -1 // in a duel, more strongly trend me towards middle, but other snakes
-  if (isDuel) { // if in a duel, give stronger rewards towards middle for myself, but not other snakes
-    if (hazardDamage > 0) { // for games with hazard, it matters a lot to trend away from the edges, in general
-      evalCenterDistancePenalty = -4
-    } else { // for games without hazard, center matters substantially less
-      evalCenterDistancePenalty = -3
-    }
-  } else {
-    if (hazardDamage > 0) { // can't afford to go center as strongly as in a duel, but with hazard, it's still important
-      evalCenterDistancePenalty = -3
-    } else { // for a non-duel game without hazard, center is almost negligible
-      evalCenterDistancePenalty = -1
-    }
-  }
-  const eval0Move = -700
-  const eval1Move = 0 // with Voronoi, this is almost totally obsolete - but we can still heavily penalize 0move
-  const eval2Moves = 0
-  const eval3Moves = 0
-  const eval4Moves = 0
-
-  const evalOriginalSnake0Move = 200 // for otherSnakes, should evaluate partly based on originalSnake's position
-  const evalOriginalSnake1Move = 0
-  const evalOriginalSnake2Move = 0
-  const evalOriginalSnake3Move = 0
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = 3
@@ -251,7 +225,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const evalHasEatenBonus = 50
   let evalHasEaten = isSolo? -20 : (evalHealthBase + evalHasEatenBonus) // should be at least evalHealth7, plus some number for better-ness. Otherwise will prefer to be almost full to full. Also needs to be high enough to overcome food nearby score for the recently eaten food
-  const evalLengthMult = 10 // larger values result in more food prioritization
+  const evalLengthMult = isSolo? 0 : 10 // larger values result in more food prioritization. No preference towards length in solo
 
   const evalPriorKissOfDeathCertainty = -800 // everywhere seemed like certain death
 
@@ -310,8 +284,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalFoodVal = 3
   }
   const evalFoodStep = 1
-  const evalKingSnakeStep = -2 // negative means that higher distances from king snake will result in lower score
-  const evalHazardSnakeSeekerStep = -3 // negative means that higher distances from hazard snake will result in lower score
   
   let evalCutoffReward = isDuel? 100 : 35 // reward for getting a snake into a cutoff situation. Very strong in duel as it should lead directly to a win
   let evalCutoffHazardReward = isDuel? 75 : 25 // reward for getting a snake into a hazard cutoff situation. Stronger in duel.
@@ -321,9 +293,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalCutoffHazardPenalty = -60 // while not quite as bad as a standard cutoff, this is nonetheless a very bad state for us
   const evalSandwichPenalty = -50 // as with cutoffs, but sandwiches are less reliable. Even so, a state to avoid
   const evalFaceoffPenalty = -10 // getting faced off is the least troubling of the three, but still problematic
-  const evalCornerProximityPenalty = isOriginalSnake? -300 : 0 // shoving oneself in the corner while other snakes are nearby is very bad. Let other snakes do it
-  let evalTailChase = -1 // given four directions, two will be closer to tail, two will be further, & closer dirs will always be 2 closer than further dirs
-  const evalTailChasePercentage = 35 // below this percentage of safe cells, will begin to incorporate evalTailChase
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
@@ -378,7 +347,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   // give walls a penalty, & corners a double penalty
   let isOnHWall: boolean = isOnHorizontalWall(gameState.board, myself.head)
   let isOnVWall: boolean = isOnVerticalWall(gameState.board, myself.head)
-  let isHeadOnCorner: boolean = isOnHWall && isOnVWall
   if (isOnHWall) {
     buildLogString(`self head on horizontal wall at ${myself.head.x}, add ${evalWallPenalty}`)
     evaluation = evaluation + evalWallPenalty
@@ -388,26 +356,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalWallPenalty
   }
 
-  const kingOfTheSnakes = isKingOfTheSnakes(myself, gameState.board)
-  let longestSnake = isDuel? otherSnakes[0] : getLongestSnake(myself, otherSnakes) // in a duel, longestSnake other than me is just the other snake
-
   // should attempt to close the distance between self & duel opponent if they are currently in hazard, in an attempt to wall them off
   if (isDuel && hazardDamage > 0) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell && opponentCell.hazard) {
-      if (!isOnHWall && !isOnVWall) { // no sense building hazard walls on the edge of the board
-        evalHazardWallPenalty = 5 // if our duel opponent is actually in hazard, it's *better* to sit on the border & try to form a wall
-      }
-      evalCenterDistancePenalty = 0 // in this particular case, we want our snake to really prioritize walling the other snake off - so turn center metric off
-      evalTailChase = 0 // likewise with tail chase metric
       if (snakeDelta > 0) { // still need to try to stay larger than otherSnakes. If wall fails, could come out of our gambit in a bad spot if we neglected food
         evalFoodVal = 0 // turn food metric off too
-        evalHazardPenalty = evalHazardPenalty * 2 // we do want to chase the opponent, but do not want to let it lure us into hazard
       }
-
-      let opponentDistanceCalq = getDistance(myself.head, longestSnake.head) * evalHazardSnakeSeekerStep
-      buildLogString(`hazard snake seeker, adding ${opponentDistanceCalq}`)
-      evaluation = evaluation + opponentDistanceCalq
     }
   }
 
@@ -707,28 +662,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`adding food calc ${foodCalc}`)
     evaluation = evaluation + foodCalc
   }
-
-  let safeCells: number = getSafeCells(board2d)
-  const numCells: number = board2d.height * board2d.width
-  const safeCellPercentage: number = (safeCells * 100) / numCells
-
-  // in addition to wall/corner penalty, give a bonus to being closer to center
-  const centers = calculateCenterWithHazard(gameState, hazardWalls)
-
-  const xDiff = Math.abs(myself.head.x - centers.centerX)
-  const yDiff = Math.abs(myself.head.y - centers.centerY)
-
-  if (isDuel) { // in a duel, centering should be avoided if we have otherSnake in a bind
-    if (canCutoffSnake || canCutoffHazardSnake || canFaceoffSnake) {
-      evalCenterDistancePenalty = 0
-    }
-  }
-
-  evalCenterDistancePenalty = 0
-  buildLogString(`adding xDiff ${xDiff * evalCenterDistancePenalty}`)
-  evaluation = evaluation + xDiff * evalCenterDistancePenalty
-  buildLogString(`adding yDiff ${yDiff * evalCenterDistancePenalty}`)
-  evaluation = evaluation + yDiff * evalCenterDistancePenalty
 
   let reachableCells = calculateReachableCells(gameState, board2d)
 
