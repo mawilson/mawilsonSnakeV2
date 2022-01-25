@@ -215,6 +215,27 @@ describe('Tests deprecated by lookahead', () => {
       expect(moveResponse.move).not.toBe("down") // food is left, but we're king snake, should be hunting otherSnek & not food
     }
   })
+  // area control may render this one obsolete
+  it.skip('does not travel through hazard longer than necessary', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 40, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 3, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+      createHazardRow(gameState.board, 2)
+
+      gameState.board.food = [{x: 9, y: 0}, {x: 8, y: 5}]
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // Down & right are both hazard, up also has food, should go up
+    }
+})
 })
 
 describe('Battlesnake API Version', () => {
@@ -619,6 +640,26 @@ describe('Kiss of death tests', () => {
       gameState.turn = 13
       let moveResponse : MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("down") // down puts us in a possible kissOfDeath tie with otherSnek, whose only two options are kisses of death. We can just avoid this by going right.
+    }
+  })
+  it('avoids a tie kiss of death v3', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 82, [{x: 7, y: 6}, {x: 6, y: 6}, {x: 5, y: 6}, {x: 5, y: 7}, {x: 6, y: 7}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 79, [{x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 8, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 9, y: 2}, {x: 9, y: 1}, {x: 9, y: 0}, {x: 8, y: 0}, {x: 7, y: 0}, {x: 6, y: 0}, {x: 6, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      gameState.turn = 31
+
+      gameState.board.food = [{x: 1, y: 1}, {x: 3, y: 9}, {x: 10, y: 4}]
+
+      createHazardColumn(gameState.board, 10)
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // down puts us in a possible kissOfDeath tie with otherSnek. We have no reason to risk this, can just go up.
     }
   })
   it('does not avoid a tie kiss of death if in a duel', () => {
@@ -1328,26 +1369,6 @@ describe('Hazard tests', () => {
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // I am smaller & almost full health. The lone food on the board is in hazard, we can retrieve it & get out without health loss by going up, then left
     }
-  })
-  it('does not travel through hazard longer than necessary', () => {
-      for (let i = 0; i < 3; i++) {
-        const snek = new Battlesnake("snek", "snek", 40, [{x: 7, y: 2}, {x: 6, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6}], "30", "", "")
-      
-        const gameState = createGameState(snek)
-
-        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 3, y: 5}], "30", "", "")
-        gameState.board.snakes.push(otherSnek)
-
-        createHazardRow(gameState.board, 10)
-        createHazardRow(gameState.board, 9)
-        createHazardRow(gameState.board, 0)
-        createHazardRow(gameState.board, 1)
-        createHazardRow(gameState.board, 2)
-
-        gameState.board.food = [{x: 9, y: 0}, {x: 8, y: 5}]
-        let moveResponse: MoveResponse = move(gameState)
-        expect(moveResponse.move).toBe("up") // Down & right are both hazard, up also has food, should go up
-      }
   })
   it('does not travel through hazard when another viable option exists', () => {
       for (let i = 0; i < 3; i++) {

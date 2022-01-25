@@ -1,11 +1,11 @@
-export const version: string = "1.0.16" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.17" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
-import { InfoResponse, GameState, MoveResponse, Game, Board, SnakeScoreMongoAggregate } from "./types"
-import { Direction, directionToString, Coord, SnakeCell, Board2d, Moves, MoveNeighbors, BoardCell, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, FoodCountTier, HazardCountTier, Tree, Leaf } from "./classes"
-import { logToFile, checkTime, moveSnake, checkForSnakesHealthAndWalls, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, checkForHealth, cloneGameState, getRandomInt, getDefaultMove, snakeToString, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, getDistance, shuffle, getSnakeScoreHashKey, getSnakeScoreFromHashKey, getFoodCountTier, getHazardCountTier } from "./util"
+import { InfoResponse, GameState, MoveResponse } from "./types"
+import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf } from "./classes"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier } from "./util"
 import { evaluate, determineEvalNoSnakes } from "./eval"
-import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
+import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
 let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
@@ -275,7 +275,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
           if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place        
 
-            otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
+            otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
               return b.length - a.length
             })
 
@@ -294,7 +294,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                   if (murderSnake.id !== snake.id) { // don't compare self to self
                     // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
                     let murderSnakeLength: number = murderSnake.health === 100 ? murderSnake.length - 1 : murderSnake.length // if it just ate, decrement its length, else just consider its length
-                    if (murderSnake.id === newGameState.you.id && lookahead !== startLookahead) { // for anything but startLookahead, snake chose this cell with full knowledge that I would go here - don't let it rechoose again
+                    if (murderSnake.id === newGameState.you.id) { // snake chose this cell with full knowledge that I would go here - don't let it rechoose again
                       return false
                     } else {
                       return (coordsEqual(newHead, murderSnake.head) && murderSnakeLength >= snake.length)
