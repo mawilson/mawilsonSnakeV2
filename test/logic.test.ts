@@ -294,6 +294,21 @@ describe('Tests deprecated by lookahead', () => {
       expect(moveResponse.move).toBe("right") // snek should still care about food because it's in hazard, & should loop right->up->left->left to navigate in & out of hazard while retrieving food
     }
   })
+  // board is wide open, area control will do as it pleases now
+  it.skip('seeks out a face off cell in a duel', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 70, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 1, y: 7}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 0, y: 10}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 7, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 6, y: 5}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("right") // right will likely put us in a faceoff with otherSnek, who wants the food & will go left
+    }
+  })
 })
 
 describe('Battlesnake API Version', () => {
@@ -2525,20 +2540,6 @@ describe('hazard walls tests', () => {
 })
 
 describe('face off tests', () => {
-  it('seeks out a face off cell in a duel', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 70, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 6}, {x: 1, y: 7}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 1, y: 10}, {x: 0, y: 10}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 7, y: 7}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 6, y: 5}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("right") // right will likely put us in a faceoff with otherSnek, who wants the food & will go left
-    }
-  }) 
   it('closes the distance from a faceoff position', () => {
     for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 70, [{x: 1, y: 6}, {x: 2, y: 6}, {x: 3, y: 6}, {x: 4, y: 6}, {x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 7, y: 5}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 7, y: 3}], "30", "", "")
