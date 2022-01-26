@@ -606,8 +606,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         reward = evalVoronoiDeltaBonus // just a 50 reward
       } else if (ratio < 3) { // if my reachable cells are less than triple that of otherSnake
         reward = evalVoronoiDeltaBonus * 2 // 100 reward
-      } else { // my reachable cells are more than triple that of otherSnake
+      } else if (ratio < 4) { // my reachable cells are less than quadruple that of otherSnake
         reward = evalVoronoiDeltaBonus * 4 // 200 reward
+      } else { // my reachable cells are more than quadruple that of otherSnake
+        reward = evalVoronoiDeltaBonus * 6 // 300 reward
       }
     }
     voronoiReward = voronoiReward + reward
