@@ -677,7 +677,8 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
 }
 
 export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
-  if (gameState.board.snakes.length <= 1) { // solo game, deprioritize food unless I'm dying
+  const isSolo: boolean = gameState.game.ruleset.name === "solo"
+  if (isSolo) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
       return board2d.height + board2d.width
     } else {

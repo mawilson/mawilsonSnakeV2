@@ -160,6 +160,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameState.game.ruleset.name === "solo"
+  const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
@@ -328,7 +329,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalVoronoiPositiveMax = 100
   const evalVoronoiBaseGood = 9
   const evalVoronoiBase = 0
-  const evalVoronoiDeltaBonus = isDuel? 75 : 50
+  const evalVoronoiDeltaBonus = (isDuel || haveWon)? 75 : 50
   const evalVoronoiOtherSnakeDivider = 3
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
@@ -545,6 +546,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     wantToEat = false
   } else if (isSolo && snakeHasEaten(myself, lookahead)) {
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
+  } else if (haveWon) {
+    wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
@@ -626,6 +629,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
     voronoiReward = voronoiReward + reward
     buildLogString(`Voronoi bonus for having largest Voronoi, adding ${reward}`)
+  } else if (haveWon) { // if I've won, add back the best possible reward for board control
+    voronoiReward = voronoiReward + evalVoronoiDeltaBonus * 6
+    buildLogString(`I've won, grant Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus * 6}`)
   } else {
     if (voronoiDelta > 0) { // reward for having better board control
       voronoiReward = voronoiReward + evalVoronoiDeltaBonus
