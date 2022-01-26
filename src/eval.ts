@@ -490,7 +490,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`snake delta reward, add ${penalty}`)
     evaluation = evaluation + penalty
   } else if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
-    let penalty: number = -(delta * evalLengthMult) // straight penalty for each length I am smaller than otherSnakes
+    let penalty: number = delta * evalLengthMult // straight penalty for each length I am smaller than otherSnakes
     buildLogString(`snake delta reward, add ${penalty}`)
     evaluation = evaluation + penalty
   } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
@@ -509,8 +509,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + award
   } else { // I am same length as otherSnakes, give penalty/reward accordingly
     if (otherSnakes.length > 1) { // small penalty for being the same length as otherSnakes in a non-duel
-      buildLogString(`snake delta penalty, add ${-(delta * evalLengthMult)}`)
-      evaluation = evaluation - (delta * evalLengthMult)
+      buildLogString(`snake delta penalty, add ${-evalLengthMult}`)
+      evaluation = evaluation - evalLengthMult
     } // no penalty in duel, we love ties
   }
 
