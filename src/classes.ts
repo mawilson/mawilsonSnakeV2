@@ -255,8 +255,8 @@ export class Board2d {
     if (populateVoronoi) {
       // TODO: consider food at each depth, & increase snake's hypothetical length when determining tail cells. Snake can only eat once per depth
       let depth: number = 1 // depth 0 is the snake heads, depth 1 is their immediate neighbors, & so on
+      let eatDepths: {[key: string]: boolean} = {} // keeps track of whether snake with this ID has eaten at this depth
       while(voronoiPoints.length) { // so long as any voronoiPoints are left, must keep calculating them
-        let eatDepths: {[key: string]: boolean} = {} // keeps track of whether snake with this ID has eaten at this depth
 
         let point = voronoiPoints.shift() // get the top point off the list
 
@@ -280,8 +280,10 @@ export class Board2d {
                       isBodyCell = (voronoiSnake.effectiveLength - effectiveIndex) > depth
                     } else {
                       let totalPossibleEats: number = 0
-                      snakePossibleEats[neighbor.snakeCell.snake.id].forEach(gotFood => {
-                        totalPossibleEats = gotFood? totalPossibleEats + 1 : totalPossibleEats
+                      snakePossibleEats[neighbor.snakeCell.snake.id].forEach((gotFood, idx) => {
+                        if (idx !== 0) { // food eaten at depth 0 is not 'possible', it's already eaten, we can see it reflected in snakeCell.snake.length
+                          totalPossibleEats = gotFood? totalPossibleEats + 1 : totalPossibleEats
+                        }
                       })
                       let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + totalPossibleEats
                       isBodyCell = (neighborSnakeEffectiveLength - effectiveIndex) > depth
@@ -373,6 +375,8 @@ export class Board2d {
                 snakePossibleEats[id].push(eatDepths[id])
               }
             })
+
+            eatDepths = {} // reset eatDepths for new depth
           }
         }
       }

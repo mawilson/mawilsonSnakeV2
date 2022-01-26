@@ -102,9 +102,14 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
   return surroundingCells
 }
 
-// returns difference between my length & the length of the largest other snake on the board - can be positive (I am bigger) or negative (I am smaller)
+// returns difference between my length & the length of the largest other snake on the board - can be positive (I am bigger) or negative (I am smaller). Returns self length if alone
 export function snakeLengthDelta(me: Battlesnake, board: Board) : number {
-  return me.length - getLongestSnake(me, board.snakes).length
+  let longestOtherSnake = getLongestOtherSnake(me, board.snakes)
+  if (longestOtherSnake !== undefined) {
+    return me.length - longestOtherSnake.length
+  } else {
+    return me.length // if no other snakes exist, simply return my own length
+  }
 }
 
 export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
@@ -121,16 +126,16 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
   return kingOfTheSnakes
 }
 
-// finds the longest snake on the board and, in the event of a tie, returns the one closest to me. Returns self if only snake on board
-export function getLongestSnake(me: Battlesnake, snakes: Battlesnake[]) : Battlesnake {
+// finds the longest snake on the board and, in the event of a tie, returns the one closest to me. Returns undefined if only snake on board
+export function getLongestOtherSnake(me: Battlesnake, snakes: Battlesnake[]) : Battlesnake | undefined {
   let longestSnakeIndex : number = 0
   let len : number = 0
   let distToMe : number = 0
 
   if (snakes.length === 0) {
-    return me
+    return undefined
   } else if (snakes.length === 1) {
-    return snakes[0]
+    return undefined
   }
   snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
@@ -672,7 +677,8 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
 }
 
 export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
-  if (gameState.board.snakes.length <= 1) { // solo game, deprioritize food unless I'm dying
+  const isSolo: boolean = gameState.game.ruleset.name === "solo"
+  if (isSolo) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
       return board2d.height + board2d.width
     } else {
