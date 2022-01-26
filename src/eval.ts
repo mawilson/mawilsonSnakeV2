@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells, getSnakeDirection } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -449,8 +449,36 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     buildLogString(`Faceoff kiss of murder nearby, adding ${evalKissOfMurderFaceoff}`)
     evaluation = evaluation + evalKissOfMurderFaceoff
   } else if (kissStates.canCommitUnlikelyMurder(moves)) {
-    buildLogString(`Unlikely kiss of murder nearby, adding ${evalKissOfMurderAvoidance}`)
-    evaluation = evaluation + evalKissOfMurderAvoidance
+    // try to determine if this is a cutoff, & if so, give the evalKissOfMurderFaceoff reward instead, to encourage closing the gap in a cutoff situation
+    let myDir = getSnakeDirection(myself)
+    let myPrey: Battlesnake | undefined
+    let wasCutoff: boolean = false
+    switch (myDir) {
+      case Direction.Up:
+      case Direction.Down:
+        myPrey = moveNeighbors.getPrey(myDir)
+        if (myPrey !== undefined && isOnHorizontalWall(gameState.board, myPrey.head)) {
+          buildLogString(`Unlikely kiss of murder which is actually a cutoff nearby, adding ${evalKissOfMurderFaceoff}`)
+          evaluation = evaluation + evalKissOfMurderFaceoff
+          wasCutoff = true
+        }
+        break
+      case Direction.Left:
+      case Direction.Right:
+        myPrey = moveNeighbors.getPrey(myDir)
+        if (myPrey !== undefined && isOnVerticalWall(gameState.board, myPrey.head)) {
+          buildLogString(`Unlikely kiss of murder which is actually a cutoff nearby, adding ${evalKissOfMurderFaceoff}`)
+          evaluation = evaluation + evalKissOfMurderFaceoff
+          wasCutoff = true
+        }
+        break
+      default:
+        break
+    }
+    if (!wasCutoff) {
+      buildLogString(`Unlikely kiss of murder nearby, adding ${evalKissOfMurderAvoidance}`)
+      evaluation = evaluation + evalKissOfMurderAvoidance
+    }
   } else {
     buildLogString(`No kisses of murder nearby, adding ${evalKissOfDeathNo}`)
     evaluation = evaluation + evalKissOfDeathNo

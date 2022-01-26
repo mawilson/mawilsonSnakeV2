@@ -1,4 +1,4 @@
-export const version: string = "1.0.18" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.19" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
