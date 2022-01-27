@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells, getSnakeDirection } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -316,8 +316,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalFoodVal = 1
   } else if (snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
     evalFoodVal = 3
-  } else if (isSolo) {
-    evalFoodVal = 0.3 // very small nudge towards food, even when starving
   }
   const evalFoodStep = 1
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
@@ -331,6 +329,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalVoronoiBase = 0
   const evalVoronoiDeltaBonus = (isDuel || haveWon)? 75 : 50
   const evalVoronoiOtherSnakeDivider = 3
+
+  const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
+  const evalSoloCenter = -1
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -566,9 +567,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // health considerations, which are effectively hazard considerations
-  let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
-  buildLogString(`Health eval for myself, adding ${healthEval}`)
-  evaluation = evaluation + healthEval
+  if (!isSolo) {
+    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+    buildLogString(`Health eval for myself, adding ${healthEval}`)
+    evaluation = evaluation + healthEval
+  }
 
   if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
     wantToEat = false
@@ -679,7 +682,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
         buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
       }
     }
-  } else if (!isSolo && gameState.board.snakes.length === 1) { // add max otherSnake reward for last snake so as not to encourage it to keep snakes alive for that sweet reward
+  } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
     let lastVoronoiReward: number = -(evalVoronoiNegativeMax / evalVoronoiOtherSnakeDivider) // this will be negative, so negate it to make it a reward
     voronoiReward = voronoiReward + lastVoronoiReward
     buildLogString(`Voronoi bonus for being the last snake in a non-solo, adding ${lastVoronoiReward}`)
@@ -688,6 +691,23 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
     buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
     evaluation = evaluation + voronoiReward
+  }
+
+  if (isSolo) { // two things matter in a solo game: not starving, & chasing tail at a safe distance. Try to stay in the middle too so as to stay equidistant to food where possible.
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
+    if (tailDist === 2) {
+      buildLogString(`chasing tail, adding ${evalSoloTailChase}`)
+      evaluation = evaluation + evalSoloTailChase
+    }
+    
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+    const xDiff = Math.abs(myself.head.x - centers.centerX)
+    const yDiff = Math.abs(myself.head.y - centers.centerY)
+
+    buildLogString(`adding xDiff ${xDiff * evalSoloCenter}`)
+    evaluation = evaluation + xDiff * evalSoloCenter
+    buildLogString(`adding yDiff ${yDiff * evalSoloCenter}`)
+    evaluation = evaluation + yDiff * evalSoloCenter
   }
 
   buildLogString(`final evaluation: ${evaluation}`)

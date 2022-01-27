@@ -1,4 +1,4 @@
-export const version: string = "1.0.19" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.20" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -64,7 +64,8 @@ export async function end(gameState: GameState): Promise<void> {
     return snake.id === gameState.you.id
   })
   let isTie = gameState.board.snakes.length === 0
-  let gameResult = isWin? "win" : isTie? "tie" : "loss" // it's either a win, a tie, or a loss
+  let isSolo = gameState.game.ruleset.name === "solo"
+  let gameResult = isSolo? "solo" : isWin? "win" : isTie? "tie" : "loss" // it's either a solo, a win, a tie, or a loss
   
   if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
