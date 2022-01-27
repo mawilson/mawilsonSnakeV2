@@ -328,7 +328,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalVoronoiBaseGood = 9
   const evalVoronoiBase = 0
   const evalVoronoiDeltaBonus = (isDuel || haveWon)? 75 : 50
-  const evalVoronoiOtherSnakeDivider = 3
+  const evalVoronoiDeltaMax = 600
 
   const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
   const evalSoloCenter = -1
@@ -366,23 +366,20 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalHazardPenalty
   }
 
-  // penalize or rewards spaces next to hazard, near when hazard will soon appear
-  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
-    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
-    evaluation = evaluation + evalHazardWallPenalty
-  }
-
   let wantToEat: boolean = true // condition for whether we currently want food
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
-  // turn off food seeking if dueling, healthy, opponent is in hazard, & I'm not - hazard walling
+  // hazard walling
   if (isDuel && hazardDamage > 0) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
-      if (snakeDelta > 0) { // still need to try to stay larger than otherSnakes. If wall fails, could come out of our gambit in a bad spot if we neglected food
-        wantToEat = false
-      }
+      evalFoodVal = 1 // seek food less while building hazard walls, but don't stop
     }
+  }
+
+  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
+    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
+    evaluation = evaluation + evalHazardWallPenalty
   }
 
   if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
@@ -645,24 +642,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   if (isDuel) { // give stronger & more specific rewards for board control in duel
     let voronoiOtherSnake: number = reachableCells[otherSnakes[0].id]
+    if (voronoiOtherSnake === 0) { voronoiOtherSnake = 1 } // should be impossible, but ensure prevention of divide by zero
     let ratio = voronoiMyself / voronoiOtherSnake
     let reward: number = 0
     if (ratio > 1) { // give varying rewards depending on how much more board control I have
-      if (ratio < 2) { // if my reachable cells are less than double that of otherSnake
-        reward = evalVoronoiDeltaBonus // just a 50 reward
-      } else if (ratio < 3) { // if my reachable cells are less than triple that of otherSnake
-        reward = evalVoronoiDeltaBonus * 2 // 100 reward
-      } else if (ratio < 4) { // my reachable cells are less than quadruple that of otherSnake
-        reward = evalVoronoiDeltaBonus * 4 // 200 reward
-      } else { // my reachable cells are more than quadruple that of otherSnake
-        reward = evalVoronoiDeltaBonus * 6 // 300 reward
-      }
+      let ratioTier = Math.floor(ratio) // 1 means I'm less than double, 2 means less than triple, 3 less than quadruple, etc.
+      reward = evalVoronoiDeltaBonus * ratioTier // so in steps of 50: 50 for less than double, 100 for less than triple, 150 for less than quadruple, etc.
+      reward = reward > evalVoronoiDeltaMax? evalVoronoiDeltaMax : reward
     }
     voronoiReward = voronoiReward + reward
     buildLogString(`Voronoi bonus for having largest Voronoi, adding ${reward}`)
   } else if (haveWon) { // if I've won, add back the best possible reward for board control
-    voronoiReward = voronoiReward + evalVoronoiDeltaBonus * 6
-    buildLogString(`I've won, grant Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus * 6}`)
+    voronoiReward = voronoiReward + evalVoronoiDeltaMax
+    buildLogString(`I've won, grant Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaMax}`)
   } else {
     if (voronoiDelta > 0) { // reward for having better board control
       voronoiReward = voronoiReward + evalVoronoiDeltaBonus
@@ -670,20 +662,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
-  // more minmaxing - tells otherSnakes to reward positions that trap originalSnake
+  // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
   if (!isOriginalSnake && originalSnake) {
     let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
     if (originalSnakeVoronoi !== undefined) {
       if (originalSnakeVoronoi < evalVoronoiBaseGood) {
         let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
         howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
-        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
         voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
         buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
       }
     }
   } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-    let lastVoronoiReward: number = -(evalVoronoiNegativeMax / evalVoronoiOtherSnakeDivider) // this will be negative, so negate it to make it a reward
+    let lastVoronoiReward: number = -evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
     voronoiReward = voronoiReward + lastVoronoiReward
     buildLogString(`Voronoi bonus for being the last snake in a non-solo, adding ${lastVoronoiReward}`)
   }
