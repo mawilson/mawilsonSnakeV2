@@ -1103,68 +1103,78 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
 // finely tuned lookahead determinator based on various things - available moves, timeout, etc
 export function lookaheadDeterminator(gameState: GameState): number {
   let lookahead: number
+  let isSpeedSnake: boolean = gameState.game.timeout < 500
+  let gameKeys = Object.keys(gameData)
+
+  if (isSpeedSnake) {
+    if (gameState.turn === 0) {
+      lookahead = 0
+    } else if (gameKeys.length > 1) { // if at least one other game is already running, run the game with one lookahead to avoid excess CPU usage 
+        lookahead = 1
+        logToFile(consoleWriteStream, `more than one game was running, decrementing lookahead to ${lookahead}`)
+    } else if (gameState.turn < 15) {
+      lookahead = 2
+    } else {
+      lookahead = 3
+    }
+    return lookahead
+  }
+
   if (gameState.turn === 0) {
     lookahead = 0 // for turn 0, give lookahead of 0. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 5) {
     lookahead = 2 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
-  } else if (gameState.turn < 7 && gameState.game.timeout >= 500) {
+  } else if (gameState.turn < 7) {
     lookahead = 3
   } else {
-    if(gameState.game.timeout < 500) { // this is all we can afford in speed snake
-      if (gameState.turn < 15) {
-        lookahead = 2
-      } else if (gameState.board.snakes.length > 2) {
-        lookahead = 3
-      } else {
-        lookahead = 3
-      }
-    } else {
-      switch (gameState.board.snakes.length) {
-        case 0:
-          lookahead = 0
-          break
-        case 1:
-          lookahead = 5
-          break
-        case 2:
-          lookahead = 5
-          break
-        case 3:
-          let board2d = new Board2d(gameState)
-          let myselfAvailableMoves = getAvailableMoves(gameState, gameState.you, board2d)
-          if (myselfAvailableMoves.validMoves().length === 3) { // if I have three available moves, may need to decrement lookahead if all other snakes also do
-            let otherSnakesHave3Moves = gameState.board.snakes.every(function hasThreeMoves(snake) {
-              let availableMoves = getAvailableMoves(gameState, snake, board2d)
-              return availableMoves.validMoves().length === 3
-            })
-            if (otherSnakesHave3Moves) {
-              lookahead = 3
-            } else {
-              lookahead = 4
-            }
+    switch (gameState.board.snakes.length) {
+      case 0:
+        lookahead = 0
+        break
+      case 1:
+        lookahead = 5
+        break
+      case 2:
+        lookahead = 5
+        break
+      case 3:
+        let board2d = new Board2d(gameState)
+        let myselfAvailableMoves = getAvailableMoves(gameState, gameState.you, board2d)
+        if (myselfAvailableMoves.validMoves().length === 3) { // if I have three available moves, may need to decrement lookahead if all other snakes also do
+          let otherSnakesHave3Moves = gameState.board.snakes.every(function hasThreeMoves(snake) {
+            let availableMoves = getAvailableMoves(gameState, snake, board2d)
+            return availableMoves.validMoves().length === 3
+          })
+          if (otherSnakesHave3Moves) {
+            lookahead = 3
           } else {
             lookahead = 4
           }
-          break
-        default: // 4 or more
-          lookahead = 3
-          break
-      }
-      if (lookahead >= 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
-        let totalSnakeLength: number = 0
-        gameState.board.snakes.forEach(function addSnakeLength(snake) {
-          totalSnakeLength = totalSnakeLength + snake.length
-        })
-        if (gameState.you.length < 15 && totalSnakeLength < 30) { // my own length matters most since I look the farthest ahead, but if all snakes are small that also matters
-          lookahead = lookahead - 1
+        } else {
+          lookahead = 4
         }
+        break
+      default: // 4 or more
+        lookahead = 3
+        break
+    }
+    if (lookahead >= 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
+      let totalSnakeLength: number = 0
+      gameState.board.snakes.forEach(function addSnakeLength(snake) {
+        totalSnakeLength = totalSnakeLength + snake.length
+      })
+      if (gameState.you.length < 15 && totalSnakeLength < 30) { // my own length matters most since I look the farthest ahead, but if all snakes are small that also matters
+        lookahead = lookahead - 1
       }
     }
   }
 
-  if (Object.keys(gameData).length > 1) { // if at least one game is already running, run the game with one less lookahead to avoid excess CPU usage
+  if (gameKeys.length >= 3) { // if three or more games are already running, run the game with two less lookahead to avoid excess CPU usage 
+    lookahead = ((lookahead - 2) >= 0)? lookahead - 2 : 0
+    logToFile(consoleWriteStream, `three or more games were running, decrementing lookahead to ${lookahead}`)
+  } else if (gameKeys.length === 2) {// if two games are currently running, run the game with one less lookahead to avoid excess CPU usage
     lookahead = lookahead > 0? lookahead - 1 : lookahead
-    logToFile(consoleWriteStream, `more than one game was running, decrementing lookahead to ${lookahead}`)
+    logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
   }
   return lookahead
 }
