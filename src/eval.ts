@@ -220,7 +220,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (((gameState.turn + 1) % 25) > 21) {// turns 21, 22, 23, & increments of 25
     evalHazardWallPenalty = -2
   }
-  let evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
+  let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
@@ -231,7 +231,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalHealthOthersnakeDuelStep = -3
   const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
 
-  const evalLengthMult = isSolo? -20 : 15 // larger values result in more food prioritization. Negative preference towards length in solo
+  const evalLengthMult = isSolo? -20 : 20 // larger values result in more food prioritization. Negative preference towards length in solo
   let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
 
   const evalPriorKissOfDeathCertainty = isOriginalSnake? -800 : 0 // otherSnakes can pick again, let them evaluate this without fear of death
@@ -599,7 +599,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
           }
           let foodCell = board2d.getCell(fud)
           if (foodCell && foodCell.hazard) {
-            foodToHuntLength = foodToHuntLength - 0.6 // hazard food is worth 0.4 that of normal food
+            foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
         })
         let foodCalcStep = 0

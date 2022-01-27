@@ -326,7 +326,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                             if (newGameState.board.snakes.length > 2) { // it's not a duel
                               if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
                                 adjustedMove = newMove
-                              } else if (murderSnakeBeforeMoveAvailableMoves.length === 1) { // if it is a tie, only rechoose if originalSnake had no other options
+                              } else if (murderSnake.id !== gameState.you.id && murderSnakeBeforeMoveAvailableMoves.length === 1) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, only rechoose if originalSnake had no other options
                                 adjustedMove = newMove
                               }
                             } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
