@@ -2655,6 +2655,33 @@ describe('Voronoi diagram tests', () => {
       expect(otherSnekReachableCells).toBeCloseTo(6.8) // can reach 6 non-hazards, & 2 hazards. 6*1 + 2*0.4 = 6.8
     }
   })
+  it('correctly determines whether we can escape through tail when food increases our length', () => {
+    const snek = new Battlesnake("snek", "snek", 70, [{x: 2, y: 0}, {x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 70, [{x: 3, y: 1}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 7, y: 3}, {x: 8, y: 3}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 70, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 1, y: 3}, {x: 2, y: 3}, {x: 3, y: 3}, {x: 4, y: 3}, {x: 5, y: 3}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    gameState.game.ruleset.settings.hazardDamagePerTurn = 0
+
+    gameState.turn = 84
+
+    gameState.board.food = [{x: 0, y: 0}, {x: 8, y: 0}, {x: 4, y: 4}, {x: 6, y: 6}]
+
+    let board2d = new Board2d(gameState, true)
+
+    let reachableCells = calculateReachableCells(gameState, board2d)
+    let snekReachableCells = reachableCells[snek.id]
+
+    expect(snekReachableCells).toBeDefined()
+
+    if (snekReachableCells !== undefined) {
+      expect(snekReachableCells).toBe(3) // can reach own cell, one left, & the left corner. No escape through tail.
+    }
+  })
 })
 
 describe('Voronoi tests', () => {
