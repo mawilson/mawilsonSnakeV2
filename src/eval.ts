@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -306,8 +306,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalKissOfMurderFaceoff = 35 // we can kill a snake, they have an escape route, but we can easily give chase
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
   const evalKissOfMurderSelfBonus = 30 // bonus given to otherSnakes for attempting to get close enough to kill me
-  let evalFoodVal = 2
 
+  const evalCutoffHazardReward = isDuel? 75 : 25
+  const evalCutoffHazardPenalty = -60
+
+  let evalFoodVal = 2
   if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
   } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
@@ -502,6 +505,25 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalKissOfMurderSelfBonus
   }
 
+  let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
+    return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
+  })
+  if (canCutoffHazardSnake) {
+    evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
+    buildLogString(`attempting hazard cutoff, adding ${evalCutoffHazardReward}`)
+    evaluation = evaluation + evalCutoffHazardReward
+  }
+
+  if (!canCutoffHazardSnake) {
+    let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
+      return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+    })
+    if (canBeCutoffHazardBySnake) {
+      buildLogString(`can be hazard cut off, adding ${evalCutoffHazardPenalty}`)
+      evaluation = evaluation + evalCutoffHazardPenalty
+    }
+  }
+
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
@@ -661,7 +683,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
-  if (!isOriginalSnake && originalSnake) {
+  if (!isOriginalSnake && originalSnake && !isDuel) { // don't double reward otherSnake for board control when in duel
     let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
     if (originalSnakeVoronoi !== undefined) {
       if (originalSnakeVoronoi < evalVoronoiBaseGood) {
