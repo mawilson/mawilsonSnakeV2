@@ -1711,8 +1711,7 @@ describe('Snake cutoff tests', () => {
       expect(moveResponse.move).toBe("right") // can pin otherSnek up against hazard by continuing to move right
     }
   })
-  // now fails because otherSnake turns into the hazard to escape, which is fair.
-  it.skip('ignores food while seeking a cutoff pinning snake against hazard in a duel', () => {
+  it('ignores food while seeking a cutoff pinning snake against hazard in a duel', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 5, y: 2}, {x: 4, y :2}, {x: 3, y: 2}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}], "30", "", "")
       

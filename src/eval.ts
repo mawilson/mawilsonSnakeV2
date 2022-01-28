@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells, getSnakeDirection } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, isSandwich, isFaceoff, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -124,7 +124,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake)
 
   // addresses an edge case where tie score is wildly higher due food immediacy bonuses. That score is not representative of a neutral state.
   if (newSnakeSelf.health === newSnakeOther.health && newSnakeSelf.health === 100) {
-    newSnakeSelf.health = 90 // less health than max - lookahead
+    newSnakeSelf.health = 99 // don't give full reward for eating, otherwise evalNoSnakes would be way too high
     newSnakeOther.health = newSnakeSelf.health
   }
 
@@ -220,7 +220,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (((gameState.turn + 1) % 25) > 21) {// turns 21, 22, 23, & increments of 25
     evalHazardWallPenalty = -2
   }
-  let evalHazardPenalty: number = -(hazardDamage + 3) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
+  let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
@@ -231,7 +231,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalHealthOthersnakeDuelStep = -3
   const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
 
-  const evalLengthMult = isSolo? -20 : 15 // larger values result in more food prioritization. Negative preference towards length in solo
+  const evalLengthMult = isSolo? -20 : 20 // larger values result in more food prioritization. Negative preference towards length in solo
   let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
 
   const evalPriorKissOfDeathCertainty = isOriginalSnake? -800 : 0 // otherSnakes can pick again, let them evaluate this without fear of death
@@ -242,7 +242,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might
-    evalPriorKissOfDeathCertaintyMutual = -400
+    evalPriorKissOfDeathCertaintyMutual = -500
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
   const evalPriorKissOfDeathMaybe = isOriginalSnake? -400 : 0 // this cell is a 50/50. otherSnakes can pick again, let them evaluate this without fear of death
@@ -253,7 +253,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
-    evalPriorKissOfDeathMaybeMutual = -300
+    evalPriorKissOfDeathMaybeMutual = -400
   }
   
   const evalPriorKissOfDeath3To1Avoidance = 0
@@ -316,8 +316,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evalFoodVal = 1
   } else if (snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
     evalFoodVal = 3
-  } else if (isSolo) {
-    evalFoodVal = 0.3 // very small nudge towards food, even when starving
   }
   const evalFoodStep = 1
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
@@ -330,7 +328,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalVoronoiBaseGood = 9
   const evalVoronoiBase = 0
   const evalVoronoiDeltaBonus = (isDuel || haveWon)? 75 : 50
-  const evalVoronoiOtherSnakeDivider = 3
+  const evalVoronoiDeltaMax = 600
+
+  const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
+  const evalSoloCenter = -1
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -365,23 +366,20 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalHazardPenalty
   }
 
-  // penalize or rewards spaces next to hazard, near when hazard will soon appear
-  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
-    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
-    evaluation = evaluation + evalHazardWallPenalty
-  }
-
   let wantToEat: boolean = true // condition for whether we currently want food
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
-  // turn off food seeking if dueling, healthy, opponent is in hazard, & I'm not - hazard walling
+  // hazard walling
   if (isDuel && hazardDamage > 0) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
-      if (snakeDelta > 0) { // still need to try to stay larger than otherSnakes. If wall fails, could come out of our gambit in a bad spot if we neglected food
-        wantToEat = false
-      }
+      evalFoodVal = 1 // seek food less while building hazard walls, but don't stop
     }
+  }
+
+  if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
+    buildLogString(`hazard wall penalty, add ${evalHazardWallPenalty}`)
+    evaluation = evaluation + evalHazardWallPenalty
   }
 
   if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
@@ -566,9 +564,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   // health considerations, which are effectively hazard considerations
-  let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
-  buildLogString(`Health eval for myself, adding ${healthEval}`)
-  evaluation = evaluation + healthEval
+  if (!isSolo) {
+    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+    buildLogString(`Health eval for myself, adding ${healthEval}`)
+    evaluation = evaluation + healthEval
+  }
 
   if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
     wantToEat = false
@@ -596,7 +596,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
           }
           let foodCell = board2d.getCell(fud)
           if (foodCell && foodCell.hazard) {
-            foodToHuntLength = foodToHuntLength - 0.6 // hazard food is worth 0.4 that of normal food
+            foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
         })
         let foodCalcStep = 0
@@ -642,24 +642,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   if (isDuel) { // give stronger & more specific rewards for board control in duel
     let voronoiOtherSnake: number = reachableCells[otherSnakes[0].id]
+    if (voronoiOtherSnake === 0) { voronoiOtherSnake = 1 } // should be impossible, but ensure prevention of divide by zero
     let ratio = voronoiMyself / voronoiOtherSnake
     let reward: number = 0
     if (ratio > 1) { // give varying rewards depending on how much more board control I have
-      if (ratio < 2) { // if my reachable cells are less than double that of otherSnake
-        reward = evalVoronoiDeltaBonus // just a 50 reward
-      } else if (ratio < 3) { // if my reachable cells are less than triple that of otherSnake
-        reward = evalVoronoiDeltaBonus * 2 // 100 reward
-      } else if (ratio < 4) { // my reachable cells are less than quadruple that of otherSnake
-        reward = evalVoronoiDeltaBonus * 4 // 200 reward
-      } else { // my reachable cells are more than quadruple that of otherSnake
-        reward = evalVoronoiDeltaBonus * 6 // 300 reward
-      }
+      let ratioTier = Math.floor(ratio) // 1 means I'm less than double, 2 means less than triple, 3 less than quadruple, etc.
+      reward = evalVoronoiDeltaBonus * ratioTier // so in steps of 50: 50 for less than double, 100 for less than triple, 150 for less than quadruple, etc.
+      reward = reward > evalVoronoiDeltaMax? evalVoronoiDeltaMax : reward
     }
     voronoiReward = voronoiReward + reward
     buildLogString(`Voronoi bonus for having largest Voronoi, adding ${reward}`)
   } else if (haveWon) { // if I've won, add back the best possible reward for board control
-    voronoiReward = voronoiReward + evalVoronoiDeltaBonus * 6
-    buildLogString(`I've won, grant Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaBonus * 6}`)
+    voronoiReward = voronoiReward + evalVoronoiDeltaMax
+    buildLogString(`I've won, grant Voronoi bonus for having largest Voronoi, adding ${evalVoronoiDeltaMax}`)
   } else {
     if (voronoiDelta > 0) { // reward for having better board control
       voronoiReward = voronoiReward + evalVoronoiDeltaBonus
@@ -667,20 +662,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
-  // more minmaxing - tells otherSnakes to reward positions that trap originalSnake
+  // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
   if (!isOriginalSnake && originalSnake) {
     let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
     if (originalSnakeVoronoi !== undefined) {
       if (originalSnakeVoronoi < evalVoronoiBaseGood) {
         let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
         howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
-        howBad = howBad / evalVoronoiOtherSnakeDivider // reward for mitigating otherSnake Voronoi should be lesser than reward for chasing own
         voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
         buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
       }
     }
-  } else if (!isSolo && gameState.board.snakes.length === 1) { // add max otherSnake reward for last snake so as not to encourage it to keep snakes alive for that sweet reward
-    let lastVoronoiReward: number = -(evalVoronoiNegativeMax / evalVoronoiOtherSnakeDivider) // this will be negative, so negate it to make it a reward
+  } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
+    let lastVoronoiReward: number = -evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
     voronoiReward = voronoiReward + lastVoronoiReward
     buildLogString(`Voronoi bonus for being the last snake in a non-solo, adding ${lastVoronoiReward}`)
   }
@@ -688,6 +682,23 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
     buildLogString(`Voronoi bonus, adding ${voronoiReward}`)
     evaluation = evaluation + voronoiReward
+  }
+
+  if (isSolo) { // two things matter in a solo game: not starving, & chasing tail at a safe distance. Try to stay in the middle too so as to stay equidistant to food where possible.
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
+    if (tailDist === 2) {
+      buildLogString(`chasing tail, adding ${evalSoloTailChase}`)
+      evaluation = evaluation + evalSoloTailChase
+    }
+    
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+    const xDiff = Math.abs(myself.head.x - centers.centerX)
+    const yDiff = Math.abs(myself.head.y - centers.centerY)
+
+    buildLogString(`adding xDiff ${xDiff * evalSoloCenter}`)
+    evaluation = evaluation + xDiff * evalSoloCenter
+    buildLogString(`adding yDiff ${yDiff * evalSoloCenter}`)
+    evaluation = evaluation + yDiff * evalSoloCenter
   }
 
   buildLogString(`final evaluation: ${evaluation}`)
