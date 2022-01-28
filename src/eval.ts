@@ -124,7 +124,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake)
 
   // addresses an edge case where tie score is wildly higher due food immediacy bonuses. That score is not representative of a neutral state.
   if (newSnakeSelf.health === newSnakeOther.health && newSnakeSelf.health === 100) {
-    newSnakeSelf.health = 90 // less health than max - lookahead
+    newSnakeSelf.health = 99 // don't give full reward for eating, otherwise evalNoSnakes would be way too high
     newSnakeOther.health = newSnakeSelf.health
   }
 
@@ -242,7 +242,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might
-    evalPriorKissOfDeathCertaintyMutual = -400
+    evalPriorKissOfDeathCertaintyMutual = -500
   }
   //const evalPriorKissOfDeathCertaintyMutual = isDuel? 0 : -50 // in a duel, this is a tie, consider it neutrally. In a non-duel, the otherSnake won't want to do this, so only small penalty for risking it
   const evalPriorKissOfDeathMaybe = isOriginalSnake? -400 : 0 // this cell is a 50/50. otherSnakes can pick again, let them evaluate this without fear of death
@@ -253,7 +253,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might. Smaller penalty than certainty, as it's more uncertain
-    evalPriorKissOfDeathMaybeMutual = -300
+    evalPriorKissOfDeathMaybeMutual = -400
   }
   
   const evalPriorKissOfDeath3To1Avoidance = 0
