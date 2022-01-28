@@ -509,10 +509,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
-  } else if (snakeDelta === 6 && !snakeHasEaten(myself, lookahead)) { // If I am exactly 6 bigger & I haven't just eaten, stop wanting food
-    wantToEat = false
-  } else if (snakeDelta > 6) { // If I am more than 6 bigger, stop wanting food
-    wantToEat = false
+  } else if (snakeDelta > 6) { // If I am more than 6 bigger, want food less
+    evalFoodVal = 1
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
@@ -669,6 +667,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       if (originalSnakeVoronoi < evalVoronoiBaseGood) {
         let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
         howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
+        howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
         voronoiReward = voronoiReward - howBad // will be double negative, hence actually adding
         buildLogString(`Voronoi bonus for limiting originalSnake Voronoi, adding ${-howBad}`)
       }

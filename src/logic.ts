@@ -1,4 +1,4 @@
-export const version: string = "1.0.20" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.21" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -50,7 +50,7 @@ export function info(): InfoResponse {
 }
 
 export async function start(gameState: GameState): Promise<void> {
-  console.log(`${gameState.game.id} START`)
+  console.log(`${gameState.game.id} START. Now ${Object.keys(gameData).length} running.`)
 
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData() // move() will update hazardWalls & lookahead accordingly later on.
@@ -96,7 +96,7 @@ export async function end(gameState: GameState): Promise<void> {
   if (thisGameData !== undefined) { // clean up game-specific data
     delete gameData[gameDataId]
   }
-  console.log(`${gameState.game.id} END\n`)
+  console.log(`${gameState.game.id} END. Still ${Object.keys(gameData).length} games running.\n`)
 }
 
 // TODO
@@ -183,6 +183,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
       return snake.id === myself.id
     })
+
+    let isDuel: boolean = stateContainsMe && (gameState.board.snakes.length === 2)
     
     let board2d = new Board2d(gameState)
 
@@ -292,14 +294,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
 
                 let murderSnake: Battlesnake | undefined = newGameState.board.snakes.find(murderSnake => { // check if any snake has murdered this snake, including originalSnake
-                  if (murderSnake.id !== snake.id) { // don't compare self to self
+                  let murderSnakeBeforeMove: Battlesnake | undefined = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
+                    return murderSnake !== undefined && priorSnake.id === murderSnake.id
+                  })
+                  
+                  if (murderSnakeBeforeMove !== undefined && murderSnakeBeforeMove.id !== snake.id) { // don't compare self to self
                     // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
-                    let murderSnakeLength: number = murderSnake.health === 100 ? murderSnake.length - 1 : murderSnake.length // if it just ate, decrement its length, else just consider its length
-                    if (murderSnake.id === newGameState.you.id) { // snake chose this cell with full knowledge that I would go here - don't let it rechoose again
-                      return false
-                    } else {
-                      return (coordsEqual(newHead, murderSnake.head) && murderSnakeLength >= snake.length)
-                    }
+                    return (coordsEqual(newHead, murderSnake.head) && murderSnakeBeforeMove.length >= snake.length) // snake hasn't moved yet since we're in the process of moving it, can use its length
                   } else { // return false for self
                     return false
                   }
@@ -323,7 +324,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                           })
                           if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
                             let murderSnakeBeforeMoveAvailableMoves = murderSnakeBeforeMove.id === gameState.you.id? availableMoves : getAvailableMoves(gameState, murderSnakeBeforeMove, board2d).validMoves() // get available moves murderSnake had before moving - can use availableMoves if murderSnake is myself
-                            if (newGameState.board.snakes.length > 2) { // it's not a duel
+                            if (!isDuel) { // it's not a duel
                               if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
                                 adjustedMove = newMove
                               } else if (murderSnake.id !== gameState.you.id && murderSnakeBeforeMoveAvailableMoves.length === 1) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, only rechoose if originalSnake had no other options

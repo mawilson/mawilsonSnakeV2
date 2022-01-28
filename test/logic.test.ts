@@ -1051,6 +1051,32 @@ describe('Kiss of murder tests', () => {
       expect(moveResponse.move).not.toBe("left")
     }
   })
+  it('will not try to kill in a situation where it will die no matter what', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 83, [{x: 2, y: 9}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 4, y: 9}, {x: 4, y: 8}, {x: 4, y: 7}, {x: 5, y: 7}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 96, [{x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 0, y: 8}, {x: 0, y: 7}, {x: 1, y: 7}, {x: 2, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 2, y: 5}, {x: 3, y: 5}, {x: 3, y: 4}, {x: 3, y: 3}, {x: 2, y: 3}, {x: 2, y: 2}, {x: 1, y: 2}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}, {x: 0, y: 5}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+
+      const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 99, [{x: 7, y: 10}, {x: 6, y: 10}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}], "30", "", "")
+      gameState.board.snakes.push(otherSnek3)
+
+      gameState.turn = 87
+
+      gameState.board.food = [{x: 0, y: 1}]
+
+      createHazardColumn(gameState.board, 10)
+      createHazardRow(gameState.board, 0)
+      createHazardRow(gameState.board, 1)
+
+      let moveResponse : MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // up will kill me unless otherSnek deliberately kills itself against me. Down likely kills me against otherSnek2 in a few turns, but obviously better
+    }
+  })
 })
 
 describe('Cloned game state tests', () => {
