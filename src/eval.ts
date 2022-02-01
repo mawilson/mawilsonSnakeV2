@@ -157,6 +157,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const board2d = new Board2d(gameState, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+  const isWrapped = gameState.game.ruleset.name === "wrapped"
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameState.game.ruleset.name === "solo"
@@ -265,7 +266,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalPriorKissOfMurderCertainty = 80 // this state is strongly likely to have killed a snake
   const evalPriorKissOfMurderMaybe = 40 // this state had a 50/50 chance of having killed a snake
   let evalPriorKissOfMurderFaceoff = 75 // this state had an unlikely chance of having killed a snake, but it means we closed the distance on a faceoff, which is great
-  if (priorKissStates.prey !== undefined) {
+  if (!isWrapped && priorKissStates.prey !== undefined) { // cannot cutoff in a wrapped game
     let preyHead = priorKissStates.prey.head
     let preyIsOnWall: boolean = isOnHorizontalWall(gameState.board, preyHead) || isOnVerticalWall(gameState.board, preyHead)
     if (preyIsOnWall) {
@@ -314,6 +315,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalFoodVal = 2
   if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
+  } else if (isWrapped) {
+    evalFoodVal = 8 // care more about food in wrapped, as there's fewer dangers to eating it
   } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = 3
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
@@ -336,6 +339,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
   const evalSoloCenter = -1
+
+  const evalWrappedOtherSnake1Move = 150
 
   let logString: string = myself === undefined ? `eval where my snake is dead, turn ${gameState.turn}` : `eval snake ${myself.name} at (${myself.head.x},${myself.head.y} turn ${gameState.turn})`
   function buildLogString(str : string) : void {
@@ -378,7 +383,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
   // hazard walling
-  if (isDuel && hazardDamage > 0) {
+  if (isDuel && hazardDamage > 0 && !isWrapped) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
       evalFoodVal = 1 // seek food less while building hazard walls, but don't stop
@@ -463,7 +468,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       case Direction.Up:
       case Direction.Down:
         myPrey = moveNeighbors.getPrey(myDir)
-        if (myPrey !== undefined && isOnHorizontalWall(gameState.board, myPrey.head)) {
+        if (!isWrapped && myPrey !== undefined && isOnHorizontalWall(gameState.board, myPrey.head)) {
           buildLogString(`Unlikely kiss of murder which is actually a cutoff nearby, adding ${evalKissOfMurderFaceoff}`)
           evaluation = evaluation + evalKissOfMurderFaceoff
           wasCutoff = true
@@ -472,7 +477,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
       case Direction.Left:
       case Direction.Right:
         myPrey = moveNeighbors.getPrey(myDir)
-        if (myPrey !== undefined && isOnVerticalWall(gameState.board, myPrey.head)) {
+        if (!isWrapped && myPrey !== undefined && isOnVerticalWall(gameState.board, myPrey.head)) {
           buildLogString(`Unlikely kiss of murder which is actually a cutoff nearby, adding ${evalKissOfMurderFaceoff}`)
           evaluation = evaluation + evalKissOfMurderFaceoff
           wasCutoff = true
@@ -536,7 +541,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
-  } else if (snakeDelta > 6) { // If I am more than 6 bigger, want food less
+  } else if (snakeDelta > 6 && !isWrapped) { // If I am more than 6 bigger, want food less
     evalFoodVal = 1
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
@@ -725,6 +730,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + xDiff * evalSoloCenter
     buildLogString(`adding yDiff ${yDiff * evalSoloCenter}`)
     evaluation = evaluation + yDiff * evalSoloCenter
+  }
+
+  if (isWrapped && isDuel) { // in wrapped, limiting otherSnake movement is significantly harder, & railroading them can lead to starvation or a trap somewhere down the road
+    let otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnakes[0], board2d)
+    if (otherSnakeAvailableMoves.validMoves().length <= 1) {
+      buildLogString(`adding wrapped otherSnake1Move ${evalWrappedOtherSnake1Move}`)
+      evaluation = evaluation + evalWrappedOtherSnake1Move
+    }
   }
 
   buildLogString(`final evaluation: ${evaluation}`)

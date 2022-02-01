@@ -1187,6 +1187,8 @@ export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined,
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
+  } else if (gameState.game.ruleset.name === "wrapped") {
+    return false // cannot cut off in wrapped, at least not so simply
   }
   let myself: Battlesnake = _myself
   let snake: Battlesnake = _snake
