@@ -212,6 +212,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   // values to tweak
   const evalBase: number = 500
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
+  const evalNoMeCertainty: number = 200 // value that being murdered is better than starving. Still highly likely, but slightly less likely than straight starvation
   let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
   if (gameState.turn % 25 === 0) { // turn 25, & increments of 25
     evalHazardWallPenalty = -8
@@ -356,7 +357,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     if (_myself !== undefined && _myself.health <= 0) { // if I starved, return evalNoMe, this is certain death
       return evalNoMe
     } else if (priorKissStates.deathState !== KissOfDeathState.kissOfDeathNo) {
-      return getPriorKissOfDeathValue(priorKissStates.deathState) // Return the kissofDeath value that got me here (if applicable). This represents an uncertain death - though bad, it's not as bad as, say, starvation, which is a certainty.
+      if (isOriginalSnake && [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual].includes(priorKissStates.deathState)) {
+        return evalNoMe + evalNoMeCertainty // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
+      } else {
+        return getPriorKissOfDeathValue(priorKissStates.deathState) // Return the kissofDeath value that got me here (if applicable). This represents an uncertain death - though bad, it's not as bad as, say, starvation, which is a certainty.
+      }
     } else { // other deaths, such as death by snake body, are also a certainty
       return evalNoMe
     }
