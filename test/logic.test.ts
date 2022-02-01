@@ -2727,3 +2727,28 @@ describe('Voronoi tests', () => {
     // down lets me continue to chase my tail in a way that will enable me to eat the majority of the tiles on the board.
   })
 })
+
+describe('Prolonging death tests', () => { // tests to ensure Jaguar tries to survive as long as possible even when death seems inevitable
+  it('chooses a few turns of hazard & a likely murder over an immediate tie death', () => {
+    const snek = new Battlesnake("snek", "snek", 69, [{x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 89, [{x: 9, y: 8}, {x: 9, y: 7}, {x: 9, y: 6}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 6, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 72, [{x: 6, y: 7}, {x: 5, y: 7}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 76, [{x: 6, y: 9}, {x: 5, y: 9}, {x: 4, y: 9}, {x: 3, y: 9}, {x: 2, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 2, y: 8}], "30", "", "")
+    gameState.board.snakes.push(otherSnek3)
+
+    gameState.turn = 69
+    gameState.board.food = [{x: 0, y: 0}, {x: 8, y: 1}]
+
+    createHazardRow(gameState.board, 10)
+    createHazardColumn(gameState.board, 10)
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up") // down kills us against otherSnek 100%, up will starve us & likely get us murdered in a few turns but at least isn't instant death
+  })
+})

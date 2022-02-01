@@ -1,4 +1,4 @@
-export const version: string = "1.0.22" // need to declare this before imports since several imports utilize it
+export const version: string = "1.0.23" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -50,10 +50,9 @@ export function info(): InfoResponse {
 }
 
 export async function start(gameState: GameState): Promise<void> {
-  console.log(`${gameState.game.id} START. Now ${Object.keys(gameData).length} running.`)
-
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData() // move() will update hazardWalls & lookahead accordingly later on.
+  console.log(`${gameState.game.id} START. Now ${Object.keys(gameData).length} running.`)
 }
 
 export async function end(gameState: GameState): Promise<void> {
@@ -327,7 +326,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                             if (!isDuel) { // it's not a duel
                               if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
                                 adjustedMove = newMove
-                              } else if (murderSnake.id !== gameState.you.id && murderSnakeBeforeMoveAvailableMoves.length === 1) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, only rechoose if originalSnake had no other options
+                              } else if (murderSnake.id !== gameState.you.id) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, rechoose
                                 adjustedMove = newMove
                               }
                             } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
