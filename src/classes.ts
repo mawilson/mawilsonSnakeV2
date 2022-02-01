@@ -205,12 +205,15 @@ export class Board2d {
   private cells: Array<BoardCell>;
   width: number;
   height: number;
+  hazardDamage: number
+  isWrapped: boolean
 
   constructor(gameState: GameState, populateVoronoi?: boolean) {
     let board: Board = gameState.board
-    let hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn
     this.width = board.width;
     this.height = board.height;
+    this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+    this.isWrapped = gameState.game.ruleset.name === "wrapped"
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
@@ -302,8 +305,8 @@ export class Board2d {
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
-                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (hazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - hazardDamage))
+                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage))
                             isNewVoronoiBoardCell = true
                           } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1))
@@ -317,8 +320,8 @@ export class Board2d {
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
-                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (hazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - hazardDamage))
+                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage))
                             isNewVoronoiBoardCell = true
                           } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1))
@@ -331,8 +334,8 @@ export class Board2d {
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
-                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (hazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - hazardDamage))
+                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage))
                             isNewVoronoiBoardCell = true
                           } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1))
@@ -349,7 +352,7 @@ export class Board2d {
                         }
 
                         let oldHealth = neighbor.voronoi[snakeId].effectiveHealth
-                        let newHealth: number = neighbor.food? 100 : neighbor.hazard? voronoiSnake.effectiveHealth - 1 - hazardDamage : voronoiSnake.effectiveHealth - 1
+                        let newHealth: number = neighbor.food? 100 : neighbor.hazard? voronoiSnake.effectiveHealth - 1 - self.hazardDamage : voronoiSnake.effectiveHealth - 1
                         if (newHealth > oldHealth) {
                           neighbor.voronoi[snakeId].effectiveHealth = newHealth
                         }
@@ -384,10 +387,24 @@ export class Board2d {
   }
 
   getCell(coord: Coord) : BoardCell | undefined {
-    let x = coord.x;
-    let y = coord.y;
+    let x: number = coord.x
+    let y: number = coord.y
+    if (this.isWrapped) {
+      if (x === -1) {
+        x = this.width - 1 // wrap from left edge to right edge
+      } else if (x === this.width) {
+        x = 0 // wrap from right edge to left edge
+      }
+      if (y === -1) {
+        y = this.height - 1 // wrap from bottom edge to top edge
+      } else if (y === this.height) {
+        y = 0 // wrap from top edge to bottom edge
+      }
+    }
+
     let idx = y * this.width + x;
-    if (coord.x < 0 || coord.x >= this.width || coord.y < 0 || coord.y >= this.height) {
+
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
       return undefined;
     }
     if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so

@@ -1105,6 +1105,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
   let lookahead: number
   let isSpeedSnake: boolean = gameState.game.timeout < 500
   let gameKeys = Object.keys(gameData)
+  let isWrapped: boolean = gameState.game.ruleset.name === "wrapped"
 
   if (isSpeedSnake) {
     if (gameState.turn === 0) {
@@ -1135,7 +1136,20 @@ export function lookaheadDeterminator(gameState: GameState): number {
         lookahead = 5
         break
       case 2:
-        lookahead = 5
+        if (isWrapped) {
+          let board2d = new Board2d(gameState)
+          let snakesHave3Moves = gameState.board.snakes.every(function hasThreeMoves(snake) {
+            let availableMoves = getAvailableMoves(gameState, snake, board2d)
+            return availableMoves.validMoves().length === 3
+          })
+          if (snakesHave3Moves) {
+            lookahead = 4
+          } else {
+            lookahead = 5
+          }
+        } else {
+          lookahead = 5
+        }
         break
       case 3:
         let board2d = new Board2d(gameState)
@@ -1187,6 +1201,8 @@ export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined,
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
+  } else if (gameState.game.ruleset.name === "wrapped") {
+    return false // cannot cut off in wrapped, at least not so simply
   }
   let myself: Battlesnake = _myself
   let snake: Battlesnake = _snake
