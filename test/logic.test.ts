@@ -17,7 +17,7 @@ function createRulesetSettings() : RulesetSettings {
     "minimumFood": 1,
     "hazardDamagePerTurn": 14,
     "royale": {
-      "shrinkEveryNTurns": 5
+      "shrinkEveryNTurns": 25
     },
     "squad": {
       "allowBodyCollisions": true,
@@ -1123,7 +1123,7 @@ describe('Cloned game state tests', () => {
     expect(gameState.game.ruleset.settings.foodSpawnChance).toBe(25)
     expect(gameState.game.ruleset.settings.minimumFood).toBe(1)
     expect(gameState.game.ruleset.settings.hazardDamagePerTurn).toBe(14)
-    expect(gameState.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(5)
+    expect(gameState.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(25)
     expect(gameState.game.ruleset.settings.squad.allowBodyCollisions).toBe(true)
     expect(gameState.game.ruleset.settings.squad.sharedElimination).toBe(true)
     expect(gameState.game.ruleset.settings.squad.sharedLength).toBe(true)
@@ -1220,7 +1220,7 @@ describe('Cloned game state tests', () => {
     expect(clone.game.ruleset.settings.foodSpawnChance).toBe(25)
     expect(clone.game.ruleset.settings.minimumFood).toBe(1)
     expect(clone.game.ruleset.settings.hazardDamagePerTurn).toBe(14)
-    expect(clone.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(5)
+    expect(clone.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(25)
     expect(clone.game.ruleset.settings.squad.allowBodyCollisions).toBe(true)
     expect(clone.game.ruleset.settings.squad.sharedElimination).toBe(true)
     expect(clone.game.ruleset.settings.squad.sharedLength).toBe(true)

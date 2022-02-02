@@ -157,6 +157,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   const board2d = new Board2d(gameState, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+  const hazardFrequency = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
   const isWrapped = gameState.game.ruleset.name === "wrapped"
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
@@ -215,11 +216,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalNoMeCertainty: number = 200 // value that being murdered is better than starving. Still highly likely, but slightly less likely than straight starvation
   let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
-  if (gameState.turn % 25 === 0) { // turn 25, & increments of 25
+  if (gameState.turn % hazardFrequency === 0) { // turn 25, & increments of 25
     evalHazardWallPenalty = -8
-  } else if (((gameState.turn + 1) % 25) === 0) { // turn 24, & increments of 25
+  } else if (((gameState.turn + 1) % hazardFrequency) === 0) { // turn 24, & increments of 25
     evalHazardWallPenalty = -4
-  } else if (((gameState.turn + 1) % 25) > 21) {// turns 21, 22, 23, & increments of 25
+  } else if (((gameState.turn + 1) % hazardFrequency) > (hazardFrequency - 4)) {// turns 21, 22, 23, & increments of 25
     evalHazardWallPenalty = -2
   }
   let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
@@ -315,8 +316,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let evalFoodVal = 2
   if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isWrapped) {
-    evalFoodVal = 8 // care more about food in wrapped, as there's fewer dangers to eating it
   } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = 3
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
@@ -413,8 +412,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   let moves: Moves = getAvailableMoves(gameState, myself, board2d)
-  let validMoves : Direction[] = moves.validMoves()
-  let availableMoves : number = validMoves.length
 
   // look for kiss of death & murder cells in this current configuration
   let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
@@ -541,7 +538,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
-  } else if (snakeDelta > 6 && !isWrapped) { // If I am more than 6 bigger, want food less
+  } else if (isWrapped) {
+    evalFoodVal = 0.5 // wrapped food inclination is small
+  } else if (snakeDelta > 6) { // If I am more than 6 bigger, want food less
     evalFoodVal = 1
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
@@ -732,11 +731,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + yDiff * evalSoloCenter
   }
 
-  if (isWrapped && isDuel) { // in wrapped, limiting otherSnake movement is significantly harder, & railroading them can lead to starvation or a trap somewhere down the road
-    let otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnakes[0], board2d)
-    if (otherSnakeAvailableMoves.validMoves().length <= 1) {
-      buildLogString(`adding wrapped otherSnake1Move ${evalWrappedOtherSnake1Move}`)
-      evaluation = evaluation + evalWrappedOtherSnake1Move
+  if (isWrapped) { 
+    if (isDuel) { // in wrapped, limiting otherSnake movement is significantly harder, & railroading them can lead to starvation or a trap somewhere down the road
+      let otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnakes[0], board2d)
+      if (otherSnakeAvailableMoves.validMoves().length <= 1) {
+        buildLogString(`adding wrapped otherSnake1Move ${evalWrappedOtherSnake1Move}`)
+        evaluation = evaluation + evalWrappedOtherSnake1Move
+      }
     }
   }
 
