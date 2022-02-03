@@ -1,6 +1,6 @@
 import { info, move, decideMove, start } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier } from '../src/classes'
+import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord } from '../src/classes'
 import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
@@ -2726,6 +2726,29 @@ describe('Voronoi tests', () => {
     expect(moveResponse.move).toBe("down") // left & up both strand Jaguar in a corner in so many moves. Voronoi should be smart enough to let Jaguar know that
     // down lets me continue to chase my tail in a way that will enable me to eat the majority of the tiles on the board.
   })
+  it('does not choose to eat in a cell it has bad Voronoi coverage in', () => {
+    const snek = new Battlesnake("snek", "snek", 37, [{x: 3, y: 5}, {x: 2, y: 5}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 0, y: 1}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 3, y: 3}, {x: 4, y: 3}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 99, [{x: 4, y: 8}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 6, y: 9}, {x: 7, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 4}, {x: 6, y: 4}, {x: 5, y: 4}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 9, y: 4}, {x: 9, y: 5}, {x: 9, y: 6}, {x: 9, y: 7}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.board.food = [{x: 3, y: 4}, {x: 2, y: 9}, {x: 1, y: 10}]
+
+    createHazardRow(gameState.board, 0)
+    createHazardRow(gameState.board, 1)
+    createHazardRow(gameState.board, 2)
+    createHazardRow(gameState.board, 3)
+    createHazardRow(gameState.board, 10)
+    createHazardColumn(gameState.board, 0)
+    createHazardColumn(gameState.board, 1)
+    createHazardColumn(gameState.board, 10)
+
+    gameState.turn = 200
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up") // down pins us in & kills us for sure next turn, up likely starves us or gets us murdered but is clearly better
+  })
 })
 
 describe('Prolonging death tests', () => { // tests to ensure Jaguar tries to survive as long as possible even when death seems inevitable
@@ -2750,5 +2773,63 @@ describe('Prolonging death tests', () => { // tests to ensure Jaguar tries to su
 
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // down kills us against otherSnek 100%, up will starve us & likely get us murdered in a few turns but at least isn't instant death
+  })
+})
+
+describe('Hazard spiral tests', () => {
+  it('can successfully map spiral hazards given a central starting point', () => {
+    const snek = new Battlesnake("snek", "snek", 69, [{x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 89, [{x: 9, y: 8}, {x: 9, y: 7}, {x: 9, y: 6}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 6, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.turn = 3
+
+    let startingHazard: Coord = new Coord(5, 5)
+    gameState.board.hazards = [startingHazard]
+
+    let hazardSpiral = new HazardSpiral(gameState, 3)
+
+    let hazardSpiralCell = hazardSpiral.getCell({x: 0, y: 0})
+    expect(hazardSpiralCell).toBeDefined()
+    if (hazardSpiralCell) {
+      expect(hazardSpiralCell.turnIsHazard).toBe(107 * 3) // bottom left corner is 107th tile reached out of 121, so should show up at turn 107*3
+    }
+  })
+  it('can successfully map spiral hazards given a non-central starting point', () => {
+    const snek = new Battlesnake("snek", "snek", 69, [{x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 89, [{x: 9, y: 8}, {x: 9, y: 7}, {x: 9, y: 6}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 6, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.turn = 3
+
+    let startingHazard: Coord = new Coord(3, 3)
+    gameState.board.hazards = [startingHazard]
+
+    let hazardSpiral = new HazardSpiral(gameState, 3)
+
+    let hazardSpiralCell = hazardSpiral.getCell({x: 0, y: 10})
+    expect(hazardSpiralCell).toBeDefined()
+    if (hazardSpiralCell) {
+      expect(hazardSpiralCell.turnIsHazard).toBe(669) // see notebook, top left corner is 669
+    }
+    hazardSpiralCell = hazardSpiral.getCell({x: 0, y: 0})
+    expect(hazardSpiralCell).toBeDefined()
+    if (hazardSpiralCell) {
+      expect(hazardSpiralCell.turnIsHazard).toBe(123) // see notebook, bottom left corner is 123
+    }
+    hazardSpiralCell = hazardSpiral.getCell({x: 10, y: 0})
+    expect(hazardSpiralCell).toBeDefined()
+    if (hazardSpiralCell) {
+      expect(hazardSpiralCell.turnIsHazard).toBe(561) // see notebook, bottom right corner is 561
+    }
+    hazardSpiralCell = hazardSpiral.getCell({x: 10, y: 10})
+    expect(hazardSpiralCell).toBeDefined()
+    if (hazardSpiralCell) {
+      expect(hazardSpiralCell.turnIsHazard).toBe(531) // see notebook, top right corner is 531
+    }
   })
 })
