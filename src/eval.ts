@@ -533,6 +533,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     }
   }
 
+  let reachableCells = calculateReachableCells(gameState, board2d)
+  const voronoiMyself: number = reachableCells[myself.id]
+
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
   let foodToHunt : Coord[] = []
@@ -547,6 +550,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
+  } else if (voronoiMyself < 3) { // eating this food puts me into a box I likely can't get out of, that's not safe
+    safeToEat = false
+    wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   }
 
   let delta = snakeDelta
@@ -642,10 +648,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + foodCalc
   }
 
-  let reachableCells = calculateReachableCells(gameState, board2d)
-
   let voronoiDelta: number = 0
-  const voronoiMyself: number = reachableCells[myself.id]
   let voronoiLargest: number = 0
   otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
     let voronoiOtherSnake: number | undefined = reachableCells[snake.id]

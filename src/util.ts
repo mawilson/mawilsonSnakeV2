@@ -1998,7 +1998,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           if (voronoiSnake !== undefined) {
-            if (cell && cell.hazard) {
+            if (cell && cell.hazard && !cell.food) { // hazard cells that do not have food have a fractional value
               cellTotals[snakeId] = cellTotals[snakeId] + hazardValue
             } else {
               cellTotals[snakeId] = cellTotals[snakeId] + 1
