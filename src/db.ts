@@ -49,6 +49,12 @@ const timingAggregations = [
       }, 
       'timeout': {
         '$exists': true
+      },
+      'gameMode': {
+        '$exists': true
+      },
+      'isDevelopment': {
+        '$exists': true
       }
     }
   }, {
@@ -57,7 +63,9 @@ const timingAggregations = [
         'version': '$version', 
         'amMachineLearning': '$amMachineLearning', 
         'amUsingMachineData': '$amUsingMachineData', 
-        'timeout': '$timeout'
+        'timeout': '$timeout',
+        'gameMode': '$gameMode',
+        'isDevelopment': '$isDevelopment'
       }, 
       'averageAverage': {
         '$avg': '$average'
@@ -111,6 +119,8 @@ const timingAggregations = [
       'amMachineLearning': '$_id.amMachineLearning', 
       'amUsingMachineData': '$_id.amUsingMachineData', 
       'timeout': '$_id.timeout', 
+      'gameMode': '$_id.gameMode',
+      'isDevelopment': '$_id.isDevelopment',
       'averageAverage': '$averageAverage', 
       'averageMax': '$averageMax', 
       'averageStdDev': '$averageStdDev', 

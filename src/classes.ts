@@ -589,6 +589,193 @@ export class HazardWalls {
   }
 }
 
+class HazardSpiralCell {
+  coord: Coord
+  turnIsHazard: number
+
+  constructor(coord: Coord, turnIsHazard: number) {
+    this.coord = coord
+    this.turnIsHazard = turnIsHazard
+  }
+}
+
+export class HazardSpiral {
+  hazardFrequency: number
+  height: number
+  width: number
+  private cells: Array<HazardSpiralCell>
+  startingCoord: Coord | undefined
+  isWrapped: boolean
+
+  constructor(gameState: GameState, hazardFrequency: number) {
+    this.hazardFrequency = hazardFrequency
+    this.height = gameState.board.height
+    this.width = gameState.board.width
+    this.cells = new Array(this.height * this.width)
+    this.isWrapped = gameState.game.ruleset.name === "wrapped"
+    if (gameState.board.hazards.length < 1) {
+      return
+    } else {
+      this.startingCoord = gameState.board.hazards[0]
+    }
+
+    let startingTurn: number = gameState.turn // the turn that the first hazard appeared
+
+    let startingIdx: number = this.getIndex(this.startingCoord.x, this.startingCoord.y)
+    let startingCell = new HazardSpiralCell(this.startingCoord, startingTurn)
+    this.cells[startingIdx] = startingCell
+    let hazardCells: number = 1
+    let trueHazardCells: number = 1 // need to distinguish between hazard cells that are off board & those that are on board
+
+    let spiralSize: number = 3 // spiral starts at size 1 (startingCell), then 3, then 5, etc., & caps at board dimensions
+    let spiralDirection: Direction
+
+    let currentCoord: Coord = startingCell.coord
+
+    let fakeCoords: Coord[] = [] // spiral coordinates which don't exist on the game board, but need to be tracked for building spiral
+    while (trueHazardCells < (this.height * this.width)) { // keep spiraling until entire board is hazard
+      let cellsInThisSpiral: number = 0
+      let maxCellsInThisSpiral: number = spiralSize * 4 - 4 // four sides to the spiral, but don't double-count overlap on corners
+      spiralDirection = Direction.Up // spiral always starts out by going up from the center of the spiral
+      while(cellsInThisSpiral < maxCellsInThisSpiral) { // will break when cellsInThisSpiral equals maxCellsInThisSpiral
+        let hazardTurn: number
+        let idx: number
+        let newCell: HazardSpiralCell
+        let adjacentCoord: Coord
+        switch(spiralDirection) {
+          case Direction.Up:
+            currentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // new coord is one above old coord
+            adjacentCoord = new Coord(currentCoord.x + 1, currentCoord.y) // coord one to the right
+            break
+          case Direction.Right:
+            currentCoord = new Coord(currentCoord.x + 1, currentCoord.y) // new coord is one right of old coord
+            adjacentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // coord one down
+            break
+          case Direction.Down:
+            currentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // new coord is one down of old coord
+            adjacentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // coord one left
+            break
+          case Direction.Left:
+            currentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // new coord is one left of old coord
+            adjacentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // coord one up
+            break
+        }
+
+        if (this.coordExists(currentCoord)) { // coord exists, add it to HazardSpiral cells
+          hazardTurn = startingTurn + this.hazardFrequency * hazardCells // hazardCells has yet to be incremented, so turn 6 for second hazard, turn 9 for third, etc.
+          newCell = new HazardSpiralCell(currentCoord, hazardTurn) // new cell exists at newCoord & hazardFrequency turns ahead
+          idx = this.getIndex(currentCoord.x, currentCoord.y) // get index in 2d array where this coordinate lives
+          this.cells[idx] = newCell // add HazardSpiralCell to 2d cells array
+          hazardCells = hazardCells + 1
+          trueHazardCells = trueHazardCells + 1 // we've now added currentCell to our cells
+          cellsInThisSpiral = cellsInThisSpiral + 1
+        } else { // coord doesn't exist, but still need to add it to fakeCoords & change direction if applicable
+          fakeCoords.push(currentCoord) // keep track of hazard coordinate in fakeCoords
+          hazardCells = hazardCells + 1 // hazardCell increment for hazardTurn calculation, even though the hazard doesn't exist on game board
+          cellsInThisSpiral = cellsInThisSpiral + 1
+        }
+
+        // spiral tightening - change direction if we can
+        if (this.canMoveTowardsCoord(adjacentCoord, fakeCoords)) {
+          switch (spiralDirection) {
+            case Direction.Up:
+              spiralDirection = Direction.Right
+              break
+            case Direction.Right:
+              spiralDirection = Direction.Down
+              break
+            case Direction.Down:
+              spiralDirection = Direction.Left
+              break
+            default: //case Direction.Left:
+              spiralDirection = Direction.Up
+              break
+          }
+        }
+      }
+      let newX = this.startingCoord.x // start next spiral from the same x as startingCoord
+      let newY = this.startingCoord.y + Math.floor(spiralSize / 2) // start next spiral from the same y as the previous spiral's top
+      spiralSize = spiralSize + 2 // now that we've added all spiral cells to this spiral size, increment the spiral size by two for the next spiral
+      currentCoord = new Coord(newX, newY)
+    }
+  }
+
+  // returns true if coord neither exists in fakeCells, nor in this.cells
+  canMoveTowardsCoord(adjacentCoord: Coord, fakeCoords: Coord[]): boolean {
+    if (this.coordExists(adjacentCoord)) {
+      let adjacentCell = this.getCell(adjacentCoord) // cell one to the right, if it exists
+      if (adjacentCell === undefined) { // we can move right, thus we should, stop moving up
+        return true
+      }
+    } else {
+      let adjacentCoordFakeExists = fakeCoords.some(coord => { // true if adjacentCoord exists in fakeCoords
+        return (adjacentCoord.x === coord.x && adjacentCoord.y === coord.y)
+      })
+      if (!adjacentCoordFakeExists) {
+        return true
+      }
+    }
+    return false
+  }
+
+  coordExists(coord: Coord) {
+    let xExists: boolean = coord.x >= 0 && coord.x < this.width
+    let yExists: boolean = coord.y >= 0 && coord.y < this.height
+    return xExists && yExists // return true if coordinate exists within board dimensions horizontally & vertically
+  }
+
+  getIndex(x: number, y: number): number {
+    return y * this.width + x
+  }
+
+  getCell(coord: Coord) : HazardSpiralCell | undefined {
+    let x: number = coord.x
+    let y: number = coord.y
+    if (this.isWrapped) {
+      if (x === -1) {
+        x = this.width - 1 // wrap from left edge to right edge
+      } else if (x === this.width) {
+        x = 0 // wrap from right edge to left edge
+      }
+      if (y === -1) {
+        y = this.height - 1 // wrap from bottom edge to top edge
+      } else if (y === this.height) {
+        y = 0 // wrap from top edge to bottom edge
+      }
+    }
+
+    let idx = this.getIndex(x, y)
+
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
+      return undefined;
+    }
+    return this.cells[idx];
+  }
+
+  printSelf() : string {
+    let str : string = ""
+    for (let j = this.height - 1; j >= 0; j--) {
+      for (let i = 0; i < this.width; i++) {
+        let tempCell = this.getCell({x: i, y: j})
+        if (tempCell) {
+          if (i !== 0) {
+            str = str + "  "
+          }
+          str = str + tempCell.turnIsHazard
+          if (tempCell.turnIsHazard < 10) {
+            str = str + "  "
+          } else if (tempCell.turnIsHazard < 100) {
+            str = str + " "
+          }
+        }
+      }
+      str = str + "\n"
+    }
+    logToFile(consoleWriteStream, str)
+    return str
+  }
+}
+
 export class Moves {
   up: boolean;
   down: boolean;
@@ -1273,12 +1460,14 @@ export class SnakeScoreForMongo {
 
 export class GameData {
   hazardWalls: HazardWalls
+  hazardSpiral: HazardSpiral | undefined
   lookahead: number
   timesTaken: number[]
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
 
   constructor() {
     this.hazardWalls = new HazardWalls(undefined)
+    this.hazardSpiral = undefined
     this.lookahead = 0
     this.timesTaken = []
     this.evaluationsForLookaheads = []
@@ -1310,8 +1499,10 @@ export class TimingData {
   amMachineLearning: boolean
   amUsingMachineData: boolean
   timeout: number
+  gameMode: string
+  isDevelopment: boolean
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1320,6 +1511,8 @@ export class TimingData {
     this.amUsingMachineData = amUsingMachineData
     this.gameResult = gameResult
     this.timeout = timeout
+    this.gameMode = gameMode
+    this.isDevelopment = isDevelopment
   }
 }
 

@@ -1,10 +1,10 @@
-export const version: string = "1.1.0" // need to declare this before imports since several imports utilize it
+export const version: string = "1.1.1" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf } from "./classes"
+import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier } from "./util"
-import { evaluate, determineEvalNoSnakes } from "./eval"
+import { evaluate, determineEvalNoSnakes, evalNoMe } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
@@ -70,7 +70,7 @@ export async function end(gameState: GameState): Promise<void> {
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
       let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -224,12 +224,23 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
       if (lookahead !== undefined) {
-        let evalMultiplier: number = 1 // as a baseline, want to consider myself
         // final result for a lookahead of 4 should look like: evalThisState * (1.0 + 1.1 + 1.2 + 1.3 + 1.4). 4 lookahead means four future moves, plus this one.
-        for (let i: number = 0; i <= lookahead; i++) { // need to apply weights for skipped lookahead steps, as well as this one
-          evalMultiplier = evalMultiplier + 1 + lookaheadWeight * i
+        let newScore: number = evalThisState // should always at least account for this turn
+        if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
+          for (let i: number = lookahead; i >= 0; i--) {
+            if (i !== lookahead) {
+              newScore = newScore + (evalNoMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
+            } else {
+              newScore = newScore + (evalThisState * (1 + lookaheadWeight * i)) // can use evalThisState for first turn - will be bad but not as bad
+            }
+          }
+          evalThisState = newScore
+        } else {
+          for (let i: number = lookahead; i >= 0; i--) { // need to apply weights for skipped lookahead steps, as well as this one
+            newScore = newScore + (evalThisState * (1 + lookaheadWeight * i))
+          }
         }
-        evalThisState = evalThisState * evalMultiplier // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
+        evalThisState = newScore // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
       }
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
       return new MoveWithEval(defaultDir, evalThisState)
@@ -415,7 +426,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
     let canLearn: boolean = averageMoveScore === undefined || averageMoveScore < 0 // can still learn if we didn't have data for this move, or the only data we had was worthless
-    if ((amMachineLearning || canLearn) && (myself.id === gameState.you.id) && (bestMove.score !== undefined)) { // only add machine learning data for my own moves
+    if ((amMachineLearning || canLearn) && (myself.id === gameState.you.id) && (bestMove.score !== undefined) && !finishEvaluatingNow) { // only add machine learning data for my own moves, & only consider moves that weren't defaults
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
         let foodCountTier = getFoodCountTier(gameState.board.food.length)
@@ -488,6 +499,9 @@ export function move(gameState: GameState): MoveResponse {
   if (thisGameData !== undefined) {
     thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
     thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
+    if (gameState.game.ruleset.name === "hazardSpiral" && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
+      thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
+    }
   } // do not want to create new game data if it does not exist, start() should do that
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
