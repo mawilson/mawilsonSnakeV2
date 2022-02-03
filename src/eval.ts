@@ -8,6 +8,9 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
 })
 
+// constants used in other files
+export const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
+
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
 function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
   const validHazardTurns = snake.health / (hazardDamage + 1)
@@ -213,7 +216,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   // values to tweak
   const evalBase: number = 500
-  const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
   const evalNoMeCertainty: number = 200 // value that being murdered is better than starving. Still highly likely, but slightly less likely than straight starvation
   let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
   if (gameState.turn % hazardFrequency === 0) { // turn 25, & increments of 25
