@@ -41,26 +41,106 @@ export function snakeHasEaten(snake: Battlesnake, lookahead?: number) : boolean 
   }
 }
 
-// returns minimum number of moves between input coordinates
-export function getDistance(c1: Coord, c2: Coord) : number {
+function calculateManhattenDistance(c1: Coord, c2: Coord): number {
   return Math.abs(c1.x - c2.x) + Math.abs(c1.y - c2.y)
 }
 
+// returns minimum number of moves between input coordinates
+export function getDistance(c1: Coord, c2: Coord, gameState: GameState) : number {
+
+  // if wrapped, shortest distance needs to be calculated in consideration of wrapping across board
+  if (gameStateIsWrapped(gameState)) {
+    let shortestDist: number
+    let dist: number
+    // consider four cases: where c1 approaches c2 normally, where c1 approaches c2 by crossing the x-wall, where c1 approaches c2 by crossing the y-wall, & where c1 approaches c2 by crossing both walls
+    shortestDist = calculateManhattenDistance(c1, c2) // c1 approaches c2 normally
+
+    let fakeC1: Coord = new Coord(c1.x, c1.y)
+    let fakeC2: Coord = new Coord(c2.x, c2.y)
+
+    // crossing x-wall, need to check which one is lower & shift that one above the right edge of the board
+    if (c1.x < c2.x) { // 
+      fakeC1.x = gameState.board.width + c1.x
+    } else if (c1.x > c2.x) { // don't shift if they're equal, obviously won't need to cross the line in that case
+      fakeC2.x = gameState.board.width + c2.x
+    }
+    dist = calculateManhattenDistance(fakeC1, fakeC2)
+    if (dist < shortestDist) {
+      shortestDist = dist
+    }     
+
+    fakeC1.x = c1.x
+    fakeC2.x = c2.x
+
+    // crossing y-wall, need to check which one is lower & shift that one above the top of the board
+    if (c1.y < c2.y) {
+      fakeC1.y = gameState.board.height + c1.y
+    } else if (c1.y > c2.y) { // don't shift if they're equal, obviously won't need to cross the line in that case
+      fakeC2.y = gameState.board.height + c2.y
+    }
+    dist = calculateManhattenDistance(fakeC1, fakeC2)
+    if (dist < shortestDist) {
+      shortestDist = dist
+    }
+
+    // re-crossing x-wall, need to check which one is lower & shift that one above the right edge of the board
+    if (c1.x < c2.x) { // 
+      fakeC1.x = gameState.board.width + c1.x
+    } else if (c1.x > c2.x) { // don't shift if they're equal, obviously won't need to cross the line in that case
+      fakeC2.x = gameState.board.width + c2.x
+    }
+    dist = calculateManhattenDistance(fakeC1, fakeC2)
+    if (dist < shortestDist) {
+      shortestDist = dist
+    }
+
+    return shortestDist
+  } else {
+    return calculateManhattenDistance(c1, c2)
+  }
+}
+
+// gameMode functions
+export function gameStateIsWrapped(gameState: GameState) : boolean {
+  return gameState.game.ruleset.name === "wrapped"
+}
+
+export function gameStateIsSolo(gameState: GameState) : boolean {
+  return gameState.game.ruleset.name === "solo"
+}
+
 // returns coordinate after move has been applied to it. If move is undefined, returns the same coordinate.
-export function getCoordAfterMove(coord: Coord, move: Direction | undefined) : Coord {
+export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
+  let isWrapped: boolean = gameStateIsWrapped(gameState)
   switch (move) {
     case Direction.Up:
-      newPosition.y = newPosition.y + 1
+      if (isWrapped && newPosition.y === (gameState.board.height - 1)) { // in a wrapped game, going up from the top of the board leaves you at the bottom
+        newPosition.y = 0
+      } else {
+        newPosition.y = newPosition.y + 1
+      }
       break;
     case Direction.Down:
-      newPosition.y = newPosition.y - 1
+      if (isWrapped && newPosition.y === 0) { // in a wrapped game, going down from the bottom of the board leaves you at the top
+        newPosition.y = gameState.board.height - 1
+      } else {
+        newPosition.y = newPosition.y - 1
+      }
       break;
     case Direction.Left:
-      newPosition.x = newPosition.x - 1
+      if (isWrapped && newPosition.x === 0) { // in a wrapped game, going left from the left of the board leaves you on the right
+        newPosition.x = gameState.board.width - 1
+      } else {
+        newPosition.x = newPosition.x - 1
+      }
       break
     case Direction.Right: // case Direction.Right:
-      newPosition.x = newPosition.x + 1
+      if (isWrapped && newPosition.x === (gameState.board.width - 1)) { // in a wrapped game, going right from the right of the board leaves you on the left
+        newPosition.x = 0
+      } else {
+        newPosition.x = newPosition.x + 1
+      }
       break
     default:
       break
@@ -103,8 +183,8 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
 }
 
 // returns difference between my length & the length of the largest other snake on the board - can be positive (I am bigger) or negative (I am smaller). Returns self length if alone
-export function snakeLengthDelta(me: Battlesnake, board: Board) : number {
-  let longestOtherSnake = getLongestOtherSnake(me, board.snakes)
+export function snakeLengthDelta(me: Battlesnake, gameState: GameState) : number {
+  let longestOtherSnake = getLongestOtherSnake(me, gameState)
   if (longestOtherSnake !== undefined) {
     return me.length - longestOtherSnake.length
   } else {
@@ -127,24 +207,24 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
 }
 
 // finds the longest snake on the board and, in the event of a tie, returns the one closest to me. Returns undefined if only snake on board
-export function getLongestOtherSnake(me: Battlesnake, snakes: Battlesnake[]) : Battlesnake | undefined {
+export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Battlesnake | undefined {
   let longestSnakeIndex : number = 0
   let len : number = 0
   let distToMe : number = 0
 
-  if (snakes.length === 0) {
+  if (gameState.board.snakes.length === 0) {
     return undefined
-  } else if (snakes.length === 1) {
+  } else if (gameState.board.snakes.length === 1) {
     return undefined
   }
-  snakes.forEach(function findLongestSnake(snake, idx) {
+  gameState.board.snakes.forEach(function findLongestSnake(snake, idx) {
     if (snake.id !== me.id) { // don't check myself
       if (snake.length > len) {
         len = snake.length
         longestSnakeIndex = idx
-        distToMe = getDistance(me.head, snake.head)
+        distToMe = getDistance(me.head, snake.head, gameState)
       } else if (snake.length === len) {
-        let newDistToMe = getDistance(me.head, snake.head)
+        let newDistToMe = getDistance(me.head, snake.head, gameState)
         if (newDistToMe < distToMe) { // if it's a tie & this one is closer
           longestSnakeIndex = idx
           distToMe = newDistToMe
@@ -152,40 +232,7 @@ export function getLongestOtherSnake(me: Battlesnake, snakes: Battlesnake[]) : B
       }
     }
   })
-  return snakes[longestSnakeIndex]
-}
-
-// returns true if c1 is directly above c2
-function isAbove(c1: Coord, c2: Coord): boolean {
-  return (c1.x === c2.x && c1.y - c2.y === 1)
-}
-
-// returns true if c1 is directly below c2
-function isBelow(c1: Coord, c2: Coord): boolean {
-  return (c1.x === c2.x && c2.y - c1.y === 1)
-}
-
-// returns true if c1 is directly right of c2
-function isRight(c1: Coord, c2: Coord): boolean {
-  return (c1.y === c2.y && c1.x - c2.x === 1)
-}
-
-// returns true if c1 is directly left of c2
-function isLeft(c1: Coord, c2: Coord): boolean {
-  return (c1.y === c2.y && c2.x - c1.x === 1)
-}
-
-// returns up, down, left, or right if c1 is directly up, down, left, or right, respectively, of c2. Undefined if not exactly 1 away in any one direction.
-export function getRelativeDirection(c1: Coord, c2: Coord): Direction | undefined {
-  if (isAbove(c1, c2)) {
-    return Direction.Up
-  } else if (isBelow(c1, c2)) {
-    return Direction.Down
-  } else if (isLeft(c1, c2)) {
-    return Direction.Left
-  } else if (isRight(c1, c2)) {
-    return Direction.Right
-  } else return undefined
+  return gameState.board.snakes[longestSnakeIndex]
 }
 
 export function coordToString(coord: Coord) : string {
@@ -290,19 +337,33 @@ export function cloneGameState(gameState: GameState) : GameState {
 
 // given a battlesnake, returns what direction its neck is relative to its head. Should always be either left, right, down, or up
 // will be undefined on turn 0, as snakes effectively have no necks yet
-export function getNeckDirection(snake: Battlesnake) : Direction | undefined {
+export function getNeckDirection(gameState: GameState, snake: Battlesnake) : Direction | undefined {
   let neckCell : Coord = snake.body[1]
+  let isWrapped: boolean = gameStateIsWrapped(gameState)
   if (coordsEqual(snake.head, neckCell)) {
     neckCell = snake.body[2] // this triggers on turn 1, when snake neck is at body cell 2 & snake head is at body cells 0 & 1
   }
   if (coordsEqual(snake.head, neckCell)) {
     return undefined // should only ever be true on turn 0, when snake body 0, 1, 2 are all the same coord
   }
-  if (snake.head.x > snake.body[1].x) {
+  // special case in wrapped - need to treat a neck around the wrap as the opposite direction
+  if (isWrapped) {
+    if (snake.head.x === 0 && neckCell.x === (gameState.board.width - 1)) { // snake went Right, from right side of board - neck direction is Left, snake direction is Right
+      return Direction.Left
+    } else if (snake.head.x === (gameState.board.width - 1) && neckCell.x === 0) { // snake went Left, from left side of board - neck direction is Right, snake direction is Left 
+      return Direction.Right
+    } else if (snake.head.y === 0 && neckCell.y === (gameState.board.height - 1)) { // snake went Up, from top of board - neck direction is Down, snake direction is Up
+      return Direction.Down
+    } else if (snake.head.y === (gameState.board.height - 1) && neckCell.y === 0) { // snake went Down, from bottom of board - neck direction is Up, snake direction is Down
+      return Direction.Up
+    }
+  }
+
+  if (snake.head.x > neckCell.x) {
     return Direction.Left // neck is left of body
-  } else if (snake.head.x < snake.body[1].x) {
+  } else if (snake.head.x < neckCell.x) {
     return Direction.Right // neck is right of body
-  } else if (snake.head.y > snake.body[1].y) {
+  } else if (snake.head.y > neckCell.y) {
     return Direction.Down // neck is below body
   } else { // snake.head.y < snake.body[1].y
     return Direction.Up
@@ -325,15 +386,15 @@ function getOppositeDirection(dir: Direction | undefined) : Direction | undefine
 }
 
 // returns the direction a snake is moving by checking which direction its neck is relative to itself. Returns undefined on turn 0
-export function getSnakeDirection(snake: Battlesnake) : Direction | undefined {
-  let neckDirection : Direction | undefined = getNeckDirection(snake)
+export function getSnakeDirection(gameState: GameState, snake: Battlesnake) : Direction | undefined {
+  let neckDirection : Direction | undefined = getNeckDirection(gameState, snake)
   return getOppositeDirection(neckDirection)
 }
 
 // return any move that is neither outside of the gameState boundaries, nor the snake's neck
 // a maximum of two directions can result in out of bounds, & one direction can result in neck. Thus there must always be one valid direction
 function getDefaultMoveNaive(gameState: GameState, snake: Battlesnake) : Direction {
-  let neckDir = getNeckDirection(snake)
+  let neckDir = getNeckDirection(gameState, snake)
   if (snake.head.x !== 0 && neckDir !== Direction.Left) {
     return Direction.Left // left is neither out of bounds nor our neck
   } else if (snake.head.x !== (gameState.board.width - 1) && neckDir !== Direction.Right) {
@@ -380,7 +441,7 @@ export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
   let move : Direction = _move === undefined ? getDefaultMove(gameState, snake, board2d) : _move // if a move was not provided, get a default one
-  let newCoord = getCoordAfterMove(snake.head, move)
+  let newCoord = getCoordAfterMove(gameState, snake.head, move)
   let newCell = board2d.getCell(newCoord)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
     // even if snake has eaten this turn, its tail cell will be duplicated, so we will still want to slice off the last element
@@ -466,34 +527,7 @@ export function updateGameStateAfterMove(gameState: GameState) {
 
 // Disables moves in Moves object which lead to or past a wall
 export function checkForWalls(me: Battlesnake, board: Board2d, moves: Moves) {
-  function checkCell(x: number, y: number) : boolean {
-    if (x < 0) { // indicates a move into the left wall
-      return false
-    } else if (y < 0) { // indicates a move into the bottom wall
-      return false
-    } else if (x >= board.width) { // indicates a move into the right wall
-      return false
-    } else if (y >= board.height) { // indicates a move into the top wall
-      return false
-    } else {
-      return true
-    }
-  }
-  
-  let myCoords : Coord = me.head
-
-  if (!checkCell(myCoords.x - 1, myCoords.y)) {
-    moves.left = false
-  }
-  if (!checkCell(myCoords.x, myCoords.y - 1)) {
-    moves.down = false
-  }
-  if (!checkCell(myCoords.x + 1, myCoords.y)) {
-    moves.right = false
-  }
-  if (!checkCell(myCoords.x, myCoords.y + 1)) {
-    moves.up = false
-  }
+  return board.getCell(me.head) !== undefined // if cell doesn't exist, will return undefined. Works for wrapped too - will still be undefined if me.head is more than 1 afield of board boundaries
 }
 
 // Disables moves in Moves object which lead into a snake body, except for tails which will recede the next turn
@@ -568,7 +602,7 @@ export function checkForHealth(me: Battlesnake, gameState: GameState, board: Boa
 
 // disables the direction in moves that contains the neck of me
 export function checkForNeck(me: Battlesnake, gameState: GameState, moves: Moves): void {
-  let neckDir = getNeckDirection(me)
+  let neckDir = getNeckDirection(gameState, me)
   switch (neckDir) {
     case Direction.Left:
       moves.left = false
@@ -642,7 +676,7 @@ export function findMoveNeighbors(gameState: GameState, me: Battlesnake, board2d
   return kissMoves
 }
 
-export function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : Direction[] {
+export function findKissMurderMoves(kissMoves: MoveNeighbors) : Direction[] {
   let murderMoves : Direction[] = []
   if (kissMoves.huntingAtUp) {
     murderMoves.push(Direction.Up)
@@ -659,7 +693,7 @@ export function findKissMurderMoves(me: Battlesnake, board2d: Board2d, kissMoves
   return murderMoves
 }
 
-export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves: MoveNeighbors) : Direction[] {
+export function findKissDeathMoves(kissMoves: MoveNeighbors) : Direction[] {
   let deathMoves : Direction[] = []
   if (kissMoves.huntedAtUp) {
     deathMoves.push(Direction.Up)
@@ -677,7 +711,7 @@ export function findKissDeathMoves(me: Battlesnake, board2d: Board2d, kissMoves:
 }
 
 export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
-  const isSolo: boolean = gameState.game.ruleset.name === "solo"
+  const isSolo: boolean = gameStateIsSolo(gameState)
   if (isSolo) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
       return board2d.height + board2d.width
@@ -696,14 +730,14 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
 // looks for food within depth moves away from snakeHead
 // returns an object whose keys are distances away, & whose values are food
 // found at that distance
-export function findFood(depth: number, food: Coord[], snakeHead : Coord) : { [key: number] : Coord[]} {
+export function findFood(depth: number, food: Coord[], snakeHead : Coord, gameState: GameState) : { [key: number] : Coord[]} {
   let foundFood: { [key: number]: Coord[] } = {}
   // for (let i: number = 1; i < depth; i++) {
   //   foundFood[i] = []
   // }
   //let foundFood: Coord[] = []
   food.forEach(function addFood(foodUnit) {
-    let dist = getDistance(snakeHead, foodUnit)
+    let dist = getDistance(snakeHead, foodUnit, gameState)
   
     if (dist <= depth) {
       if (!foundFood[dist]) {
@@ -714,44 +748,6 @@ export function findFood(depth: number, food: Coord[], snakeHead : Coord) : { [k
   })
 
   return foundFood
-}
-
-// navigate snakeHead towards newCoord by disallowing directions that move away from it - so long as that doesn't immediately kill us
-export function navigateTowards(snakeHead : Coord, newCoord: Coord, moves: Moves) {
-  if (snakeHead.x > newCoord.x) { // snake is right of newCoord, no right
-    // don't disallow the only remaining valid route
-    if (moves.hasOtherMoves(Direction.Right)) {
-      moves.right = false
-    }
-  } else if (snakeHead.x < newCoord.x) { // snake is left of newCoord, no left
-  // don't disallow the only remaining valid route
-    if (moves.hasOtherMoves(Direction.Left)) {
-      moves.left = false
-    }
-  } else { // snake is in same column as newCoord, don't move left or right
-    // don't disallow the only remaining valid routes
-    if (moves.up || moves.down) {
-      moves.right = false
-      moves.left = false
-    }
-  }
-  if (snakeHead.y > newCoord.y) { // snake is above newCoord, no up
-  // don't disallow the only remaining valid route
-    if (moves.hasOtherMoves(Direction.Up)) {
-      moves.up = false
-    }
-  } else if (snakeHead.y < newCoord.y) { // snake is below newCoord, no down
-  // don't disallow the only remaining valid route
-    if (moves.hasOtherMoves(Direction.Down)) {
-      moves.down = false
-    }
-  } else { // snake is in same row as newCoord, don't move up or down
-    // don't disallow the only remaining valid routes
-    if (moves.left || moves.right) {
-      moves.up = false
-      moves.down = false
-    }
-  }
 }
 
 // primarily useful for tests to quickly populate a hazard array. Duplicates hazard coordinates where rows & columns coincide, which breaks HazardWalls constructor
@@ -1105,7 +1101,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
   let lookahead: number
   let isSpeedSnake: boolean = gameState.game.timeout < 500
   let gameKeys = Object.keys(gameData)
-  let isWrapped: boolean = gameState.game.ruleset.name === "wrapped"
+  let isWrapped: boolean = gameStateIsWrapped(gameState)
 
   if (isSpeedSnake) {
     if (gameState.turn === 0) {
@@ -1201,7 +1197,7 @@ export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined,
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
-  } else if (gameState.game.ruleset.name === "wrapped") {
+  } else if (gameStateIsWrapped(gameState)) {
     return false // cannot cut off in wrapped, at least not so simply
   }
   let myself: Battlesnake = _myself
@@ -1210,7 +1206,7 @@ export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined,
 
   let snakeMoves = new Moves(true, true, true, true)
   checkForSnakesHealthAndWalls(snake, gameState, board2d, snakeMoves)
-  let snakeDirection = getSnakeDirection(snake)
+  let snakeDirection = getSnakeDirection(gameState, snake)
 
   function cutoffLeftEdge(): boolean {
     if (snake.head.x === 0) { // if they are on the left edge
@@ -1424,7 +1420,7 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
 
   let snakeMoves = new Moves(true, true, true, true)
   checkForSnakesHealthAndWalls(snake, gameState, board2d, snakeMoves)
-  let snakeDirection = getSnakeDirection(snake)
+  let snakeDirection = getSnakeDirection(gameState, snake)
 
   function cutoffLeftEdge(): boolean {
     if (hazardWalls.left === undefined) { // cannot do a hazard cutoff against a hazard that doesn't exist
@@ -1653,7 +1649,7 @@ export function isSandwich(gameState: GameState, _myself: Battlesnake | undefine
   }
   let otherSnake: Battlesnake = _otherSnake
 
-  let snakeDir = getSnakeDirection(snake)
+  let snakeDir = getSnakeDirection(gameState, snake)
   let snakeMoves = getAvailableMoves(gameState, snake, board2d)
   let myselfMoves = getAvailableMoves(gameState, myself, board2d)
   let otherSnakeMoves = getAvailableMoves(gameState, otherSnake, board2d)

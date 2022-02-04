@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped } from "./util"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -213,7 +213,7 @@ export class Board2d {
     this.width = board.width;
     this.height = board.height;
     this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
-    this.isWrapped = gameState.game.ruleset.name === "wrapped"
+    this.isWrapped = gameStateIsWrapped(gameState)
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
@@ -612,7 +612,7 @@ export class HazardSpiral {
     this.height = gameState.board.height
     this.width = gameState.board.width
     this.cells = new Array(this.height * this.width)
-    this.isWrapped = gameState.game.ruleset.name === "wrapped"
+    this.isWrapped = gameStateIsWrapped(gameState)
     if (gameState.board.hazards.length < 1) {
       return
     } else {

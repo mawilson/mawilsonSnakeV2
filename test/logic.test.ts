@@ -1,7 +1,7 @@
 import { info, move, decideMove, start } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord } from '../src/classes'
-import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells } from '../src/util'
+import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells, getDistance } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
 
@@ -565,7 +565,7 @@ describe('Longest snake tests', () => {
     const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 80, [{x: 5, y: 2}, {x: 5, y: 2}, {x: 5, y: 2}], "30", "", "")
     gameState.board.snakes.push(otherSnek2)
 
-    const longestSnake = getLongestOtherSnake(snek, gameState.board.snakes)
+    const longestSnake = getLongestOtherSnake(snek, gameState)
     expect(longestSnake).toBeDefined()
     if (longestSnake !== undefined) {
       expect(longestSnake.id).toBe("otherSnek") // otherSnek is closer to snek, both otherSnek and otherSnek2 are length 2
@@ -2831,5 +2831,68 @@ describe('Hazard spiral tests', () => {
     if (hazardSpiralCell) {
       expect(hazardSpiralCell.turnIsHazard).toBe(531) // see notebook, top right corner is 531
     }
+  })
+})
+
+describe('Wrapped tests', () => {
+  it('knows to avoid a kiss of death from wrapped & to escape via wrap instead', () => {
+    const snek = new Battlesnake("snek", "snek", 95, [{x: 10, y: 0}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 0, y: 9}, {x: 0, y: 10}, {x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 99, [{x: 9, y: 10}, {x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}, {x: 5, y: 10}, {x: 5, y: 9}, {x: 5, y: 8}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}, {x: 8, y: 8}, {x: 9, y: 8}, {x: 9, y: 9}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 72, [{x: 0, y: 4}, {x: 10, y: 4}, {x: 9, y: 4}, {x: 9, y: 3}, {x: 10, y: 3}, {x: 10, y: 2}, {x: 10, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 2, y: 1}, {x: 3, y: 1}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    gameState.turn = 208
+    gameState.board.food = [{x: 4, y: 9}]
+    gameState.game.ruleset.name = "wrapped"
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("right") // left is a kiss of death certainty with otherSnek, should go right
+  })
+  it('knows how to calculate distance when in wrapped mode', () => {
+    const snek = new Battlesnake("snek", "snek", 95, [{x: 10, y: 0}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 0, y: 9}, {x: 0, y: 10}, {x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "30", "", "")
+    const gameState = createGameState(snek)
+    gameState.game.ruleset.name = "wrapped"
+
+    let coord1: Coord = new Coord(1, 1)
+    let coord2: Coord = new Coord(9, 9)
+
+    let dist: number = getDistance(coord1, coord2, gameState)
+
+    expect(dist).toBe(6)
+
+    dist = getDistance(coord2, coord1, gameState)
+
+    expect(dist).toBe(6)
+
+    coord1.x = 7
+
+    dist = getDistance(coord1, coord2, gameState)
+
+    expect(dist).toBe(5)
+
+    dist = getDistance(coord2, coord1, gameState)
+
+    expect(dist).toBe(5)
+
+    coord1.y = 7
+    coord1.x = 1
+    
+    dist = getDistance(coord1, coord2, gameState)
+
+    expect(dist).toBe(5)
+
+    dist = getDistance(coord2, coord1, gameState)
+
+    expect(dist).toBe(5)
+
+    gameState.game.ruleset.name = "standard"
+
+    dist = getDistance(coord1, coord2, gameState)
+
+    expect(dist).toBe(10) // doesn't really belong here, but sanity check to ensure standard gameMode getDistance works
   })
 })

@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -161,10 +161,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const board2d = new Board2d(gameState, true)
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const hazardFrequency = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
-  const isWrapped = gameState.game.ruleset.name === "wrapped"
-  const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState.board) : -1
+  const isWrapped = gameStateIsWrapped(gameState)
+  const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
-  const isSolo: boolean = gameState.game.ruleset.name === "solo"
+  const isSolo: boolean = gameStateIsSolo(gameState)
   const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
@@ -417,8 +417,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
 
   // look for kiss of death & murder cells in this current configuration
   let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
-  let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-  let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+  let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
+  let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
 
   let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
@@ -460,7 +460,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
     evaluation = evaluation + evalKissOfMurderFaceoff
   } else if (kissStates.canCommitUnlikelyMurder(moves)) {
     // try to determine if this is a cutoff, & if so, give the evalKissOfMurderFaceoff reward instead, to encourage closing the gap in a cutoff situation
-    let myDir = getSnakeDirection(myself)
+    let myDir = getSnakeDirection(gameState, myself)
     let myPrey: Battlesnake | undefined
     let wasCutoff: boolean = false
     switch (myDir) {
@@ -537,7 +537,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   const voronoiMyself: number = reachableCells[myself.id]
 
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
-  const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head)
+  const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState)
   let foodToHunt : Coord[] = []
 
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
@@ -720,7 +720,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake | undefined,
   }
 
   if (isSolo) { // two things matter in a solo game: not starving, & chasing tail at a safe distance. Try to stay in the middle too so as to stay equidistant to food where possible.
-    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head) // distance from head to tail
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head, gameState) // distance from head to tail
     if (tailDist === 2) {
       buildLogString(`chasing tail, adding ${evalSoloTailChase}`)
       evaluation = evaluation + evalSoloTailChase
