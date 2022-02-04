@@ -1,9 +1,9 @@
-export const version: string = "1.1.1" // need to declare this before imports since several imports utilize it
+export const version: string = "1.1.2" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMe } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -63,7 +63,7 @@ export async function end(gameState: GameState): Promise<void> {
     return snake.id === gameState.you.id
   })
   let isTie = gameState.board.snakes.length === 0
-  let isSolo = gameState.game.ruleset.name === "solo"
+  let isSolo = gameStateIsSolo(gameState)
   let gameResult = isSolo? "solo" : isWin? "win" : isTie? "tie" : "loss" // it's either a solo, a win, a tie, or a loss
   
   if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
@@ -204,8 +204,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let moves: Moves = getAvailableMoves(gameState, myself, board2d)
     let availableMoves = moves.validMoves()
     let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
-    let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-    let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
+    let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
+    let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
   
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
@@ -300,7 +300,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
             otherSnakes.forEach(function mvsnk(snake) { // move each of the snakes at the same time, without updating gameState until each has moved              
               if (moveSnakes[snake.id]) { // if I have already decided upon this snake's move, see if it dies doing said move
-                let newHead = getCoordAfterMove(snake.head, moveSnakes[snake.id].direction)
+                let newHead = getCoordAfterMove(gameState, snake.head, moveSnakes[snake.id].direction)
                 let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
 
                 let murderSnake: Battlesnake | undefined = newGameState.board.snakes.find(murderSnake => { // check if any snake has murdered this snake, including originalSnake
