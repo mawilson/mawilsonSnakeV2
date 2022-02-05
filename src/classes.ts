@@ -1573,3 +1573,73 @@ export class Tree {
     return str
   }
 }
+
+export class EvaluationResult {
+  myself: Battlesnake
+  base: number = 0
+  hazard: number = 0
+  hazardWall: number = 0
+  kissOfDeath: number = 0
+  kissOfMurder: number = 0
+  kissOfMurderSelfBonus: number = 0
+  cutoffHazard: number = 0
+  priorKissOfDeath: number = 0
+  priorKissOfMurder: number = 0
+  priorKissOfMurderSelfBonus: number = 0
+  delta: number = 0
+  health: number = 0
+  otherSnakeHealth: number = 0
+  food: number = 0
+  voronoiSelf: number = 0
+  voronoiBoard: number = 0
+  voronoiSelfBonus: number = 0
+
+  // scores specific to certain game modes (wrapped, solo)
+  tailChase: number = 0
+  center: number = 0
+  otherSnakeMoves: number = 0
+
+  tieValue: number = 0
+  noMe: number = 0
+
+  constructor(myself: Battlesnake) {
+    this.myself = myself
+  }
+
+  sum(): number {
+    let sum: number = 0
+    for (const property in this) {
+      let val: any = this[property]
+      if (typeof val === "number") { // as of writing only 'myself' is a non-number. For now, any other number in here we want to add to sum.
+        sum = sum + val
+      }
+    }
+    return sum
+  }
+
+  toString(): string {
+    let str: string = ""
+    function buildString(appendStr: string) : void {
+      if (str === "") {
+        str = appendStr
+      } else {
+        str = str + "\n" + appendStr
+      }
+    }
+
+    buildString(`eval snake ${this.myself.name} at (${this.myself.head.x},${this.myself.head.y}))`)
+
+    let thisObj = this
+    let props = Object.keys(thisObj) as Array<keyof typeof thisObj>
+    props.sort() // order doesn't particularly matter, so long as it's consistent for comparison's sake
+    props.forEach(prop => {
+      let val = thisObj[prop]
+      if (typeof val === "number") {
+        buildString(`${prop.toString()} score: ${val}`)
+      }
+    })
+    buildString(`total: ${this.sum()}`)
+
+    return str
+  }
+}

@@ -1387,9 +1387,11 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         
         let kissStates = new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
         let evalSnek = evaluate(gameState, snek, kissStates)
+        let evalSnekScore = evalSnek.sum()
         let evalOtherSnek = evaluate(gameState, otherSnek, kissStates)
+        let evalOtherSnekScore = evalOtherSnek.sum()
 
-        expect(evalSnek).toBeGreaterThan(evalOtherSnek)
+        expect(evalSnekScore).toBeGreaterThan(evalOtherSnekScore)
     })
 })
 
