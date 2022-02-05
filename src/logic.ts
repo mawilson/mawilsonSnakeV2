@@ -1,8 +1,8 @@
-export const version: string = "1.1.2" // need to declare this before imports since several imports utilize it
+export const version: string = "1.1.3" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral } from "./classes"
+import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMe } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
@@ -191,7 +191,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
     let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
 
-    let evalThisState: number = evaluate(gameState, myself, evaluateKisses)
+    let _evalThisState = evaluate(gameState, myself, evaluateKisses)
+    let evalThisState: number = _evalThisState.sum()
 
     if (isDevelopment) {
       if (myself.id === gameState.you.id && parentLeaf === undefined) { // if tree/root does not yet exist, create it
@@ -333,7 +334,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                             return murderSnake !== undefined && priorSnake.id === murderSnake.id
                           })
                           if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
-                            let murderSnakeBeforeMoveAvailableMoves = murderSnakeBeforeMove.id === gameState.you.id? availableMoves : getAvailableMoves(gameState, murderSnakeBeforeMove, board2d).validMoves() // get available moves murderSnake had before moving - can use availableMoves if murderSnake is myself
                             if (!isDuel) { // it's not a duel
                               if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
                                 adjustedMove = newMove
@@ -342,7 +342,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                               }
                             } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                               adjustedMove = newMove
-                            } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
+                            } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum())) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
                               adjustedMove = newMove
                             } // if it fails all three of those, we won't rechoose
                           }
@@ -382,6 +382,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
           
           let evalState: MoveWithEval
+          let evaluationResult: EvaluationResult
           let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           let thisLeaf: Leaf | undefined = undefined
           if (isDevelopment) {
@@ -396,7 +397,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
             }
           } else { // base case, just run the eval
-            evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs))
+            evaluationResult = evaluate(newGameState, newSelf, kissArgs)
+            evalState = new MoveWithEval(move, evaluationResult.sum())
           }
           if (isDevelopment) {
             if (thisLeaf !== undefined) {

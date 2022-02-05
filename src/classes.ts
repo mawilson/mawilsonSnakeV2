@@ -963,18 +963,6 @@ export class MoveNeighbors {
     this.huntingAtRight = this._huntingAtRight()
   }
 
-  // considers ties as larger snakes if in a duel. Returns true if the snake in the cell is larger than myself
-  isSnakeCellLarger(cell: BoardCell): boolean {
-    if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) { // if cell has a snake
-      if (cell.snakeCell.snake.length >= this.me.length && !this.isDuel) { // if that snake is larger or equal than me, & we're not dueling
-        return true
-      } else if (cell.snakeCell.snake.length > this.me.length && this.isDuel) { // if that snake is larger than me, & we're dueling
-        return true
-      }
-    }
-    return false // snake either doesn't exist, or isn't larger/tied depending on isDuel
-  }
-
   // always considers ties to be a larger snake. Returns true if the snake in the cell is larger than myself
   isSnakeCellLargerOrTied(cell: BoardCell): boolean {
     if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= this.me.length) { // if cell has a snake & that snake is larger or tied with me
@@ -989,7 +977,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.upNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.upPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1027,7 +1015,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.downNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.downPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1064,7 +1052,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.leftPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1101,7 +1089,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.rightPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1570,6 +1558,76 @@ export class Tree {
         return "there was an undefined leaf in the tree!"
       }
     }
+    return str
+  }
+}
+
+export class EvaluationResult {
+  myself: Battlesnake
+  base: number = 0
+  hazard: number = 0
+  hazardWall: number = 0
+  kissOfDeath: number = 0
+  kissOfMurder: number = 0
+  kissOfMurderSelfBonus: number = 0
+  cutoffHazard: number = 0
+  priorKissOfDeath: number = 0
+  priorKissOfMurder: number = 0
+  priorKissOfMurderSelfBonus: number = 0
+  delta: number = 0
+  health: number = 0
+  otherSnakeHealth: number = 0
+  food: number = 0
+  voronoiSelf: number = 0
+  voronoiBoard: number = 0
+  voronoiSelfBonus: number = 0
+
+  // scores specific to certain game modes (wrapped, solo)
+  tailChase: number = 0
+  center: number = 0
+  otherSnakeMoves: number = 0
+
+  tieValue: number = 0
+  noMe: number = 0
+
+  constructor(myself: Battlesnake) {
+    this.myself = myself
+  }
+
+  sum(): number {
+    let sum: number = 0
+    for (const property in this) {
+      let val: any = this[property]
+      if (typeof val === "number") { // as of writing only 'myself' is a non-number. For now, any other number in here we want to add to sum.
+        sum = sum + val
+      }
+    }
+    return sum
+  }
+
+  toString(): string {
+    let str: string = ""
+    function buildString(appendStr: string) : void {
+      if (str === "") {
+        str = appendStr
+      } else {
+        str = str + "\n" + appendStr
+      }
+    }
+
+    buildString(`eval snake ${this.myself.name} at (${this.myself.head.x},${this.myself.head.y}))`)
+
+    let thisObj = this
+    let props = Object.keys(thisObj) as Array<keyof typeof thisObj>
+    props.sort() // order doesn't particularly matter, so long as it's consistent for comparison's sake
+    props.forEach(prop => {
+      let val = thisObj[prop]
+      if (typeof val === "number") {
+        buildString(`${prop.toString()} score: ${val}`)
+      }
+    })
+    buildString(`total: ${this.sum()}`)
+
     return str
   }
 }
