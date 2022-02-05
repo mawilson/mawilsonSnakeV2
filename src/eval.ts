@@ -333,7 +333,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
   if (gameState.board.snakes.length === 0) {
-    return determineEvalNoSnakes(gameState, gameState.you, priorKissStates.predator) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
+    return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (myself === undefined) {
     if (_myself !== undefined && _myself.health <= 0) { // if I starved, return evalNoMe, this is certain death

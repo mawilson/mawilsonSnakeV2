@@ -963,18 +963,6 @@ export class MoveNeighbors {
     this.huntingAtRight = this._huntingAtRight()
   }
 
-  // considers ties as larger snakes if in a duel. Returns true if the snake in the cell is larger than myself
-  isSnakeCellLarger(cell: BoardCell): boolean {
-    if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) { // if cell has a snake
-      if (cell.snakeCell.snake.length >= this.me.length && !this.isDuel) { // if that snake is larger or equal than me, & we're not dueling
-        return true
-      } else if (cell.snakeCell.snake.length > this.me.length && this.isDuel) { // if that snake is larger than me, & we're dueling
-        return true
-      }
-    }
-    return false // snake either doesn't exist, or isn't larger/tied depending on isDuel
-  }
-
   // always considers ties to be a larger snake. Returns true if the snake in the cell is larger than myself
   isSnakeCellLargerOrTied(cell: BoardCell): boolean {
     if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead && cell.snakeCell.snake.length >= this.me.length) { // if cell has a snake & that snake is larger or tied with me
@@ -989,7 +977,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.upNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.upPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1027,7 +1015,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.downNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.downPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1064,7 +1052,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.leftNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.leftPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
@@ -1101,7 +1089,7 @@ export class MoveNeighbors {
     let _this = this; // forEach function will have its own this, don't muddle them
     let biggerSnake : boolean = false;
     this.rightNeighbors.forEach(function checkNeighbors(cell) {
-      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLarger(cell)) {
+      if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
         biggerSnake = true;
         _this.rightPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
