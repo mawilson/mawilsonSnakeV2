@@ -1,4 +1,4 @@
-export const version: string = "1.1.3" // need to declare this before imports since several imports utilize it
+export const version: string = "1.1.4" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -225,21 +225,22 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
       if (lookahead !== undefined) {
-        // final result for a lookahead of 4 should look like: evalThisState * (1.0 + 1.1 + 1.2 + 1.3 + 1.4). 4 lookahead means four future moves, plus this one.
-        let newScore: number = evalThisState // should always at least account for this turn
+        let newScore: number = 0 // should always at least account for this turn
         if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
-          for (let i: number = lookahead; i >= 0; i--) {
+          for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
             if (i !== lookahead) {
               newScore = newScore + (evalNoMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
             } else {
               newScore = newScore + (evalThisState * (1 + lookaheadWeight * i)) // can use evalThisState for first turn - will be bad but not as bad
             }
           }
+          newScore = newScore + evalNoMe // add the final bestMove after the lookaheads, with no lookaheadWeight - which is necessarily death in this case
           evalThisState = newScore
         } else {
-          for (let i: number = lookahead; i >= 0; i--) { // need to apply weights for skipped lookahead steps, as well as this one
+          for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
             newScore = newScore + (evalThisState * (1 + lookaheadWeight * i))
           }
+          newScore = newScore + evalThisState // add the final bestMove after the lookaheads, with no lookaheadWeight
         }
         evalThisState = newScore // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
       }
@@ -373,7 +374,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 } else if (otherSnakeAvailableMoves.length === 1) {
                   moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
                 } else {
-                  fakeMoveSnake(snake)
+                  fakeMoveSnake(gameState, snake)
                 }
               }
             })

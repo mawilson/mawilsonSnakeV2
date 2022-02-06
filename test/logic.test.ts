@@ -2898,3 +2898,24 @@ describe('Wrapped tests', () => {
     expect(dist).toBe(10) // doesn't really belong here, but sanity check to ensure standard gameMode getDistance works
   })
 })
+
+describe('constrictor tests', () => {
+  it('lets another snake die before moving into its space', () => {
+    const snek = new Battlesnake("snek", "snek", 100, [{x: 5, y: 2}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 3, y: 6}, {x: 3, y: 7}, {x: 3, y: 8}, {x: 3, y: 9}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}, {x: 5, y: 9}, {x: 5, y: 9}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 2, y: 3}, {x: 2, y: 4}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 3, y: 1}, {x: 4, y: 1}, {x: 4, y: 0}, {x: 5, y: 0}, {x: 5, y: 1}, {x: 5, y: 1}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 1, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 1, y: 9}, {x: 2, y: 9}, {x: 2, y: 8}, {x: 2, y: 7}, {x: 2, y: 6}, {x: 1, y: 6}, {x: 0, y: 6}, {x: 0, y: 5}, {x: 1, y: 5}, {x: 1, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 100, [{x: 8, y: 7}, {x: 9, y: 7}, {x: 10, y: 7}, {x: 10, y: 6}, {x: 9, y: 6}, {x: 8, y: 6}, {x: 7, y: 6}, {x: 6, y: 6}, {x: 5, y: 6}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 9, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek3)
+
+    gameState.game.ruleset.name = "constrictor"
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("right") // left traps us in a constriction that otherSnek will otherwise fall prey to, right is only safe move. Tail is down & thus not valid.
+  })
+})

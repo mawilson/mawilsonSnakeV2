@@ -101,12 +101,16 @@ export function getDistance(c1: Coord, c2: Coord, gameState: GameState) : number
 }
 
 // gameMode functions
-export function gameStateIsWrapped(gameState: GameState) : boolean {
+export function gameStateIsWrapped(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "wrapped"
 }
 
-export function gameStateIsSolo(gameState: GameState) : boolean {
+export function gameStateIsSolo(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "solo"
+}
+
+export function gameStateIsConstrictor(gameState: GameState): boolean {
+  return gameState.game.ruleset.name === "constrictor"
 }
 
 // returns coordinate after move has been applied to it. If move is undefined, returns the same coordinate.
@@ -440,6 +444,7 @@ export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2
 
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
+  let isConstrictor: boolean = gameStateIsConstrictor(gameState)
   let move : Direction = _move === undefined ? getDefaultMove(gameState, snake, board2d) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(gameState, snake.head, move)
   let newCell = board2d.getCell(newCoord)
@@ -450,7 +455,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     snake.body.unshift(newCoord) // add new coordinate to front of body
     snake.head = snake.body[0]
 
-    if (newCell.food) {
+    if (newCell.food || isConstrictor) { // in constrictor, there is no food, but every move is treated as though we ate, with length growing, tail duplicating, & health maximizing
       snake.health = 100
       snake.body.push(snake.body[snake.body.length - 1]) // snake should duplicate its tail cell if it has just eaten
     } else if (newCell.hazard) {
@@ -467,10 +472,12 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
   }
 }
 
-// for moving a snake without actually moving it. Reduces its tail without reducing its length, duplicating its head instead
-export function fakeMoveSnake(snake: Battlesnake) {
-  snake.body = snake.body.slice(0, -1)
-  snake.body.push(snake.body[snake.body.length - 1])
+// for moving a snake without actually moving it. Reduces its tail without reducing its length, duplicating its tail instead
+export function fakeMoveSnake(gameState: GameState, snake: Battlesnake) {
+  if (!gameStateIsConstrictor(gameState) && !snakeHasEaten(snake)) { // if it hasn't eaten & it isn't constrictor, reduce its length by one by removing the tail
+    snake.body = snake.body.slice(0, -1)
+  }
+  snake.body.push(snake.body[snake.body.length - 1]) // duplicate the tail
 }
 
 // After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes, increment turn
@@ -1994,7 +2001,9 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           if (voronoiSnake !== undefined) {
-            if (cell && cell.hazard && !cell.food) { // hazard cells that do not have food have a fractional value
+            if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of 1
+              cellTotals[snakeId] = cellTotals[snakeId] + 1
+            } else if (cell && cell.hazard && !cell.food) { // hazard cells that do not have food have a fractional value
               cellTotals[snakeId] = cellTotals[snakeId] + hazardValue
             } else {
               cellTotals[snakeId] = cellTotals[snakeId] + 1

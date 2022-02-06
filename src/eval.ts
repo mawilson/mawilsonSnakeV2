@@ -325,6 +325,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalVoronoiDeltaBonus = (isDuel || haveWon)? 75 : 50
   const evalVoronoiDeltaMax = 600
 
+  const evalAvailableMoves0Moves = -400
+
   const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
   const evalSoloCenter = -1
 
@@ -502,8 +504,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
-  } else if (isWrapped) {
-    evalFoodVal = 0.5 // wrapped food inclination is small
   } else if (snakeDelta > 6) { // If I am more than 6 bigger, want food less
     evalFoodVal = 1
   }
@@ -616,7 +616,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     if (voronoiMyself < evalVoronoiBaseGood) {
       let howBad: number = (evalVoronoiBaseGood - voronoiMyself) * evalVoronoiNegativeStep
       // so if negative step is -100, base good is 9, & voronoiMyself is 5, that makes for (9 - 5) * -100 = -400
-      howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
       voronoiSelf = howBad
     } else if (voronoiMyself > evalVoronoiBaseGood) {
       let howGood: number = (voronoiMyself - evalVoronoiBaseGood) * evalVoronoiPositiveStep
@@ -666,6 +665,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       voronoiSelfBonus = lastVoronoiReward
     }
     evaluationResult.voronoiSelfBonus = voronoiSelfBonus
+  }
+
+  let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
+  if (availableMoves.validMoves().length === 0) {
+    evaluationResult.selfMoves = evalAvailableMoves0Moves
   }
 
   if (isSolo) { // two things matter in a solo game: not starving, & chasing tail at a safe distance. Try to stay in the middle too so as to stay equidistant to food where possible.
