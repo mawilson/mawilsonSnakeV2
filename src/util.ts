@@ -113,7 +113,7 @@ export function gameStateIsConstrictor(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "constrictor"
 }
 
-// returns coordinate after move has been applied to it. If move is undefined, returns the same coordinate.
+// returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.
 export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
   let isWrapped: boolean = gameStateIsWrapped(gameState)
@@ -139,7 +139,7 @@ export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Dire
         newPosition.x = newPosition.x - 1
       }
       break
-    case Direction.Right: // case Direction.Right:
+    case Direction.Right:
       if (isWrapped && newPosition.x === (gameState.board.width - 1)) { // in a wrapped game, going right from the right of the board leaves you on the left
         newPosition.x = 0
       } else {
@@ -444,6 +444,9 @@ export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2
 
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
+  if (_move === Direction.AlreadyMoved) {
+    return // snake has already moved, don't move it
+  }
   let isConstrictor: boolean = gameStateIsConstrictor(gameState)
   let move : Direction = _move === undefined ? getDefaultMove(gameState, snake, board2d) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(gameState, snake.head, move)
