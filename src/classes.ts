@@ -12,7 +12,8 @@ export enum Direction {
   Up,
   Down,
   Left,
-  Right
+  Right,
+  AlreadyMoved
 }
 
 export function directionToString(dir: Direction): string | undefined {
@@ -25,6 +26,8 @@ export function directionToString(dir: Direction): string | undefined {
       return "left"
     case Direction.Right:
       return "right"
+    case Direction.AlreadyMoved:
+      return "alreadyMoved"
     default:
       return undefined
   }
@@ -40,6 +43,8 @@ export function stringToDirection(str: string): Direction | undefined {
       return Direction.Left
     case "right":
       return Direction.Right
+    case "alreadyMoved":
+      return Direction.AlreadyMoved
     default:
       return undefined
   }
@@ -229,7 +234,12 @@ export class Board2d {
         let newSnakeCell = new SnakeCell(inputSnake, idx)
         let board2dCell = self.getCell(part)
         if (board2dCell) {
-          board2dCell.snakeCell = newSnakeCell
+          // wild edge case - when repicking a murdered otherSnake, myself has already moved once, possibly onto another snake tail. Need to not replace my head with otherSnake tail.
+          if (board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail) {
+            logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
+          } else {
+            board2dCell.snakeCell = newSnakeCell
+          }
           if (isHead && populateVoronoi) {
             board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0, inputSnake.length, inputSnake.health) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
             voronoiPoints.push(board2dCell)
@@ -662,7 +672,7 @@ export class HazardSpiral {
             currentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // new coord is one down of old coord
             adjacentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // coord one left
             break
-          case Direction.Left:
+          default: // Direction.Left:
             currentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // new coord is one left of old coord
             adjacentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // coord one up
             break
@@ -894,7 +904,7 @@ export class Moves {
         this.down = false;
         this.right = false;
         break;
-      case Direction.Right:
+      default: // case Direction.Right:
         this.up = false;
         this.down = false;
         this.left = false;
@@ -1611,6 +1621,7 @@ export class EvaluationResult {
       }
     }
     if (sum < evalNoMe) { // evalNoMe is essentially the cap on how bad a state can be, so cap it there
+      logToFile(consoleWriteStream, `sum of ${sum} was less than evalNoMe`)
       sum = evalNoMe
     }
     return sum

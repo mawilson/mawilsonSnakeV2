@@ -1,4 +1,4 @@
-export const version: string = "1.1.4" // need to declare this before imports since several imports utilize it
+export const version: string = "1.1.5" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -324,8 +324,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                     case 0: // otherSnake has no other options, don't change its move
                       break
                     case 1: // otherSnake has only one other option left. Evaluate it, choose it if it's better than a tie
-                    case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie 
-                      let newMove = _decideMove(newGameState, snake, 0) // let snake decide again, no lookahead this time, & don't tell it where myself moved this turn - it already moved there
+                    case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie
+                      let newMove = _decideMove(newGameState, snake, 0, undefined, Direction.AlreadyMoved) // let snake decide again, no lookahead this time, & tell it that myself already moved
                       // note that in this case, otherSnake will end up moving myself again (e.g. myself snake has moved twice), which may result in it choosing badly
                       if (newMove.score !== undefined) { // don't choose a move whose score is undefined, can't determine if it's better than what we have
                         if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
@@ -365,8 +365,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             
             // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
             otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
-              if (snake.id === newGameState.you.id && originalSnakeMove !== undefined) { // we may know exactly what move snake is making if that snake is originalSnake
-                moveSnake(newGameState, snake, board2d, originalSnakeMove)
+              if (snake.id === newGameState.you.id && originalSnakeMove !== undefined) { // we know exactly what move snake is making if that snake is originalSnake
+                moveSnake(newGameState, snake, board2d, originalSnakeMove)              
               } else {
                 let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
                 if (otherSnakeAvailableMoves.length === 0) {

@@ -2854,6 +2854,23 @@ describe('Wrapped tests', () => {
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("right") // left is a kiss of death certainty with otherSnek, should go right
   })
+  it('does not attempt to kill a snake when missing will kill it', () => {
+    const snek = new Battlesnake("snek", "snek", 95, [{x: 1, y: 8}, {x: 0, y: 8}, {x: 0, y: 9}, {x: 0, y: 10}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 1, y: 2}, {x: 2, y: 2}, {x: 3, y: 2}, {x: 4, y: 2}, {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 6, y: 0}, {x: 6, y: 10}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 9, y: 0}, {x: 9, y: 1}, {x: 8, y: 1}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 99, [{x: 1, y: 6}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 10, y: 7}, {x: 10, y: 6}, {x: 10, y: 5}, {x: 10, y: 4}, {x: 0, y: 4}, {x: 1, y: 4}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 3, y: 5}, {x: 3, y: 6}, {x: 3, y: 7}, {x: 2, y: 7}, {x: 1, y: 7}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 72, [{x: 5, y: 6}, {x: 6, y: 6}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 4}, {x: 6, y: 4}, {x: 6, y: 3}, {x: 5, y: 3}, {x: 5, y: 4}, {x: 4, y: 4}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 4, y: 8}, {x: 5, y: 8}, {x: 5, y: 9}, {x: 6, y: 9}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    gameState.turn = 234
+    gameState.board.food = [{x: 1, y: 5}, {x: 4, y: 9}]
+    gameState.game.ruleset.name = "wrapped"
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("down") // down is a kill, but otherSnek should avoid it, & then I would die in a turn. Right or up are both safe & otherSnek dies in a few turns.
+  })
   it('knows how to calculate distance when in wrapped mode', () => {
     const snek = new Battlesnake("snek", "snek", 95, [{x: 10, y: 0}, {x: 10, y: 10}, {x: 10, y: 9}, {x: 0, y: 9}, {x: 0, y: 10}, {x: 1, y: 10}, {x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}], "30", "", "")
     const gameState = createGameState(snek)
