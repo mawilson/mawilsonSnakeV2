@@ -105,6 +105,11 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "wrapped"
 }
 
+// no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
+export function gameStateIsHazardSpiral(gameState: GameState): boolean {
+  return gameStateIsWrapped(gameState) && (gameState.game.ruleset.settings.hazardDamagePerTurn > 0)
+}
+
 export function gameStateIsSolo(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "solo"
 }
@@ -793,6 +798,8 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWal
 export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
   if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
     return false
+  } else if (gameStateIsHazardSpiral(gameState)) { // hazard wall adjacency doesn't make sense when hazard spirals
+    return false
   } else if (hazardWalls.left === undefined && coord.x === 0) { // if hazardWalls.left is undefined & coord.x is on the left wall, it's adjacent to hazard
     return true
   } else if (hazardWalls.left !== undefined && (coord.x - hazardWalls.left === 1)) { // if coord.x is exactly one right of hazardWalls.left, it's adjacent to left hazard
@@ -1420,6 +1427,8 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
   } else if (_snake === undefined) { // undefined snakes cannot be cut off
     return false
   } else if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // cannot do hazard cutoff in a game without hazard
+    return false
+  } else if (gameStateIsHazardSpiral(gameState)) { // cannot do hazard cutoff in a hazard spiral game
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off

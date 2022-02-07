@@ -1,7 +1,8 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, createGameDataId } from "./util"
 import { evalNoMe } from "./eval"
+import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
 let consoleWriteStream = createWriteStream("consoleLogs_classes.txt", {
@@ -225,6 +226,8 @@ export class Board2d {
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
+    let isHazardSpiral: boolean = gameStateIsHazardSpiral(gameState)
+
     let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
     let snakePossibleEats: {[key: string]: boolean[]} = {} // for Voronoi points, keeps track of depths & whether it ate at that depth
 
@@ -259,12 +262,34 @@ export class Board2d {
       }
     })
 
-    board.hazards.forEach(function addHazard(coord: Coord) : void {
-      let board2dCell = self.getCell(coord)
-      if (board2dCell instanceof BoardCell) {
-        board2dCell.hazard = true;
+    if (isHazardSpiral) {
+      let gameDataId = createGameDataId(gameState)
+      let thisGameData = gameData? gameData[gameDataId] : undefined
+      if (thisGameData !== undefined) {
+        let hazardSpiral = thisGameData.hazardSpiral
+        if (hazardSpiral !== undefined) {
+          for (let i: number = 0; i < hazardSpiral.width; i++) {
+            for (let j: number = 0; j < hazardSpiral.height; j++) {
+              let coord = new Coord(i, j)
+              let hazardSpiralCell = hazardSpiral.getCell(coord)
+              let board2dCell = self.getCell(coord)
+              if (hazardSpiralCell !== undefined && board2dCell !== undefined) { // if this coord exists in the HazardSpiral & the Board2d, should add its hazard to Board2d
+                if (gameState.turn >= hazardSpiralCell.turnIsHazard) { // if gameState is far enough along, this cell is a hazard
+                  board2dCell.hazard = true
+                }
+              }
+            }
+          }
+        } // no need for else, if hazardSpiral is undefined in a hazardSpiral game, that just means there haven't been any hazards yet
       }
-    })
+    } else {
+      gameState.board.hazards.forEach(function addHazard(coord: Coord) : void {
+        let board2dCell = self.getCell(coord)
+        if (board2dCell instanceof BoardCell) {
+          board2dCell.hazard = true;
+        }
+      })
+    }
 
     // populate Voronoi properties of boardCells
 
@@ -538,7 +563,7 @@ export class HazardWalls {
   constructor(gameState?: GameState) {
     let _this = this
 
-    if (gameState === undefined) {
+    if (gameState === undefined || gameStateIsHazardSpiral(gameState)) { // hazard walls don't make sense in HazardSpiral mode
       this.up = undefined
       this.down = undefined
       this.left = undefined
@@ -644,76 +669,64 @@ export class HazardSpiral {
     let hazardCells: number = 1
     let trueHazardCells: number = 1 // need to distinguish between hazard cells that are off board & those that are on board
 
-    let spiralSize: number = 3 // spiral starts at size 1 (startingCell), then 3, then 5, etc., & caps at board dimensions
-    let spiralDirection: Direction
+    let spiralDirection: Direction = Direction.Up // spiral starts out by going up from the center of the spiral
 
     let currentCoord: Coord = startingCell.coord
 
     let fakeCoords: Coord[] = [] // spiral coordinates which don't exist on the game board, but need to be tracked for building spiral
     while (trueHazardCells < (this.height * this.width)) { // keep spiraling until entire board is hazard
-      let cellsInThisSpiral: number = 0
-      let maxCellsInThisSpiral: number = spiralSize * 4 - 4 // four sides to the spiral, but don't double-count overlap on corners
-      spiralDirection = Direction.Up // spiral always starts out by going up from the center of the spiral
-      while(cellsInThisSpiral < maxCellsInThisSpiral) { // will break when cellsInThisSpiral equals maxCellsInThisSpiral
-        let hazardTurn: number
-        let idx: number
-        let newCell: HazardSpiralCell
-        let adjacentCoord: Coord
-        switch(spiralDirection) {
+      let hazardTurn: number
+      let idx: number
+      let newCell: HazardSpiralCell
+      let adjacentCoord: Coord
+      switch(spiralDirection) {
+        case Direction.Up:
+          currentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // new coord is one above old coord
+          adjacentCoord = new Coord(currentCoord.x + 1, currentCoord.y) // coord one to the right
+          break
+        case Direction.Right:
+          currentCoord = new Coord(currentCoord.x + 1, currentCoord.y) // new coord is one right of old coord
+          adjacentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // coord one down
+          break
+        case Direction.Down:
+          currentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // new coord is one down of old coord
+          adjacentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // coord one left
+          break
+        default: // Direction.Left:
+          currentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // new coord is one left of old coord
+          adjacentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // coord one up
+          break
+      }
+
+      if (this.coordExists(currentCoord)) { // coord exists, add it to HazardSpiral cells
+        hazardTurn = startingTurn + this.hazardFrequency * hazardCells // hazardCells has yet to be incremented, so turn 6 for second hazard, turn 9 for third, etc.
+        newCell = new HazardSpiralCell(currentCoord, hazardTurn) // new cell exists at newCoord & hazardFrequency turns ahead
+        idx = this.getIndex(currentCoord.x, currentCoord.y) // get index in 2d array where this coordinate lives
+        this.cells[idx] = newCell // add HazardSpiralCell to 2d cells array
+        hazardCells = hazardCells + 1
+        trueHazardCells = trueHazardCells + 1 // we've now added currentCell to our cells
+      } else { // coord doesn't exist, but still need to add it to fakeCoords & change direction if applicable
+        fakeCoords.push(currentCoord) // keep track of hazard coordinate in fakeCoords
+        hazardCells = hazardCells + 1 // hazardCell increment for hazardTurn calculation, even though the hazard doesn't exist on game board
+      }
+
+      // spiral tightening - change direction if we can
+      if (this.canMoveTowardsCoord(adjacentCoord, fakeCoords)) {
+        switch (spiralDirection) {
           case Direction.Up:
-            currentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // new coord is one above old coord
-            adjacentCoord = new Coord(currentCoord.x + 1, currentCoord.y) // coord one to the right
+            spiralDirection = Direction.Right
             break
           case Direction.Right:
-            currentCoord = new Coord(currentCoord.x + 1, currentCoord.y) // new coord is one right of old coord
-            adjacentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // coord one down
+            spiralDirection = Direction.Down
             break
           case Direction.Down:
-            currentCoord = new Coord(currentCoord.x, currentCoord.y - 1) // new coord is one down of old coord
-            adjacentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // coord one left
+            spiralDirection = Direction.Left
             break
-          default: // Direction.Left:
-            currentCoord = new Coord(currentCoord.x - 1, currentCoord.y) // new coord is one left of old coord
-            adjacentCoord = new Coord(currentCoord.x, currentCoord.y + 1) // coord one up
+          default: //case Direction.Left:
+            spiralDirection = Direction.Up
             break
-        }
-
-        if (this.coordExists(currentCoord)) { // coord exists, add it to HazardSpiral cells
-          hazardTurn = startingTurn + this.hazardFrequency * hazardCells // hazardCells has yet to be incremented, so turn 6 for second hazard, turn 9 for third, etc.
-          newCell = new HazardSpiralCell(currentCoord, hazardTurn) // new cell exists at newCoord & hazardFrequency turns ahead
-          idx = this.getIndex(currentCoord.x, currentCoord.y) // get index in 2d array where this coordinate lives
-          this.cells[idx] = newCell // add HazardSpiralCell to 2d cells array
-          hazardCells = hazardCells + 1
-          trueHazardCells = trueHazardCells + 1 // we've now added currentCell to our cells
-          cellsInThisSpiral = cellsInThisSpiral + 1
-        } else { // coord doesn't exist, but still need to add it to fakeCoords & change direction if applicable
-          fakeCoords.push(currentCoord) // keep track of hazard coordinate in fakeCoords
-          hazardCells = hazardCells + 1 // hazardCell increment for hazardTurn calculation, even though the hazard doesn't exist on game board
-          cellsInThisSpiral = cellsInThisSpiral + 1
-        }
-
-        // spiral tightening - change direction if we can
-        if (this.canMoveTowardsCoord(adjacentCoord, fakeCoords)) {
-          switch (spiralDirection) {
-            case Direction.Up:
-              spiralDirection = Direction.Right
-              break
-            case Direction.Right:
-              spiralDirection = Direction.Down
-              break
-            case Direction.Down:
-              spiralDirection = Direction.Left
-              break
-            default: //case Direction.Left:
-              spiralDirection = Direction.Up
-              break
-          }
         }
       }
-      let newX = this.startingCoord.x // start next spiral from the same x as startingCoord
-      let newY = this.startingCoord.y + Math.floor(spiralSize / 2) // start next spiral from the same y as the previous spiral's top
-      spiralSize = spiralSize + 2 // now that we've added all spiral cells to this spiral size, increment the spiral size by two for the next spiral
-      currentCoord = new Coord(newX, newY)
     }
   }
 

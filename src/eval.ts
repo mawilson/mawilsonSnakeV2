@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, logToFile } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, logToFile } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -166,6 +166,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
   const hazardFrequency = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
   const isWrapped = gameStateIsWrapped(gameState)
+  const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
@@ -386,7 +387,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
   // hazard walling
-  if (isDuel && hazardDamage > 0 && !isWrapped) {
+  if (isDuel && hazardDamage > 0 && !isHazardSpiral) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
       evalFoodVal = 1 // seek food less while building hazard walls, but don't stop

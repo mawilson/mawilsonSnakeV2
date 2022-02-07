@@ -1,9 +1,9 @@
-export const version: string = "1.1.5" // need to declare this before imports since several imports utilize it
+export const version: string = "1.1.6" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMe } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -502,7 +502,7 @@ export function move(gameState: GameState): MoveResponse {
   if (thisGameData !== undefined) {
     thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
     thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
-    if (gameState.game.ruleset.name === "hazardSpiral" && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
+    if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
       thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
     }
   } // do not want to create new game data if it does not exist, start() should do that
