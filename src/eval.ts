@@ -9,7 +9,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 })
 
 // constants used in other files
-export const evalNoMe: number = -1500 // no me is the worst possible state, give a very bad score
+export const evalNoMe: number = -2250 // no me is the worst possible state, give a very bad score
 
 const evalBase: number = 500
 const evalDefaultTieValue: number = 460 // the value I had evalNoSnakes at when I wrote this function. A generic 'good' eval state
@@ -52,6 +52,22 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
   }
 
   return evaluation
+}
+
+function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[], evalHealthOthersnakeDuelStep: number, evalHealthOthersnakeStep: number): number {
+    let otherSnakeHealthPenalty: number = 0
+    let otherSnakesSortedByHealth: Battlesnake[] = otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sorts by health in descending order
+      return b.health - a.health
+    })
+    otherSnakesSortedByHealth.forEach((snake, idx) => {
+      if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
+        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep // largest remaining snake gets
+      } else { // give remaining snakes a smaller penalty for health
+        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
+      }
+    })
+
+    return otherSnakeHealthPenalty
 }
 
 // helper function to determine a good 'average' evaluate score, for use in determining whether a tie is better or worse than that
@@ -347,6 +363,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         return evaluationResult // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
       } else {
         evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState)
+        let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes, evalHealthOthersnakeDuelStep, evalHealthOthersnakeStep)
+        evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
         return evaluationResult // Return the kissofDeath value that got me here (if applicable). This represents an uncertain death - though bad, it's not as bad as, say, starvation, which is a certainty.
       }
     } else { // other deaths, such as death by snake body, are also a certainty
@@ -380,18 +398,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
-    let otherSnakeHealthPenalty: number = 0
-    let otherSnakesSortedByHealth: Battlesnake[] = otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sorts by health in descending order
-      return b.health - a.health
-    })
-    otherSnakesSortedByHealth.forEach((snake, idx) => {
-      if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
-        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep // largest remaining snake gets
-      } else { // give remaining snakes a smaller penalty for health
-        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
-      }
-    })
-
+    let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes, evalHealthOthersnakeDuelStep, evalHealthOthersnakeStep)
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }
 
