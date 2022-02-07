@@ -2796,7 +2796,7 @@ describe('Hazard spiral tests', () => {
     let hazardSpiralCell = hazardSpiral.getCell({x: 0, y: 0})
     expect(hazardSpiralCell).toBeDefined()
     if (hazardSpiralCell) {
-      expect(hazardSpiralCell.turnIsHazard).toBe(107 * 3) // bottom left corner is 107th tile reached out of 121, so should show up at turn 107*3
+      expect(hazardSpiralCell.turnIsHazard).toBe(111 * 3) // bottom left corner is 111th tile reached out of 121, so should show up at turn 111*3
     }
   })
   it('can successfully map spiral hazards given a non-central starting point', () => {
@@ -2816,23 +2816,48 @@ describe('Hazard spiral tests', () => {
     let hazardSpiralCell = hazardSpiral.getCell({x: 0, y: 10})
     expect(hazardSpiralCell).toBeDefined()
     if (hazardSpiralCell) {
-      expect(hazardSpiralCell.turnIsHazard).toBe(669) // see notebook, top left corner is 669
+      expect(hazardSpiralCell.turnIsHazard).toBe(519) // see notebook, top left corner is 519
     }
     hazardSpiralCell = hazardSpiral.getCell({x: 0, y: 0})
     expect(hazardSpiralCell).toBeDefined()
     if (hazardSpiralCell) {
-      expect(hazardSpiralCell.turnIsHazard).toBe(123) // see notebook, bottom left corner is 123
+      expect(hazardSpiralCell.turnIsHazard).toBe(129) // see notebook, bottom left corner is 129
     }
     hazardSpiralCell = hazardSpiral.getCell({x: 10, y: 0})
     expect(hazardSpiralCell).toBeDefined()
     if (hazardSpiralCell) {
-      expect(hazardSpiralCell.turnIsHazard).toBe(561) // see notebook, bottom right corner is 561
+      expect(hazardSpiralCell.turnIsHazard).toBe(579) // see notebook, bottom right corner is 579
     }
     hazardSpiralCell = hazardSpiral.getCell({x: 10, y: 10})
     expect(hazardSpiralCell).toBeDefined()
     if (hazardSpiralCell) {
-      expect(hazardSpiralCell.turnIsHazard).toBe(531) // see notebook, top right corner is 531
+      expect(hazardSpiralCell.turnIsHazard).toBe(549) // see notebook, top right corner is 549
     }
+  })
+  it('does not apply hazard penalty for moving into a hazard that arrived as I moved onto it', () => {
+    const snek = new Battlesnake("snek", "snek", 95, [{x: 3, y: 6}, {x: 2, y: 6}, {x: 1, y: 6}], "30", "", "")
+    const gameState = createGameState(snek)
+    
+    gameState.game.ruleset.name = "wrapped"
+    gameState.game.ruleset.settings.hazardDamagePerTurn = 14
+    gameState.turn = 3
+    gameState.board.hazards = [{x: 6, y: 4}]
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 95, [{x: 3, y: 0}, {x: 4, y: 0}, {x: 5, y: 0}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    let moveResponse: MoveResponse = move(gameState)
+    
+    gameState.turn = 74
+    gameState.board.hazards = [{x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 4, y: 5}, {x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 8, y: 5},
+      {x: 4, y: 4}, {x: 5, y: 4}, {x: 6, y: 4}, {x: 7, y: 4}, {x: 8, y: 4}, {x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}, {x: 8, y: 3}, {x: 4, y: 2},
+      {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}]
+
+    let board2d = new Board2d(gameState)
+    moveSnake(gameState, snek, board2d, Direction.Right)
+    updateGameStateAfterMove(gameState)
+
+    expect(snek.health).toBe(94) // snek has just moved into a hazard that just showed up - it should be 1 health lower, not 15
   })
 })
 
@@ -2850,6 +2875,7 @@ describe('Wrapped tests', () => {
     gameState.turn = 208
     gameState.board.food = [{x: 4, y: 9}]
     gameState.game.ruleset.name = "wrapped"
+    gameState.game.ruleset.settings.hazardDamagePerTurn = 0
 
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("right") // left is a kiss of death certainty with otherSnek, should go right
@@ -2867,6 +2893,7 @@ describe('Wrapped tests', () => {
     gameState.turn = 234
     gameState.board.food = [{x: 1, y: 5}, {x: 4, y: 9}]
     gameState.game.ruleset.name = "wrapped"
+    gameState.game.ruleset.settings.hazardDamagePerTurn = 0
 
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("down") // down is a kill, but otherSnek should avoid it, & then I would die in a turn. Right or up are both safe & otherSnek dies in a few turns.
@@ -2933,6 +2960,6 @@ describe('constrictor tests', () => {
     gameState.game.ruleset.name = "constrictor"
 
     let moveResponse: MoveResponse = move(gameState)
-    expect(moveResponse.move).toBe("right") // left traps us in a constriction that otherSnek will otherwise fall prey to, right is only safe move. Tail is down & thus not valid.
+    expect(moveResponse.move).toBe("right") // left traps us in a constriction that otherSnek will otherwise fall prey to, right is sole safe move. Tail is down & thus not valid.
   })
 })
