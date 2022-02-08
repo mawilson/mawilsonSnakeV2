@@ -2751,6 +2751,53 @@ describe('Voronoi tests', () => {
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // down pins us in & kills us for sure next turn, up likely starves us or gets us murdered but is clearly better
   })
+  it('does not choose to trap itself rather than have poor Voronoi score', () => {
+    const snek = new Battlesnake("snek", "snek", 95, [{x: 6, y: 1}, {x: 7, y: 1}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 5, y: 2}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}, {x: 7, y: 4}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 92, [{x: 4, y: 5}, {x: 5, y: 5}, {x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 7, y: 7}], "30", "", "")
+    gameState.board.snakes.push(otherSnek2)
+
+    const otherSnek3 = new Battlesnake("otherSnek3", "otherSnek3", 92, [{x: 6, y: 9}, {x: 7, y: 9}, {x: 8, y: 9}], "30", "", "")
+    gameState.board.snakes.push(otherSnek3)
+
+    gameState.board.food = [{x: 2, y: 5}]
+
+    let moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("down") // up traps us 100% of the time, left is also an unnecessary risk of kiss of death, should go down
+  })
+  it('does not choose an escape route through tail if that route does not exist', () => {
+    let snek = new Battlesnake("snek", "snek", 85, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    let otherSnek = new Battlesnake("otherSnek", "otherSnek", 42, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    gameState.game.ruleset.name = "wrapped"
+
+    gameState.turn = 3
+    gameState.board.hazards = [{x: 6, y: 5}]
+    let moveResponse: MoveResponse = move(gameState) // necessary to instantiate the hazardSpiral for gameData
+
+    // this is a hazard spiral game, so keep hazard damage
+    gameState.turn = 233
+
+    gameState.board.food = [{x: 2, y: 3}, {x: 9, y: 1}, {x: 10, y: 9}]
+
+    let newBody: Coord[] = [{x: 3, y: 4}, {x: 3, y : 3}, {x: 4, y : 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 7, y: 3}, {x: 7, y: 4}, {x: 7, y: 5}, {x: 8, y: 5}, {x: 9, y: 5}, {x: 10, y: 5}, {x: 0, y: 5}, {x: 0, y: 6}, {x: 0, y: 7}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 2, y: 6}, {x: 2, y: 5}, {x: 1, y: 5}, {x: 1, y: 4}, {x: 0, y: 4}, {x: 0, y: 3}, {x: 1, y: 3}, {x: 1, y: 2}, {x: 1, y: 1}]
+    let newOthersnekBody: Coord[] = [{x: 3, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 1, y: 0}, {x: 0, y: 0}, {x: 10, y: 0}, {x: 9, y: 0}, {x: 8, y: 0}, {x: 7, y: 0}, {x: 7, y: 10}, {x: 8, y: 10}, {x: 9, y: 10}, {x: 10, y: 10}, {x: 0, y: 10}, {x: 0, y: 9}, {x: 0, y: 8}, {x: 1, y: 8}, {x: 2, y: 8}, {x: 2, y: 9}, {x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}]
+
+    snek = new Battlesnake("snek", "snek", 85, newBody, "30", "", "")
+    otherSnek = new Battlesnake("otherSnek", "otherSnek", 42, newOthersnekBody, "30", "", "")
+    gameState.board.snakes = [snek, otherSnek]
+    gameState.you = snek
+
+    moveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("left") // left gets us cut off by otherSnek, if otherSnek were to go up
+  })
 })
 
 describe('Prolonging death tests', () => { // tests to ensure Jaguar tries to survive as long as possible even when death seems inevitable

@@ -319,28 +319,24 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalCutoffHazardReward = isDuel? 75 : 25
   const evalCutoffHazardPenalty = -60
 
-  let evalFoodVal = 2
+  let evalFoodVal = 3
   if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
   } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
-    evalFoodVal = 3
+    evalFoodVal = 4
   } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
-    evalFoodVal = 1
+    evalFoodVal = 2
   } else if (snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
-    evalFoodVal = 3
+    evalFoodVal = 4
   }
   const evalFoodStep = 1
   const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
-  const evalVoronoiNegativeStep = -100
-  const evalVoronoiNegativeMax = -600
-  const evalVoronoiPositiveStep = 20
-  const evalVoronoiPositiveMax = 100
+  const evalVoronoiNegativeStep = 100
+  const evalVoronoiPositiveStep = 4.5
   const evalVoronoiBaseGood = 9
-  const evalVoronoiBase = 0
-  const evalVoronoiDeltaBonus = (isDuel || haveWon)? 75 : 50
-  const evalVoronoiDeltaMax = 600
+  const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
   const evalAvailableMoves0Moves = -400
 
@@ -366,6 +362,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState)
         let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes, evalHealthOthersnakeDuelStep, evalHealthOthersnakeStep)
         evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+        if (!isOriginalSnake && !originalSnake) { // reward otherSnakes for tie-killing originalSnake
+          evaluationResult.base = evalBase
+        }
         return evaluationResult // Return the kissofDeath value that got me here (if applicable). This represents an uncertain death - though bad, it's not as bad as, say, starvation, which is a certainty.
       }
     } else { // other deaths, such as death by snake body, are also a certainty
@@ -390,7 +389,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   if (isDuel && hazardDamage > 0 && !isHazardSpiral) {
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
-      evalFoodVal = 1 // seek food less while building hazard walls, but don't stop
+      evalFoodVal = 2 // seek food less while building hazard walls, but don't stop
     }
   }
 
@@ -503,17 +502,17 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   let reachableCells = calculateReachableCells(gameState, board2d)
-  const voronoiMyself: number = reachableCells[myself.id]
+  let voronoiResults = reachableCells[myself.id]
+  let voronoiMyself: number = voronoiResults.reachableCells
+  let nearbyFood = voronoiResults.food
 
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
-  const nearbyFood = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState)
   let foodToHunt : Coord[] = []
-
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
   } else if (snakeDelta > 6) { // If I am more than 6 bigger, want food less
-    evalFoodVal = 1
+    evalFoodVal = 2
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
@@ -590,9 +589,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
           foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
         }
         foodToHunt.forEach(function adjustFoodValues(fud) {
-          if (isCorner(gameState.board, fud)) {
-            foodToHuntLength = foodToHuntLength - 0.8 // corner food is worth 0.2 that of normal food
-          }
           let foodCell = board2d.getCell(fud)
           if (foodCell && foodCell.hazard) {
             foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
@@ -610,66 +606,28 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
-    let voronoiDelta: number = 0
-    let voronoiLargest: number = 0
-    otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
-      let voronoiOtherSnake: number | undefined = reachableCells[snake.id]
-      if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
-        voronoiLargest = voronoiOtherSnake
-      }
-    })
-    voronoiDelta = voronoiMyself - voronoiLargest
 
-    let voronoiSelf: number = 0
-    if (voronoiMyself < evalVoronoiBaseGood) {
-      let howBad: number = (evalVoronoiBaseGood - voronoiMyself) * evalVoronoiNegativeStep
-      // so if negative step is -100, base good is 9, & voronoiMyself is 5, that makes for (9 - 5) * -100 = -400
-      voronoiSelf = howBad
-    } else if (voronoiMyself > evalVoronoiBaseGood) {
-      let howGood: number = (voronoiMyself - evalVoronoiBaseGood) * evalVoronoiPositiveStep
-      // so if positive step is 20, base good is 9, & voronoiMyself is 15, that makes for (15 - 9) * 20 = 120
-      howGood = howGood > evalVoronoiPositiveMax? evalVoronoiPositiveMax : howGood // don't let howGood exceed the maximum
-      voronoiSelf = howGood
-    } else {
-      voronoiSelf = evalVoronoiBase
+    let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
+    if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+      voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+    } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+      voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
     }
     evaluationResult.voronoiSelf = voronoiSelf
 
-    let voronoiBoard: number = 0
-    if (isDuel) { // give stronger & more specific rewards for board control in duel
-      let voronoiOtherSnake: number = reachableCells[otherSnakes[0].id]
-      if (voronoiOtherSnake === 0) { voronoiOtherSnake = 1 } // should be impossible, but ensure prevention of divide by zero
-      let ratio = voronoiMyself / voronoiOtherSnake
-      let reward: number = 0
-      if (ratio > 1) { // give varying rewards depending on how much more board control I have
-        let ratioTier = Math.floor(ratio) // 1 means I'm less than double, 2 means less than triple, 3 less than quadruple, etc.
-        reward = evalVoronoiDeltaBonus * ratioTier // so in steps of 50: 50 for less than double, 100 for less than triple, 150 for less than quadruple, etc.
-        reward = reward > evalVoronoiDeltaMax? evalVoronoiDeltaMax : reward
-      }
-      voronoiBoard = reward
-    } else if (haveWon) { // if I've won, add back the best possible reward for board control
-      voronoiBoard = evalVoronoiDeltaMax
-    } else {
-      if (voronoiDelta > 0) { // reward for having better board control
-        voronoiBoard = evalVoronoiDeltaBonus
-      }
-    }
-    evaluationResult.voronoiBoard = voronoiBoard
-
     let voronoiSelfBonus: number = 0
     // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
-    if (!isOriginalSnake && originalSnake && !isDuel) { // don't double reward otherSnake for board control when in duel
-      let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id]
+    if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
+      let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
       if (originalSnakeVoronoi !== undefined) {
         if (originalSnakeVoronoi < evalVoronoiBaseGood) {
           let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
-          howBad = howBad < evalVoronoiNegativeMax? evalVoronoiNegativeMax : howBad
-          howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
-          voronoiSelfBonus = voronoiSelfBonus - howBad // will be double negative, hence actually adding
+          //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
+          voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
         }
       }
     } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-      let lastVoronoiReward: number = -evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
+      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
       voronoiSelfBonus = lastVoronoiReward
     }
     evaluationResult.voronoiSelfBonus = voronoiSelfBonus
