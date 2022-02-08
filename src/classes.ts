@@ -208,6 +208,16 @@ export class BoardCell {
   }
 }
 
+export class VoronoiResults {
+  reachableCells: number
+  food: {[key: number] : Coord[]}
+
+  constructor() {
+    this.reachableCells = 0
+    this.food = {}
+  }
+}
+
 export class Board2d {
   private cells: Array<BoardCell>;
   width: number;
@@ -239,7 +249,7 @@ export class Board2d {
         if (board2dCell) {
           // wild edge case - when repicking a murdered otherSnake, myself has already moved once, possibly onto another snake tail. Need to not replace my head with otherSnake tail.
           if (board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail) {
-            logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
+            //logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
           } else {
             board2dCell.snakeCell = newSnakeCell
           }

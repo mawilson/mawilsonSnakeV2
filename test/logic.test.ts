@@ -2155,8 +2155,8 @@ describe('updateGameState tests', () => {
 })
 
 describe('Food prioritization and acquisition', () => {
-  it('acquires food when healthy and adjacent to it', () => {
-      for (let i: number = 0; i < 3; i++) {
+  it('acquires food when healthy and adjacent to it', () => {  
+    for (let i: number = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 90, [{x: 2, y: 2}, {x: 3, y: 2}, {x: 3, y: 1}], "30", "", "")
       const gameState = createGameState(snek)
 
@@ -2646,10 +2646,10 @@ describe('Voronoi diagram tests', () => {
     expect(otherSnekReachableCells).toBeDefined()
 
     if (snekReachableCells !== undefined) {
-      expect(snekReachableCells).toBe(14)
+      expect(snekReachableCells.reachableCells).toBe(14)
     }
     if (otherSnekReachableCells !== undefined) {
-      expect(otherSnekReachableCells).toBe(11)
+      expect(otherSnekReachableCells.reachableCells).toBe(11)
     }
   })
   it('can consider hazard when plotting Voronoi diagram', () => {
@@ -2676,10 +2676,10 @@ describe('Voronoi diagram tests', () => {
     expect(otherSnekReachableCells).toBeDefined()
 
     if (snekReachableCells !== undefined) {
-      expect(snekReachableCells).toBeCloseTo(12.4) // can reach 10 non-hazards, & 6 hazards. 7th, final hazard in top left corner unreachable due to health. 10*1 + 6*0.4 = 12.4
+      expect(snekReachableCells.reachableCells).toBeCloseTo(12.4) // can reach 10 non-hazards, & 6 hazards. 7th, final hazard in top left corner unreachable due to health. 10*1 + 6*0.4 = 12.4
     }
     if (otherSnekReachableCells !== undefined) {
-      expect(otherSnekReachableCells).toBeCloseTo(6.8) // can reach 6 non-hazards, & 2 hazards. 6*1 + 2*0.4 = 6.8
+      expect(otherSnekReachableCells.reachableCells).toBeCloseTo(6.8) // can reach 6 non-hazards, & 2 hazards. 6*1 + 2*0.4 = 6.8
     }
   })
   it('correctly determines whether we can escape through tail when food increases our length', () => {
@@ -2706,7 +2706,7 @@ describe('Voronoi diagram tests', () => {
     expect(snekReachableCells).toBeDefined()
 
     if (snekReachableCells !== undefined) {
-      expect(snekReachableCells).toBe(3) // can reach own cell, one left, & the left corner. No escape through tail.
+      expect(snekReachableCells.reachableCells).toBe(3) // can reach own cell, one left, & the left corner. No escape through tail.
     }
   })
 })
