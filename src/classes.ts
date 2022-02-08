@@ -208,6 +208,16 @@ export class BoardCell {
   }
 }
 
+export class VoronoiResults {
+  reachableCells: number
+  food: {[key: number] : Coord[]}
+
+  constructor() {
+    this.reachableCells = 0
+    this.food = {}
+  }
+}
+
 export class Board2d {
   private cells: Array<BoardCell>;
   width: number;
@@ -239,7 +249,7 @@ export class Board2d {
         if (board2dCell) {
           // wild edge case - when repicking a murdered otherSnake, myself has already moved once, possibly onto another snake tail. Need to not replace my head with otherSnake tail.
           if (board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail) {
-            logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
+            //logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
           } else {
             board2dCell.snakeCell = newSnakeCell
           }
@@ -318,9 +328,9 @@ export class Board2d {
                     if (this.isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
                       isBodyCell = true
                     } else {
-                      // if neighbor snake ate at the previous depth, the bodyIndex is effectively one less because it didn't shrink that turn
-                      let effectiveIndex: number = snakePossibleEats[neighbor.snakeCell.snake.id][depth - 1]? neighbor.snakeCell.bodyIndex - 1 : neighbor.snakeCell.bodyIndex
                       if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
+                        let ateAtLastDepth: boolean = voronoiSnake.effectiveHealth === 100
+                        let effectiveIndex: number = ateAtLastDepth? neighbor.snakeCell.bodyIndex - 1 : neighbor.snakeCell.bodyIndex // if I ate at the previous depth, my bodyIndex is effectively one less because I didn't shrink this turn
                         isBodyCell = (voronoiSnake.effectiveLength - effectiveIndex) > depth
                       } else {
                         let totalPossibleEats: number = 0
@@ -330,7 +340,7 @@ export class Board2d {
                           }
                         })
                         let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + totalPossibleEats
-                        isBodyCell = (neighborSnakeEffectiveLength - effectiveIndex) > depth
+                        isBodyCell = (neighborSnakeEffectiveLength - neighbor.snakeCell.bodyIndex) > depth
                       }
                     }
                   }
@@ -1609,7 +1619,6 @@ export class EvaluationResult {
   otherSnakeHealth: number = 0
   food: number = 0
   voronoiSelf: number = 0
-  voronoiBoard: number = 0
   voronoiSelfBonus: number = 0
   selfMoves: number = 0
 

@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -542,7 +542,38 @@ export function updateGameStateAfterMove(gameState: GameState) {
 
 // Disables moves in Moves object which lead to or past a wall
 export function checkForWalls(me: Battlesnake, board: Board2d, moves: Moves) {
-  return board.getCell(me.head) !== undefined // if cell doesn't exist, will return undefined. Works for wrapped too - will still be undefined if me.head is more than 1 afield of board boundaries
+  if (board.isWrapped) {
+    return // no such thing as walls in wrapped, don't bother disabling any moves
+  }
+  
+  function checkCell(x: number, y: number) : boolean {
+    if (x < 0) { // indicates a move into the left wall
+      return false
+    } else if (y < 0) { // indicates a move into the bottom wall
+      return false
+    } else if (x >= board.width) { // indicates a move into the right wall
+      return false
+    } else if (y >= board.height) { // indicates a move into the top wall
+      return false
+    } else {
+      return true
+    }
+  }
+  
+  let myCoords : Coord = me.head
+
+  if (!checkCell(myCoords.x - 1, myCoords.y)) {
+    moves.left = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y - 1)) {
+    moves.down = false
+  }
+  if (!checkCell(myCoords.x + 1, myCoords.y)) {
+    moves.right = false
+  }
+  if (!checkCell(myCoords.x, myCoords.y + 1)) {
+    moves.up = false
+  }
 }
 
 // Disables moves in Moves object which lead into a snake body, except for tails which will recede the next turn
@@ -2000,11 +2031,11 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 }
 
 // given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
-export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: number} {
-  let cellTotals: {[key: string]: number} = {}
-  let hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
-  let hazardValue: number = hazardDamage >= 15? voronoiHazardValueSmall : voronoiHazardValueLarge
-  gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = 0 }) // instantiate each snake object
+export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: VoronoiResults} {
+  let cellTotals: {[key: string]: VoronoiResults} = {}
+  const hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
+  const hazardValue: number = hazardDamage >= 15? voronoiHazardValueSmall : voronoiHazardValueLarge
+  gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = new VoronoiResults() }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
@@ -2013,12 +2044,21 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           if (voronoiSnake !== undefined) {
-            if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of 1
-              cellTotals[snakeId] = cellTotals[snakeId] + 1
-            } else if (cell && cell.hazard && !cell.food) { // hazard cells that do not have food have a fractional value
-              cellTotals[snakeId] = cellTotals[snakeId] + hazardValue
+            let depth = cell? cell.voronoiDepth() : undefined
+            if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
+              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1 // normal Voronoi reward
+            } else if (cell && cell.hazard && !cell.food) { // for hazard cells
+              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardValue
             } else {
-              cellTotals[snakeId] = cellTotals[snakeId] + 1
+              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1
+            }
+
+            if (cell && cell.food && depth !== undefined) {
+              if (cellTotals[snakeId].food[depth] !== undefined) {
+                cellTotals[snakeId].food[depth].push(cell.coord)
+              } else {
+                cellTotals[snakeId].food[depth] = [cell.coord]
+              }
             }
           }
         })
