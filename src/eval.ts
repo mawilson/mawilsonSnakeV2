@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, logToFile } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -167,6 +167,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const hazardFrequency = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
   const isWrapped = gameStateIsWrapped(gameState)
   const isHazardSpiral = gameStateIsHazardSpiral(gameState)
+  const isConstrictor = gameStateIsConstrictor(gameState)
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
@@ -335,6 +336,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   // Voronoi values
   const evalVoronoiNegativeStep = 100
   const evalVoronoiPositiveStep = 4.5
+  const evalVoronoiDeltaStep = 50
   const evalVoronoiBaseGood = 9
   const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
@@ -606,31 +608,43 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
-
-    let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
-    if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
-      voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
-    } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
-      voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
-    }
-    evaluationResult.voronoiSelf = voronoiSelf
-
-    let voronoiSelfBonus: number = 0
-    // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
-    if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
-      let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
-      if (originalSnakeVoronoi !== undefined) {
-        if (originalSnakeVoronoi < evalVoronoiBaseGood) {
-          let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
-          //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
-          voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
+    if (isConstrictor) {
+      let voronoiDelta: number = 0
+      let voronoiLargest: number = 0
+      otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
+        let voronoiOtherSnake: number | undefined = reachableCells[snake.id].reachableCells
+        if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
+          voronoiLargest = voronoiOtherSnake
         }
+      })
+      voronoiDelta = voronoiMyself - voronoiLargest
+      evaluationResult.voronoiSelf = voronoiDelta * evalVoronoiDeltaStep
+    } else {
+      let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
+      if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+      } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
       }
-    } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
-      voronoiSelfBonus = lastVoronoiReward
+      evaluationResult.voronoiSelf = voronoiSelf
+
+      let voronoiSelfBonus: number = 0
+      // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
+      if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
+        let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
+        if (originalSnakeVoronoi !== undefined) {
+          if (originalSnakeVoronoi < evalVoronoiBaseGood) {
+            let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
+            //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
+            voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
+          }
+        }
+      } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
+        let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
+        voronoiSelfBonus = lastVoronoiReward
+      }
+      evaluationResult.voronoiSelfBonus = voronoiSelfBonus
     }
-    evaluationResult.voronoiSelfBonus = voronoiSelfBonus
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
@@ -658,6 +672,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         evaluationResult.otherSnakeMoves = evalWrappedOtherSnake1Move
       }
     }
+  }
+
+  if (isConstrictor) {
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+    const xDiff = Math.abs(myself.head.x - centers.centerX)
+    const yDiff = Math.abs(myself.head.y - centers.centerY)
+
+    evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
   }
 
   return evaluationResult
