@@ -1165,7 +1165,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
     return lookahead
   }
 
-  if (gameState.turn === 0) {
+   if (gameState.turn === 0) {
     lookahead = 0 // for turn 0, give lookahead of 0. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 5) {
     lookahead = 2 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
@@ -2041,6 +2041,9 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
       if (cell !== undefined) {
         let voronoiKeys = Object.keys(cell.voronoi)
+        if (gameStateIsConstrictor(gameState) && voronoiKeys.length > 1) { // Constrictor snakes don't share Voronoi squares
+          continue
+        }
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           if (voronoiSnake !== undefined) {
