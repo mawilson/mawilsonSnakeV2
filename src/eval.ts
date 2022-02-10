@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -363,6 +363,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalSoloCenter = -1
 
   const evalWrappedOtherSnake1Move = 150
+  const evalWrappedFlipFlopStep = 30
 
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
@@ -698,6 +699,41 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       let otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnakes[0], board2d)
       if (otherSnakeAvailableMoves.validMoves().length <= 1) {
         evaluationResult.otherSnakeMoves = evalWrappedOtherSnake1Move
+      }
+    }
+
+    if (gameState.turn > 1) { // ignore this on early turns, just get starting food
+      let myselfIsFlip: boolean = isFlip(myself.head)
+      let flipOtherSnakes: number = 0
+      let flopOtherSnakes: number = 0
+      if (delta > 0) { // if I am the largest snake, I want to position myself in the same cell type as the other snakes so that I can kiss them to death
+        otherSnakes.forEach(snake => {
+          if (isFlip(snake.head)) {
+            flipOtherSnakes = flipOtherSnakes + 1
+          } else {
+            flopOtherSnakes = flopOtherSnakes + 1
+          }
+        })
+        if (myselfIsFlip) { // am flip, reward snake for number of smaller flipOtherSnakes in game
+          evaluationResult.flipFlop = flipOtherSnakes * evalWrappedFlipFlopStep
+        } else { // am flop, reward snake for number of smaller flopOtherSnakes in game
+          evaluationResult.flipFlop = flopOtherSnakes * evalWrappedFlipFlopStep
+        }
+      } else { // if I am not the largest snake, I want to position myself in a different cell type as the other larger/equivalent snakes
+        otherSnakes.forEach(snake => {
+          if (myself && snake.length >= myself.length) {
+            if (isFlip(snake.head)) {
+              flipOtherSnakes = flipOtherSnakes + 1
+            } else {
+              flopOtherSnakes = flopOtherSnakes + 1
+            }
+          }
+        })
+        if (myselfIsFlip) { // am flip, penalize snake for number of larger flipOtherSnakes in game
+          evaluationResult.flipFlop = -flipOtherSnakes * evalWrappedFlipFlopStep
+        } else { // am flop, penalize snake for number of larger flopOtherSnakes in game
+          evaluationResult.flipFlop = -flopOtherSnakes * evalWrappedFlipFlopStep
+        }
       }
     }
   }

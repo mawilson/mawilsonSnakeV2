@@ -2070,3 +2070,10 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
   }
   return cellTotals
 }
+
+// flip if both x & y are even, or x & y are odd
+export function isFlip(coord: Coord) {
+  let xIsEven: boolean = coord.x % 2 === 0
+  let yIsEven: boolean = coord.y % 2 === 0
+  return (xIsEven && yIsEven) || (!xIsEven && !yIsEven)
+}
