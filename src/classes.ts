@@ -1627,7 +1627,9 @@ export class EvaluationResult {
   tailChase: number = 0
   center: number = 0
   otherSnakeMoves: number = 0
+  flipFlop: number = 0
 
+  // scores related to death & ties
   tieValue: number = 0
   noMe: number = 0
 

@@ -1,4 +1,4 @@
-export const version: string = "1.2.1" // need to declare this before imports since several imports utilize it
+export const version: string = "1.2.2" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -497,14 +497,18 @@ export function move(gameState: GameState): MoveResponse {
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
   let gameDataId = createGameDataId(gameState)
 
-  let thisGameData = gameData? gameData[gameDataId] : undefined
-  if (thisGameData !== undefined) {
-    thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
-    thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
-    if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
-      thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
-    }
-  } // do not want to create new game data if it does not exist, start() should do that
+  let thisGameData: GameData
+  if (gameData[gameDataId]) {
+    thisGameData = gameData[gameDataId]
+  } else { // if for some reason game data for this game doesn't exist yet (happens when testing due to lack of proper start() & end()s, create it & add it to gameData
+    thisGameData = new GameData()
+    gameData[gameDataId] = thisGameData
+  }
+  thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
+  thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
+  if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
+    thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
+  }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)

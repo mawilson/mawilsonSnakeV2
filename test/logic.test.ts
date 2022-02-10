@@ -1,4 +1,4 @@
-import { info, move, decideMove, start } from '../src/logic'
+import { info, move, decideMove, start, gameData } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord } from '../src/classes'
 import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells, getDistance } from '../src/util'
@@ -66,6 +66,13 @@ beforeAll(() => {
 
 afterAll(() => {
   return server.close()
+})
+
+afterEach(() => {
+  let gameDataKeys = Object.keys(gameData)
+  gameDataKeys.forEach(key => {
+    delete gameData[key] // clean up game-specific data
+  })
 })
 
 // tests whose use case may still be valid, but which can no longer be effectively tested when different lookaheads are in place
