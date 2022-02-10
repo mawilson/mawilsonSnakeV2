@@ -632,12 +632,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     if (isConstrictor) {
       let voronoiDelta: number = 0
       let voronoiLargest: number = 0
-      otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
-        let voronoiOtherSnake: number | undefined = reachableCells[snake.id].reachableCells
-        if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
-          voronoiLargest = voronoiOtherSnake
+      if (isOriginalSnake) { // originalSnake wants to maximize its Voronoi coverage
+        otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
+          let voronoiOtherSnake: number | undefined = reachableCells[snake.id]?.reachableCells
+          if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
+            voronoiLargest = voronoiOtherSnake
+          }
+        })
+      } else { // otherSnakes want to minimize originalSnakes' Voronoi coverage, paranoid style
+        let voronoiOriginalSnake: number | undefined = reachableCells[gameState.you.id]?.reachableCells
+        if (voronoiOriginalSnake !== undefined) {
+          voronoiLargest = voronoiOriginalSnake
         }
-      })
+      }
       voronoiDelta = voronoiMyself - voronoiLargest
       evaluationResult.voronoiSelf = voronoiDelta * evalVoronoiDeltaStep
     } else {
