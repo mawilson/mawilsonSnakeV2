@@ -1,7 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
 import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, createGameDataId } from "./util"
-import { evalNoMe } from "./eval"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -1636,7 +1635,7 @@ export class EvaluationResult {
     this.myself = myself
   }
 
-  sum(): number {
+  sum(minimum?: number): number {
     let sum: number = 0
     for (const property in this) {
       let val: any = this[property]
@@ -1644,9 +1643,9 @@ export class EvaluationResult {
         sum = sum + val
       }
     }
-    if (sum < evalNoMe) { // evalNoMe is essentially the cap on how bad a state can be, so cap it there
-      logToFile(consoleWriteStream, `sum of ${sum} was less than evalNoMe`)
-      sum = evalNoMe
+    if (minimum !== undefined && sum < minimum) { // sum should not be any lower than minimum
+      logToFile(consoleWriteStream, `sum of ${sum} was less than minimum of ${minimum}`)
+      sum = minimum
     }
     return sum
   }

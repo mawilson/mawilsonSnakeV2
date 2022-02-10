@@ -20,7 +20,10 @@ let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 export function getRandomInt(min: number, max: number) : number {
   min = Math.ceil(min);
   max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+  
+  let res: number = Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+  logToFile(consoleWriteStream, `getRandomInt for min ${min}, max ${max} returned ${res}`)
+  return res
 }
 
 export function getRandomMove(moves: Direction[]) : Direction {
@@ -2035,32 +2038,35 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
   let cellTotals: {[key: string]: VoronoiResults} = {}
   const hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
   const hazardValue: number = hazardDamage >= 15? voronoiHazardValueSmall : voronoiHazardValueLarge
+  const constrictorSharedValue: number = 1/32 // use 1/32 so we can exactly represent this value in binary - 0.03125
+  const isConstrictor = gameStateIsConstrictor(gameState)
   gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = new VoronoiResults() }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
       if (cell !== undefined) {
         let voronoiKeys = Object.keys(cell.voronoi)
-        if (gameStateIsConstrictor(gameState) && voronoiKeys.length > 1) { // Constrictor snakes don't share Voronoi squares
-          continue
-        }
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
-          let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
-          if (voronoiSnake !== undefined) {
-            let depth = cell? cell.voronoiDepth() : undefined
-            if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
-              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1 // normal Voronoi reward
-            } else if (cell && cell.hazard && !cell.food) { // for hazard cells
-              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardValue
-            } else {
-              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1
-            }
-
-            if (cell && cell.food && depth !== undefined) {
-              if (cellTotals[snakeId].food[depth] !== undefined) {
-                cellTotals[snakeId].food[depth].push(cell.coord)
+          if (isConstrictor && voronoiKeys.length > 1) { // Constrictor snakes value shared squares very little (basically only for tiebreaking)
+            cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + constrictorSharedValue
+          } else {
+            let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
+            if (voronoiSnake !== undefined) {
+              let depth = cell? cell.voronoiDepth() : undefined
+              if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
+                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1 // normal Voronoi reward
+              } else if (cell && cell.hazard && !cell.food) { // for hazard cells
+                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardValue
               } else {
-                cellTotals[snakeId].food[depth] = [cell.coord]
+                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1
+              }
+
+              if (cell && cell.food && depth !== undefined) {
+                if (cellTotals[snakeId].food[depth] !== undefined) {
+                  cellTotals[snakeId].food[depth].push(cell.coord)
+                } else {
+                  cellTotals[snakeId].food[depth] = [cell.coord]
+                }
               }
             }
           }
