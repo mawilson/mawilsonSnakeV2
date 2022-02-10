@@ -20,7 +20,10 @@ let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 export function getRandomInt(min: number, max: number) : number {
   min = Math.ceil(min);
   max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+  
+  let res: number = Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+  logToFile(consoleWriteStream, `getRandomInt for min ${min}, max ${max} returned ${res}`)
+  return res
 }
 
 export function getRandomMove(moves: Direction[]) : Direction {
@@ -1165,7 +1168,7 @@ export function lookaheadDeterminator(gameState: GameState): number {
     return lookahead
   }
 
-  if (gameState.turn === 0) {
+   if (gameState.turn === 0) {
     lookahead = 0 // for turn 0, give lookahead of 0. This is the only turn all snakes have four options, so calqing this takes longer than normal.
   } else if (gameState.turn < 5) {
     lookahead = 2 // for turns 1 & 2 continue using a smaller lookahead to avoid a timeout 
@@ -2060,7 +2063,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
                 cellTotals[snakeId].food[depth] = [cell.coord]
               }
             }
-          }
+          }          
         })
       }
     }

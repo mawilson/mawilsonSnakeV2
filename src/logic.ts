@@ -1,10 +1,10 @@
-export const version: string = "1.2.0" // need to declare this before imports since several imports utilize it
+export const version: string = "1.2.1" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Coord, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, calculateCenterWithHazard, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral } from "./util"
-import { evaluate, determineEvalNoSnakes, evalNoMe } from "./eval"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor } from "./util"
+import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
@@ -110,8 +110,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   let movesShortCircuited: number = 0
 
-  const centers = calculateCenterWithHazard(gameState, hazardWalls)
-  const center = new Coord(centers.centerX, centers.centerY) // this won't change so long as hazard doesn't, can calq at the root level
+  const noMe: number = gameStateIsConstrictor(gameState)? evalNoMeConstrictor : evalNoMeStandard
 
   // simple decideMove that merely looks at the snake & its available moves & chooses the one with the highest evaluate score
   // does not move any other snakes, not for use with recursion
@@ -192,7 +191,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
 
     let _evalThisState = evaluate(gameState, myself, evaluateKisses)
-    let evalThisState: number = _evalThisState.sum()
+    let evalThisState: number = _evalThisState.sum(noMe)
 
     if (isDevelopment) {
       if (myself.id === gameState.you.id && parentLeaf === undefined) { // if tree/root does not yet exist, create it
@@ -229,12 +228,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
           for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
             if (i !== lookahead) {
-              newScore = newScore + (evalNoMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
+              newScore = newScore + (noMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
             } else {
               newScore = newScore + (evalThisState * (1 + lookaheadWeight * i)) // can use evalThisState for first turn - will be bad but not as bad
             }
           }
-          newScore = newScore + evalNoMe // add the final bestMove after the lookaheads, with no lookaheadWeight - which is necessarily death in this case
+          newScore = newScore + noMe // add the final bestMove after the lookaheads, with no lookaheadWeight - which is necessarily death in this case
           evalThisState = newScore
         } else {
           for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
@@ -343,7 +342,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                               }
                             } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                               adjustedMove = newMove
-                            } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum())) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
+                            } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum(noMe))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
                               adjustedMove = newMove
                             } // if it fails all three of those, we won't rechoose
                           }
@@ -399,7 +398,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             }
           } else { // base case, just run the eval
             evaluationResult = evaluate(newGameState, newSelf, kissArgs)
-            evalState = new MoveWithEval(move, evaluationResult.sum())
+            evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
           }
           if (isDevelopment) {
             if (thisLeaf !== undefined) {

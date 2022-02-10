@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, logToFile } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -9,11 +9,15 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 })
 
 // constants used in other files
-export const evalNoMe: number = -2250 // no me is the worst possible state, give a very bad score
+export const evalNoMeStandard: number = -2250 // no me is the worst possible state, give a very bad score
+export const evalNoMeConstrictor: number = -6000 // constrictor noMe is considerably lower due to different Voronoi calq 
 
 const evalBase: number = 500
 const evalDefaultTieValue: number = 460 // the value I had evalNoSnakes at when I wrote this function. A generic 'good' eval state
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
+
+const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
+const evalHealthOthersnakeDuelStep = -3
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
 function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
@@ -54,7 +58,7 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
   return evaluation
 }
 
-function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[], evalHealthOthersnakeDuelStep: number, evalHealthOthersnakeStep: number): number {
+function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[]): number {
     let otherSnakeHealthPenalty: number = 0
     let otherSnakesSortedByHealth: Battlesnake[] = otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sorts by health in descending order
       return b.health - a.health
@@ -70,12 +74,25 @@ function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[], evalHealthOth
     return otherSnakeHealthPenalty
 }
 
+// constrictor evalNoSnakes is very simple - just Base - otherSnakeHealth
+function determineEvalNoSnakesConstrictor(myself: Battlesnake): EvaluationResult {
+  let evaluationResult = new EvaluationResult(myself)
+  evaluationResult.base = evalBase
+  let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval([myself]) // otherSnake may as well be me, since my health is also maxed out
+  evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+  return evaluationResult
+}
+
 // helper function to determine a good 'average' evaluate score, for use in determining whether a tie is better or worse than that
 // can either take a board where both snakes have already died, or a board where both snakes may soon die. Boards with neither 0 nor 2 snakes return a default value
 export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake, tieSnake: Battlesnake | undefined): EvaluationResult {
   const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
   const centers = calculateCenterWithHazard(gameState, hazardWalls)
+
+  if (gameStateIsConstrictor(gameState)) {
+    return determineEvalNoSnakesConstrictor(myself)
+  }
 
   let newGameState = cloneGameState(gameState)
   newGameState.board.food = [] // remove food for neutrality
@@ -117,7 +134,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
       leftSnakeBody.push({x: leftSnakeX, y: leftSnakeY})
     }
     newSnakeSelf = new Battlesnake(myself.id, myself.name, myself.health, leftSnakeBody, myself.latency, myself.shout, myself.squad) // create new me, identical other than body
-    for (let j: number = 0; j < tieSnake.length; j++) {
+    while (leftSnakeBody.length > rightSnakeBody.length) { // these snakes tied, their lengths should always be even, don't let wonky scenarios like Constrictor break that
       rightSnakeBody.push({x: rightSnakeX, y: rightSnakeY})
     }
     newSnakeOther = new Battlesnake(tieSnake.id, tieSnake.name, tieSnake.health, rightSnakeBody, tieSnake.latency, tieSnake.shout, tieSnake.squad) // create new otherSnake, identical other than body
@@ -167,6 +184,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const hazardFrequency = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
   const isWrapped = gameStateIsWrapped(gameState)
   const isHazardSpiral = gameStateIsHazardSpiral(gameState)
+  const isConstrictor = gameStateIsConstrictor(gameState)
+  const evalNoMe: number = isConstrictor? evalNoMeConstrictor : evalNoMeStandard // evalNoMe can vary based on game mode
+
   const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
@@ -236,8 +256,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalHealthStep = 3
   const evalHealthTierDifference = 10
 
-  const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
-  const evalHealthOthersnakeDuelStep = -3
   const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
 
   const evalLengthMult = isSolo? -20 : 20 // larger values result in more food prioritization. Negative preference towards length in solo
@@ -335,6 +353,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   // Voronoi values
   const evalVoronoiNegativeStep = 100
   const evalVoronoiPositiveStep = 4.5
+  const evalVoronoiDeltaStep = 50
   const evalVoronoiBaseGood = 9
   const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
@@ -360,7 +379,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         return evaluationResult // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
       } else {
         evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState)
-        let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes, evalHealthOthersnakeDuelStep, evalHealthOthersnakeStep)
+        let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes)
         evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
         if (!isOriginalSnake && !originalSnake) { // reward otherSnakes for tie-killing originalSnake
           evaluationResult.base = evalBase
@@ -398,7 +417,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
-    let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes, evalHealthOthersnakeDuelStep, evalHealthOthersnakeStep)
+    let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes)
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }
 
@@ -527,29 +546,31 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     delta = snakeDelta - 1
   }
 
-  if (isSolo) { // Penalize solo snake for being larger
-    let penalty: number = myself.length * evalLengthMult // straight penalty for each length I am larger
-    evaluationResult.delta = penalty
-  } else if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
-    let penalty: number = delta * evalLengthMult // straight penalty for each length I am smaller than otherSnakes
-    evaluationResult.delta = penalty
-  } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
-    let award: number = 0
-    let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
-    for (let i: number = 1; i <= cap; i++) {
-      if (i === 0) {
-        award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
-      } else if (i === 1) {
-        award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
-      } else {
-        award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
+  if (!isConstrictor) { // constrictor snake length is irrelevant
+    if (isSolo) { // Penalize solo snake for being larger
+      let penalty: number = myself.length * evalLengthMult // straight penalty for each length I am larger
+      evaluationResult.delta = penalty
+    } else if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
+      let penalty: number = delta * evalLengthMult // straight penalty for each length I am smaller than otherSnakes
+      evaluationResult.delta = penalty
+    } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
+      let award: number = 0
+      let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
+      for (let i: number = 1; i <= cap; i++) {
+        if (i === 0) {
+          award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
+        } else if (i === 1) {
+          award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
+        } else {
+          award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
+        }
       }
+      evaluationResult.delta = award
+    } else { // I am same length as otherSnakes, give penalty/reward accordingly
+      if (otherSnakes.length > 1) { // small penalty for being the same length as otherSnakes in a non-duel
+        evaluationResult.delta = -evalLengthMult
+      } // no penalty in duel, we love ties
     }
-    evaluationResult.delta = award
-  } else { // I am same length as otherSnakes, give penalty/reward accordingly
-    if (otherSnakes.length > 1) { // small penalty for being the same length as otherSnakes in a non-duel
-      evaluationResult.delta = -evalLengthMult
-    } // no penalty in duel, we love ties
   }
 
   if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
@@ -563,7 +584,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   // health considerations, which are effectively hazard considerations
-  if (!isSolo) {
+  if (!isSolo && !isConstrictor) {
     let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
     evaluationResult.health = healthEval
   }
@@ -574,6 +595,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
+  } else if (isConstrictor) {
+    wantToEat = false // don't need to eat in constrictor
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
@@ -606,31 +629,50 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
-
-    let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
-    if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
-      voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
-    } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
-      voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
-    }
-    evaluationResult.voronoiSelf = voronoiSelf
-
-    let voronoiSelfBonus: number = 0
-    // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
-    if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
-      let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
-      if (originalSnakeVoronoi !== undefined) {
-        if (originalSnakeVoronoi < evalVoronoiBaseGood) {
-          let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
-          //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
-          voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
+    if (isConstrictor) {
+      let voronoiDelta: number = 0
+      let voronoiLargest: number = 0
+      if (isOriginalSnake) { // originalSnake wants to maximize its Voronoi coverage
+        otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
+          let voronoiOtherSnake: number | undefined = reachableCells[snake.id]?.reachableCells
+          if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
+            voronoiLargest = voronoiOtherSnake
+          }
+        })
+      } else { // otherSnakes want to minimize originalSnakes' Voronoi coverage, paranoid style
+        let voronoiOriginalSnake: number | undefined = reachableCells[gameState.you.id]?.reachableCells
+        if (voronoiOriginalSnake !== undefined) {
+          voronoiLargest = voronoiOriginalSnake
         }
       }
-    } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
-      voronoiSelfBonus = lastVoronoiReward
+      voronoiDelta = voronoiMyself - voronoiLargest
+      evaluationResult.voronoiSelf = voronoiDelta * evalVoronoiDeltaStep
+    } else {
+      let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
+      if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+      } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
+      }
+      evaluationResult.voronoiSelf = voronoiSelf
+
+      let voronoiSelfBonus: number = 0
+      // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
+      if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
+        let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
+        if (originalSnakeVoronoi !== undefined) {
+          if (originalSnakeVoronoi < evalVoronoiBaseGood) {
+            let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
+            //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
+            voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
+          }
+        }
+      } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
+        let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
+        voronoiSelfBonus = lastVoronoiReward
+      }
+      evaluationResult.voronoiSelfBonus = voronoiSelfBonus
     }
-    evaluationResult.voronoiSelfBonus = voronoiSelfBonus
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
@@ -658,6 +700,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         evaluationResult.otherSnakeMoves = evalWrappedOtherSnake1Move
       }
     }
+  }
+
+  if (isConstrictor) {
+    let centers = calculateCenterWithHazard(gameState, hazardWalls)
+    const xDiff = Math.abs(myself.head.x - centers.centerX)
+    const yDiff = Math.abs(myself.head.y - centers.centerY)
+
+    evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
   }
 
   return evaluationResult
