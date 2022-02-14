@@ -418,6 +418,16 @@ function getDefaultMoveNaive(gameState: GameState, snake: Battlesnake) : Directi
   }
 }
 
+// returns the Direction that will kill me most assuredly, my neck, or "up" if I don't have a neck yet
+export function getSuicidalMove(gameState: GameState, snake: Battlesnake): Direction {
+  let neckDir: Direction | undefined = getNeckDirection(gameState, snake)
+  if (neckDir === undefined) {
+    return Direction.Up
+  } else {
+    return neckDir
+  }
+}
+
 // looks at gamestate & myself & returns a single move that is valid - won't result in starvation, moving out of bounds, or (if possible) snake cells
 // disallows moving onto my own neck unless that is the only move that won't result in starvation
 export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2d: Board2d) : Direction {

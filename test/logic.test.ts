@@ -1,6 +1,6 @@
 import { info, move, decideMove, start, gameData } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord } from '../src/classes'
+import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord, GameData, MoveWithEval } from '../src/classes'
 import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells, getDistance } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
@@ -371,7 +371,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health)
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -382,7 +382,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health)
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -2995,6 +2995,17 @@ describe('Wrapped tests', () => {
 
     expect(dist).toBe(10) // doesn't really belong here, but sanity check to ensure standard gameMode getDistance works
   })
+  // this one is very tricky. Jaguar doesn't have Voronoi coverage to do the maneuver he needs to escape, but he could if Voronoi let a snake overwrite its own cells at higher depths
+  it.skip('knows how to escape through another snake tail', () => {
+    const gameState: GameState = {"game":{"id":"e64bc951-d060-4635-a050-4e07e53dee2b","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"arena"},"turn":538,"board":{"width":11,"height":11,"food":[{"x":10,"y":5},{"x":1,"y":7},{"x":5,"y":6}],"hazards":[],"snakes":[{"id":"gs_mpPK3KSx349b4TtgWJtDVwFC","name":"Jaguar Meets Snake","body":[{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":2,"y":10},{"x":3,"y":10},{"x":3,"y":0},{"x":4,"y":0},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":4,"y":3},{"x":4,"y":2},{"x":4,"y":1},{"x":3,"y":1},{"x":2,"y":1},{"x":1,"y":1},{"x":1,"y":0},{"x":1,"y":10},{"x":1,"y":9},{"x":0,"y":9},{"x":0,"y":8},{"x":1,"y":8},{"x":2,"y":8},{"x":3,"y":8},{"x":4,"y":8},{"x":4,"y":7},{"x":4,"y":6},{"x":3,"y":6},{"x":3,"y":5},{"x":3,"y":4},{"x":3,"y":3},{"x":2,"y":3},{"x":1,"y":3},{"x":0,"y":3},{"x":0,"y":4},{"x":1,"y":4},{"x":2,"y":4},{"x":2,"y":5},{"x":1,"y":5},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":10,"y":7},{"x":9,"y":7},{"x":8,"y":7},{"x":7,"y":7},{"x":6,"y":7},{"x":6,"y":6},{"x":7,"y":6},{"x":8,"y":6},{"x":9,"y":6},{"x":9,"y":6}],"health":100,"latency":22,"head":{"x":4,"y":9},"length":53,"shout":"","squad":""},{"id":"gs_wWrdGkPgbPfTtkMFVYfhSJVV","name":"Pea Eater","body":[{"x":5,"y":5},{"x":4,"y":5},{"x":4,"y":4},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":7,"y":3},{"x":8,"y":3},{"x":9,"y":3},{"x":9,"y":2},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2},{"x":6,"y":1},{"x":6,"y":0},{"x":6,"y":10},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8},{"x":7,"y":9},{"x":8,"y":9}],"health":98,"latency":439,"head":{"x":5,"y":5},"length":21,"shout":"","squad":""}]},"you":{"id":"gs_mpPK3KSx349b4TtgWJtDVwFC","name":"Jaguar Meets Snake","body":[{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":2,"y":10},{"x":3,"y":10},{"x":3,"y":0},{"x":4,"y":0},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":4,"y":3},{"x":4,"y":2},{"x":4,"y":1},{"x":3,"y":1},{"x":2,"y":1},{"x":1,"y":1},{"x":1,"y":0},{"x":1,"y":10},{"x":1,"y":9},{"x":0,"y":9},{"x":0,"y":8},{"x":1,"y":8},{"x":2,"y":8},{"x":3,"y":8},{"x":4,"y":8},{"x":4,"y":7},{"x":4,"y":6},{"x":3,"y":6},{"x":3,"y":5},{"x":3,"y":4},{"x":3,"y":3},{"x":2,"y":3},{"x":1,"y":3},{"x":0,"y":3},{"x":0,"y":4},{"x":1,"y":4},{"x":2,"y":4},{"x":2,"y":5},{"x":1,"y":5},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":10,"y":7},{"x":9,"y":7},{"x":8,"y":7},{"x":7,"y":7},{"x":6,"y":7},{"x":6,"y":6},{"x":7,"y":6},{"x":8,"y":6},{"x":9,"y":6},{"x":9,"y":6}],"health":100,"latency":22,"head":{"x":4,"y":9},"length":53,"shout":"","squad":""}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up") // Up gives us chance of escaping via Pea Eater's tail, Right does not
+  })
+  it('knows not to confine itself when it could wrap to open space', () => {
+    const gameState: GameState = {"game":{"id":"51c3e9a6-0378-4803-bb79-b4b9c53703cb","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"arena"},"turn":289,"board":{"width":11,"height":11,"food":[{"x":5,"y":6},{"x":2,"y":7},{"x":2,"y":4}],"hazards":[],"snakes":[{"id":"gs_Wfm4GSdFYvB98yx37gmBwdBB","name":"Shapeshifter","body":[{"x":2,"y":9},{"x":3,"y":9},{"x":3,"y":10},{"x":2,"y":10},{"x":1,"y":10},{"x":1,"y":9},{"x":0,"y":9},{"x":0,"y":10},{"x":0,"y":0},{"x":1,"y":0},{"x":2,"y":0},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":10},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":5,"y":8},{"x":5,"y":7},{"x":4,"y":7},{"x":4,"y":6},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":2,"y":8}],"health":85,"latency":296,"head":{"x":2,"y":9},"length":26,"shout":"","squad":""},{"id":"gs_tmqyCxyKpcHSJFcbTcDr4Dxb","name":"Jaguar Meets Snake","body":[{"x":2,"y":6},{"x":1,"y":6},{"x":1,"y":5},{"x":1,"y":4},{"x":1,"y":3},{"x":1,"y":2},{"x":0,"y":2},{"x":0,"y":1},{"x":1,"y":1},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":3},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":7,"y":6},{"x":7,"y":7},{"x":8,"y":7},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":9},{"x":9,"y":10},{"x":9,"y":0}],"health":75,"latency":84,"head":{"x":2,"y":6},"length":27,"shout":"","squad":""}]},"you":{"id":"gs_tmqyCxyKpcHSJFcbTcDr4Dxb","name":"Jaguar Meets Snake","body":[{"x":2,"y":6},{"x":1,"y":6},{"x":1,"y":5},{"x":1,"y":4},{"x":1,"y":3},{"x":1,"y":2},{"x":0,"y":2},{"x":0,"y":1},{"x":1,"y":1},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":3},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":7,"y":6},{"x":7,"y":7},{"x":8,"y":7},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":9},{"x":9,"y":10},{"x":9,"y":0}],"health":75,"latency":84,"head":{"x":2,"y":6},"length":27,"shout":"","squad":""}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("down") // Down lets Shapeshifter pin us in a dozen or so turns, Up ties our sizes & should net us a good Voronoi score
+  })
 })
 
 describe('constrictor tests', () => {
@@ -3056,6 +3067,97 @@ describe('constrictor tests', () => {
       let gameState: GameState = {"game":{"id":"4d11763c-e09f-4e42-b3ae-cd73f7a160e6","ruleset":{"name":"constrictor","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"custom"},"turn":11,"board":{"width":11,"height":11,"food":[],"hazards":[],"snakes":[{"id":"gs_fbJVyXJcQWCh7QFFCmVG7ffS","name":"nomblegomble","body":[{"x":1,"y":6},{"x":1,"y":7},{"x":2,"y":7},{"x":3,"y":7},{"x":4,"y":7},{"x":4,"y":8},{"x":3,"y":8},{"x":2,"y":8},{"x":1,"y":8},{"x":0,"y":8},{"x":0,"y":9},{"x":1,"y":9},{"x":1,"y":9}],"health":100,"latency":93,"head":{"x":1,"y":6},"length":13,"shout":"3","squad":""},{"id":"gs_FX4WT34FwBXG8DFXDxXdHwW7","name":"marrrvin","body":[{"x":7,"y":10},{"x":6,"y":10},{"x":5,"y":10},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":6,"y":7},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":8},{"x":8,"y":9},{"x":9,"y":9},{"x":9,"y":9}],"health":100,"latency":18,"head":{"x":7,"y":10},"length":13,"shout":"","squad":""},{"id":"gs_ChRBPxdPG8vFfMwWmpWR96g9","name":"businesssssnake","body":[{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":1,"y":1}],"health":100,"latency":137,"head":{"x":5,"y":0},"length":13,"shout":"","squad":""},{"id":"gs_qhd3JmWGPBJTxBKGq44yGppP","name":"Kisnake","body":[{"x":8,"y":3},{"x":9,"y":3},{"x":10,"y":3},{"x":10,"y":2},{"x":9,"y":2},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2},{"x":6,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":9,"y":1},{"x":9,"y":1}],"health":100,"latency":166,"head":{"x":8,"y":3},"length":13,"shout":"","squad":""}]},"you":{"id":"gs_ChRBPxdPG8vFfMwWmpWR96g9","name":"businesssssnake","body":[{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":1,"y":1}],"health":100,"latency":137,"head":{"x":5,"y":0},"length":13,"shout":"","squad":""}}
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // right gives 6 turns of life but is probably a loss, up shoves us into chaos & gives us a chance
+    }
+  })
+})
+
+describe('league early return tests', () => {
+  it('kills itself as soon as possible when another league game is already running', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 3}, {x: 3, y: 3}, {x: 3, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      gameState.turn = 0
+      gameData["testgameiddonotsteal"] = new GameData("league")
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 7, y: 7}, {x: 7, y: 7}, {x: 7, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let snekMove: MoveResponse = move(gameState)
+      let snekMoveDir = stringToDirection(snekMove.move)
+      expect(snekMoveDir).toBeDefined()
+      if (snekMoveDir !== undefined) {
+        expect(snekMoveDir).toBe(Direction.Up) // first move when we have no neck is up
+      }
+      let board2d = new Board2d(gameState, false)
+      moveSnake(gameState, snek, board2d, snekMoveDir)
+      moveSnake(gameState, otherSnek, board2d, Direction.Left) // need to move so updateGameStateAfterMove doesn't kill otherSnek for having stacking body parts on turn 2
+      updateGameStateAfterMove(gameState)
+      board2d = new Board2d(gameState, false)
+      snekMove = move(gameState)
+      snekMoveDir = stringToDirection(snekMove.move)
+      moveSnake(gameState, snek, board2d, snekMoveDir)
+      moveSnake(gameState, otherSnek, board2d, Direction.Left) // need to move so updateGameStateAfterMove doesn't kill otherSnek for having stacking body parts on turn 2
+      updateGameStateAfterMove(gameState)
+      expect(snekMoveDir).toBeDefined()
+      if (snekMoveDir !== undefined) {
+        expect(snekMoveDir).toBe(Direction.Down) // second move when we have a neck is back into our neck
+      }
+      expect(gameState.board.snakes.length).toBe(1) // snek should have killed itself
+    }
+  })
+  it('does not kill itself as soon as possible when no other league games are running', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 3}, {x: 3, y: 3}, {x: 3, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      gameState.turn = 0
+      gameData["testgameiddonotsteal"] = new GameData("notleague")
+      gameData["testgameiddonotsteal2"] = new GameData("alsonotleague")
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 7, y: 7}, {x: 7, y: 7}, {x: 7, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let board2d = new Board2d(gameState, false)
+      let moveResponse: MoveResponse = move(gameState)
+      let moveResponseDir = stringToDirection(moveResponse.move)
+      expect(moveResponseDir).toBeDefined()
+      moveSnake(gameState, snek, board2d, moveResponseDir)
+      moveSnake(gameState, otherSnek, board2d, Direction.Left) // need to move so updateGameStateAfterMove doesn't kill otherSnek for having stacking body parts on turn 2
+      updateGameStateAfterMove(gameState)
+      moveResponse = move(gameState)
+      moveResponseDir = stringToDirection(moveResponse.move)
+      moveSnake(gameState, snek, board2d, moveResponseDir)
+      moveSnake(gameState, otherSnek, board2d, Direction.Left) // need to move so updateGameStateAfterMove doesn't kill otherSnek for having stacking body parts on turn 2
+      updateGameStateAfterMove(gameState)
+
+      expect(gameState.board.snakes.length).toBe(2) // snek should not have already killed itself
+    }
+  })
+  it('does not kill itself as soon as possible when it is a league game running with other league games', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 3}, {x: 3, y: 3}, {x: 3, y: 3}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      gameState.turn = 0
+      gameState.game.source = "league"
+      gameData["testgameiddonotsteal"] = new GameData("notleague")
+      gameData["testgameiddonotsteal2"] = new GameData("league")
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 7, y: 7}, {x: 7, y: 7}, {x: 7, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+      let board2d = new Board2d(gameState, false)
+      let moveResponse: MoveResponse = move(gameState)
+      let moveResponseDir = stringToDirection(moveResponse.move)
+      expect(moveResponseDir).toBeDefined()
+      moveSnake(gameState, snek, board2d, moveResponseDir)
+      moveSnake(gameState, otherSnek, board2d, Direction.Left) // need to move so updateGameStateAfterMove doesn't kill otherSnek for having stacking body parts on turn 2
+      updateGameStateAfterMove(gameState)
+      moveResponse = move(gameState)
+      moveResponseDir = stringToDirection(moveResponse.move)
+      moveSnake(gameState, snek, board2d, moveResponseDir)
+      moveSnake(gameState, otherSnek, board2d, Direction.Left) // need to move so updateGameStateAfterMove doesn't kill otherSnek for having stacking body parts on turn 2
+      updateGameStateAfterMove(gameState)
+
+      expect(gameState.board.snakes.length).toBe(2) // snek should not have already killed itself
     }
   })
 })

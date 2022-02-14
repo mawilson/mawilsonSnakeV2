@@ -1493,13 +1493,15 @@ export class GameData {
   lookahead: number
   timesTaken: number[]
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
+  source: string
 
-  constructor() {
+  constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
     this.hazardSpiral = undefined
     this.lookahead = 0
     this.timesTaken = []
     this.evaluationsForLookaheads = []
+    this.source = source
   }
 }
 
@@ -1530,8 +1532,9 @@ export class TimingData {
   timeout: number
   gameMode: string
   isDevelopment: boolean
+  source: string
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1542,18 +1545,21 @@ export class TimingData {
     this.timeout = timeout
     this.gameMode = gameMode
     this.isDevelopment = isDevelopment
+    this.source = source
   }
 }
 
 // at this point just for debugging, useful in visualizing the path snake took to making a decision
 export class Leaf {
   value: MoveWithEval // the evalState score a state resolved upon
+  evaluationResult: EvaluationResult // the evaluationResult of evalThisState
   children: Leaf[]
   parent: Leaf | undefined
   depth: number
 
-  constructor(value: MoveWithEval, children: Leaf[], depth: number, parent?: Leaf) {
+  constructor(value: MoveWithEval, evaluationResult: EvaluationResult, children: Leaf[], depth: number, parent?: Leaf) {
     this.value = value
+    this.evaluationResult = evaluationResult
     this.children = children
     this.depth = depth
     if (parent !== undefined) {
@@ -1566,11 +1572,11 @@ export class Leaf {
 export class Tree {
   root: Leaf
 
-  constructor(root?: Leaf) {
+  constructor(myself: Battlesnake, root?: Leaf) {
     if (root) {
       this.root = root
     } else {
-      this.root = new Leaf(new MoveWithEval(undefined, undefined), [], 0, undefined)
+      this.root = new Leaf(new MoveWithEval(undefined, undefined), new EvaluationResult(myself), [], 0, undefined)
     }
   }
 

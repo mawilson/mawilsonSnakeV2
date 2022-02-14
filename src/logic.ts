@@ -1,9 +1,9 @@
-export const version: string = "1.2.2" // need to declare this before imports since several imports utilize it
+export const version: string = "1.2.3" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -51,8 +51,8 @@ export function info(): InfoResponse {
 
 export async function start(gameState: GameState): Promise<void> {
   const gameDataId = createGameDataId(gameState)
-  gameData[gameDataId] = new GameData() // move() will update hazardWalls & lookahead accordingly later on.
-  console.log(`${gameState.game.id} START. Now ${Object.keys(gameData).length} running.`)
+  gameData[gameDataId] = new GameData(gameState.game.source) // move() will update hazardWalls & lookahead accordingly later on.
+  console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
 }
 
 export async function end(gameState: GameState): Promise<void> {
@@ -70,7 +70,7 @@ export async function end(gameState: GameState): Promise<void> {
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
       let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -95,18 +95,18 @@ export async function end(gameState: GameState): Promise<void> {
   if (thisGameData !== undefined) { // clean up game-specific data
     delete gameData[gameDataId]
   }
-  console.log(`${gameState.game.id} END. Still ${Object.keys(gameData).length} games running.\n`)
+  console.log(`${gameState.game.id} with game source ${gameState.game.source} END. Still ${Object.keys(gameData).length} games running.\n`)
 }
 
 // TODO
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, startLookahead: number): MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, startLookahead: number): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
   let thisGameData: GameData | undefined = gameData[gameDataString]
 
   let root: Leaf | undefined = undefined
-  let tree: Tree = new Tree()
+  let tree: Tree = new Tree(myself)
 
   let movesShortCircuited: number = 0
 
@@ -195,8 +195,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     if (isDevelopment) {
       if (myself.id === gameState.you.id && parentLeaf === undefined) { // if tree/root does not yet exist, create it
-        root = new Leaf(new MoveWithEval(undefined, evalThisState), [], 0, undefined)
-        tree = new Tree(root)
+        root = new Leaf(new MoveWithEval(undefined, evalThisState), _evalThisState, [], 0, undefined)
+        tree = new Tree(myself, root)
         parentLeaf = root
       }
     }
@@ -382,12 +382,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
           
           let evalState: MoveWithEval
-          let evaluationResult: EvaluationResult
+          let evaluationResult: EvaluationResult | undefined = undefined
           let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           let thisLeaf: Leaf | undefined = undefined
           if (isDevelopment) {
             if (myself.id === gameState.you.id && lookahead !== undefined) {
-              thisLeaf = new Leaf(new MoveWithEval(move, undefined), [], lookahead, parentLeaf)
+              thisLeaf = new Leaf(new MoveWithEval(move, undefined), _evalThisState, [], lookahead, parentLeaf)
             }
           }
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
@@ -403,6 +403,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           if (isDevelopment) {
             if (thisLeaf !== undefined) {
               thisLeaf.value = new MoveWithEval(move, evalState.score)
+              if (evaluationResult !== undefined) {
+                thisLeaf.evaluationResult = evaluationResult
+              } else {
+                thisLeaf.evaluationResult = _evalThisState
+              }
             }
           }
 
@@ -495,15 +500,31 @@ export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
   let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
-  let gameDataId = createGameDataId(gameState)
+  let thisGameDataId = createGameDataId(gameState)
+  let source: string = gameState.game.source
 
   let thisGameData: GameData
-  if (gameData[gameDataId]) {
-    thisGameData = gameData[gameDataId]
+  if (gameData[thisGameDataId]) {
+    thisGameData = gameData[thisGameDataId]
   } else { // if for some reason game data for this game doesn't exist yet (happens when testing due to lack of proper start() & end()s, create it & add it to gameData
-    thisGameData = new GameData()
-    gameData[gameDataId] = thisGameData
+    thisGameData = new GameData(source)
+    gameData[thisGameDataId] = thisGameData
   }
+
+  let gameDataIds: string[] = Object.keys(gameData)
+  let otherLeagueGameRunning: boolean = gameDataIds.some(id => {
+    if (id !== thisGameDataId) { // don't consider myself when finding other gameDatas
+      let otherGameData: GameData = gameData[id]
+      return otherGameData.source === "league" // return true if some other game is currently running with a league source
+    }
+  })
+  if (otherLeagueGameRunning && source !== "league") { // if another league game is running, & this game is not a league game, return a suicidal move
+    let suicidalMove: Direction = getSuicidalMove(gameState, gameState.you)
+    let suicidalMoveStr: string = directionToString(suicidalMove) || "up"
+    console.log(`another league game already running, moving towards neck with ${suicidalMoveStr}`)
+    return {move: suicidalMoveStr}
+  }
+
   thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
   thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
   if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
@@ -511,7 +532,7 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState)) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {
