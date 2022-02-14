@@ -353,7 +353,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   // Voronoi values
   const evalVoronoiNegativeStep = 100
   const evalVoronoiPositiveStep = 4.5
-  const evalVoronoiDeltaStep = 50
+  const evalVoronoiDeltaStepConstrictor = 50
+  const evalVoronoiDeltaStepDuel = 5
   const evalVoronoiBaseGood = 9
   const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
@@ -362,7 +363,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
   const evalSoloCenter = -1
 
-  const evalWrappedOtherSnake1Move = 150
   const evalWrappedFlipFlopStep = 30
 
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
@@ -630,7 +630,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
+    let isParanoid: boolean = false // used to determine if Voronoi calq is Paranoid or MaxN
     if (isConstrictor) {
+      isParanoid = true
+    } else if (!isOriginalSnake && isDuel) {
+      isParanoid = true
+    }
+
+    if (isParanoid) {
+      const voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
       let voronoiDelta: number = 0
       let voronoiLargest: number = 0
       if (isOriginalSnake) { // originalSnake wants to maximize its Voronoi coverage
@@ -647,7 +655,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         }
       }
       voronoiDelta = voronoiMyself - voronoiLargest
-      evaluationResult.voronoiSelf = voronoiDelta * evalVoronoiDeltaStep
+      evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
     } else {
       let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
       if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
@@ -656,24 +664,25 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
       }
       evaluationResult.voronoiSelf = voronoiSelf
-
-      let voronoiSelfBonus: number = 0
-      // more minmaxing - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
-      if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
-        let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
-        if (originalSnakeVoronoi !== undefined) {
-          if (originalSnakeVoronoi < evalVoronoiBaseGood) {
-            let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
-            //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
-            voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
-          }
-        }
-      } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-        let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
-        voronoiSelfBonus = lastVoronoiReward
-      }
-      evaluationResult.voronoiSelfBonus = voronoiSelfBonus
     }
+
+    let voronoiSelfBonus: number = 0
+    // more paranoia - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
+    // apply this award in addition to the Duel paranoia award, if it's duel. This rewards snakes for trapping originalSnake in bad positions, even if other moves grant it higher Voronoi delta
+    if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
+      let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
+      if (originalSnakeVoronoi !== undefined) {
+        if (originalSnakeVoronoi < evalVoronoiBaseGood && voronoiMyself > originalSnakeVoronoi) { // don't assume otherSnake will do a move that gives itself even worse Voronoi coverage than originalSnake
+          let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
+          //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
+          voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
+        }
+      }
+    } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
+      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
+      voronoiSelfBonus = lastVoronoiReward
+    }
+    evaluationResult.voronoiSelfBonus = voronoiSelfBonus
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
@@ -695,13 +704,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (isWrapped) { 
-    if (isDuel) { // in wrapped, limiting otherSnake movement is significantly harder, & railroading them can lead to starvation or a trap somewhere down the road
-      let otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnakes[0], board2d)
-      if (otherSnakeAvailableMoves.validMoves().length <= 1) {
-        evaluationResult.otherSnakeMoves = evalWrappedOtherSnake1Move
-      }
-    }
-
     if (gameState.turn > 1) { // ignore this on early turns, just get starting food
       let myselfIsFlip: boolean = isFlip(myself.head)
       let flipOtherSnakes: number = 0

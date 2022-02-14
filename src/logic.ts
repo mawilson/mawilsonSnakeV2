@@ -101,7 +101,7 @@ export async function end(gameState: GameState): Promise<void> {
 // TODO
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, hazardWalls: HazardWalls, startLookahead: number): MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, startLookahead: number): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
   let thisGameData: GameData | undefined = gameData[gameDataString]
 
@@ -532,7 +532,7 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, hazardWalls, futureSight)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState)) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {

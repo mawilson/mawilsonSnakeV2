@@ -371,7 +371,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health)
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -382,7 +382,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), new HazardWalls(gameState), snek.health)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health)
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
