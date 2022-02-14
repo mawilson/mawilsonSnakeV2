@@ -52,8 +52,7 @@ export function info(): InfoResponse {
 export async function start(gameState: GameState): Promise<void> {
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData(gameState.game.source) // move() will update hazardWalls & lookahead accordingly later on.
-  console.log(`${gameState.game.id} START. Now ${Object.keys(gameData).length} running.`)
-  console.log(`game source: ${gameState.game.source}`)
+  console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
 }
 
 export async function end(gameState: GameState): Promise<void> {
@@ -71,7 +70,7 @@ export async function end(gameState: GameState): Promise<void> {
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
       let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -96,7 +95,7 @@ export async function end(gameState: GameState): Promise<void> {
   if (thisGameData !== undefined) { // clean up game-specific data
     delete gameData[gameDataId]
   }
-  console.log(`${gameState.game.id} END. Still ${Object.keys(gameData).length} games running.\n`)
+  console.log(`${gameState.game.id} with game source ${gameState.game.source} END. Still ${Object.keys(gameData).length} games running.\n`)
 }
 
 // TODO

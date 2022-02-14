@@ -3071,7 +3071,7 @@ describe('constrictor tests', () => {
   })
 })
 
-describe.only('league early return tests', () => {
+describe('league early return tests', () => {
   it('kills itself as soon as possible when another league game is already running', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 3}, {x: 3, y: 3}, {x: 3, y: 3}], "30", "", "")
