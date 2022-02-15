@@ -2092,7 +2092,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
                 cellTotals[snakeId].food[depth] = [cell.coord]
               }
             }
-          }          
+          }
         })
       }
     }
