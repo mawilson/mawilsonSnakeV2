@@ -351,7 +351,6 @@ export class Board2d {
                     let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
                     if (!neighborVoronoiKeys.includes(snakeId)) { // if another voronoiPoint has already added this snakeId to this cell, no need to revisit
                       let voronoiSnakeNewEffectiveLength: number = neighbor.food || this.isConstrictor? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
-                      
                       if (neighborVoronoiKeys.length === 0) { // if I am the first one to this boardCell, add myself to its voronoi array
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100)
@@ -534,9 +533,9 @@ export class Board2d {
             str = str + "None " // each cell should be size 5
           } else if (voronoiKeys.length === 1) {
             if (tempCell.voronoi[voronoiKeys[0]].depth > 9) {
-              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 5) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
-            } else {
               str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 4) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
+            } else {
+              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 5) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
             }
           } else {
             if (tempCell.voronoi[voronoiKeys[0]].depth > 9) {
@@ -1632,8 +1631,8 @@ export class EvaluationResult {
   // scores specific to certain game modes (wrapped, solo)
   tailChase: number = 0
   center: number = 0
-  otherSnakeMoves: number = 0
   flipFlop: number = 0
+  flipFlopTail: number = 0
 
   // scores related to death & ties
   tieValue: number = 0

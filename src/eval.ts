@@ -364,6 +364,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalSoloCenter = -1
 
   const evalWrappedFlipFlopStep = 30
+  const evalWrappedTailChase = 60
+  const evalWrappedTailFlipFlopPenalty = -15
 
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
@@ -735,6 +737,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
           evaluationResult.flipFlop = -flipOtherSnakes * evalWrappedFlipFlopStep
         } else { // am flop, penalize snake for number of larger flopOtherSnakes in game
           evaluationResult.flipFlop = -flopOtherSnakes * evalWrappedFlipFlopStep
+        }
+      }
+
+      const lengthToBoardRatio: number = myself.length / (gameState.board.width * gameState.board.height)
+      if (lengthToBoardRatio > 0.25) {
+        let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head, gameState) // distance from head to tail
+        if (tailDist === 1) { // Once I get large enough, start chasing my tail more
+          evaluationResult.tailChase = evalWrappedTailChase
+        } else {
+          let tailIsFlip: boolean = isFlip(myself.body[myself.length - 1])
+          if (tailIsFlip === myselfIsFlip) { // if head & tail are both flip or both flop, we cannot safely chase our tail without risk of another snake cutting us off
+            evaluationResult.flipFlopTail = evalWrappedTailFlipFlopPenalty
+          }
         }
       }
     }

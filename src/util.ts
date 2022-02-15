@@ -551,6 +551,25 @@ export function updateGameStateAfterMove(gameState: GameState) {
     return murderSnek === undefined // if we have not found a murderSnek, the snake survives
   })
   gameState.turn = gameState.turn + 1
+
+  let emptySquares: number = gameState.board.width * gameState.board.height
+  gameState.board.snakes.forEach(snake => {
+    emptySquares = snakeHasEaten(snake)? emptySquares - snake.length + 1: emptySquares - snake.length // a square is not empty if it has a snake. Don't double-count snake tail for snakes that just ate
+  })
+  emptySquares = emptySquares - gameState.board.food.length // a square is also not empty if it has food
+  if (emptySquares === 1) { // sadly no more performant way to do this, but it should be a very isolated use case (& one with a small tree to search anyway)
+    const board2d = new Board2d(gameState, false)
+    for (let i: number = 0; i < gameState.board.width; i++) {
+      for (let j: number = 0; j < gameState.board.height; j++) {
+        let thisCell = board2d.getCell({x: i, y: j})
+        if (thisCell !== undefined) {
+          if (thisCell.snakeCell === undefined && !thisCell.food) {
+            gameState.board.food.push(new Coord(i, j)) // if a board is completely full of snakes & food, other than one square, assume that square will immediately fill with food
+          }
+        }
+      }
+    }
+  }
 }
 
 // Disables moves in Moves object which lead to or past a wall
@@ -2073,7 +2092,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
                 cellTotals[snakeId].food[depth] = [cell.coord]
               }
             }
-          }          
+          }
         })
       }
     }
