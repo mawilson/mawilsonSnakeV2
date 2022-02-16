@@ -348,7 +348,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     evalFoodVal = 4
   }
   const evalFoodStep = 1
-  const evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
+  let evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
   const evalVoronoiNegativeStep = 100
@@ -603,6 +603,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
+    if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
+      if (delta > 3) { // if I am 4 or more greater
+        evalEatingMultiplier = 1 
+      } else if (delta > 2) { // if I am 3 greater
+        evalEatingMultiplier = 2
+      } else if (delta > 1) { // if I am 2 greater
+        evalEatingMultiplier = 3
+      }
+    }
     let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
     let foodCalc : number = 0
     for (let i: number = 0; i <= foodSearchDepth; i++) {
