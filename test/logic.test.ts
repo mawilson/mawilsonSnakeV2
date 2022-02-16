@@ -2688,10 +2688,10 @@ describe('Voronoi diagram tests', () => {
     expect(otherSnekReachableCells).toBeDefined()
 
     if (snekReachableCells !== undefined) {
-      expect(snekReachableCells.reachableCells).toBeCloseTo(12.4) // can reach 10 non-hazards, & 6 hazards. 7th, final hazard in top left corner unreachable due to health. 10*1 + 6*0.4 = 12.4
+      expect(snekReachableCells.reachableCells).toBeCloseTo(12.25) // can reach 10 non-hazards, & 6 hazards. 7th, final hazard in top left corner unreachable due to health. 10*1 + 6*(3/8) = 12.25
     }
     if (otherSnekReachableCells !== undefined) {
-      expect(otherSnekReachableCells.reachableCells).toBeCloseTo(6.8) // can reach 6 non-hazards, & 2 hazards. 6*1 + 2*0.4 = 6.8
+      expect(otherSnekReachableCells.reachableCells).toBeCloseTo(6.75) // can reach 6 non-hazards, & 2 hazards. 6*1 + 2*(3/8) = 6.75
     }
   })
   it('correctly determines whether we can escape through tail when food increases our length', () => {

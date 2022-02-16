@@ -12,8 +12,17 @@ export function logToFile(file: WriteStream, str: string) {
   }
 }
 
-const voronoiHazardValueSmall: number = 0.4
-const voronoiHazardValueLarge: number = 0.75
+const voronoiHazardValueSmall: number = 3/8
+const voronoiHazardFoodValueSmall: number = 3/4
+
+const voronoiHazardValueLarge: number = 3/4
+const voronoiHazardFoodValueLarge: number = 7/8
+
+const voronoiHazardValueSpicy: number = 3/16
+const voronoiHazardFoodValueSpicy: number = 3/8
+
+const voronoiHazardValueWrapped: number = 5/16
+const voronoiHazardFoodValueWrapped: number = 5/8
 
 let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 
@@ -2066,7 +2075,22 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: VoronoiResults} {
   let cellTotals: {[key: string]: VoronoiResults} = {}
   const hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
-  const hazardValue: number = hazardDamage >= 15? voronoiHazardValueSmall : voronoiHazardValueLarge
+  let hazardValue: number
+  let hazardFoodValue: number
+  const isWrapped: boolean = gameStateIsWrapped(gameState)
+  if (isWrapped) { // it's easier than standard modes to avoid hazard
+    hazardValue = voronoiHazardValueWrapped
+    hazardFoodValue = voronoiHazardFoodValueWrapped
+  } else if (hazardDamage < 15) {
+    hazardValue = voronoiHazardValueLarge
+    hazardFoodValue = voronoiHazardFoodValueLarge
+  } else if (hazardDamage < 30) {
+    hazardValue = voronoiHazardValueSmall
+    hazardFoodValue = voronoiHazardFoodValueSmall
+  } else {
+    hazardValue = voronoiHazardValueSpicy
+    hazardFoodValue = voronoiHazardFoodValueSpicy
+  }
   gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = new VoronoiResults() }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
@@ -2079,9 +2103,13 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
             let depth = cell? cell.voronoiDepth() : undefined
             if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
               cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1 // normal Voronoi reward
-            } else if (cell && cell.hazard && !cell.food) { // for hazard cells
-              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardValue
-            } else {
+            } else if (cell && cell.hazard) { // for hazard cells
+              if (cell.food) { // hazard food reward
+                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardFoodValue
+              } else { // hazard reward without food
+                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardValue
+              }
+            } else { // normal Voronoi reward
               cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1
             }
 
