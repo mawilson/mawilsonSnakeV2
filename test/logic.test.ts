@@ -28,10 +28,26 @@ function createRulesetSettings() : RulesetSettings {
   }
 }
 
+function createHazardSpiralGameData(coord: Coord, startTurn: number, gameState: GameState) { // creates a hazard spiral object at starting coord & turn, & assigns to gameState ID
+  let snek = new Battlesnake(gameState.you.id, "snek", 85, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
+  let startGameState = createGameState(snek) // need to assign to appropriate gameDataId, which is generated from a game ID & a snake ID
+  startGameState.game.id = gameState.game.id // ^^
+
+  let otherSnek = new Battlesnake("otherSnek", "otherSnek", 42, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
+  startGameState.board.snakes.push(otherSnek)
+
+  startGameState.game.ruleset.name = "wrapped"
+
+  startGameState.turn = startTurn
+  startGameState.board.hazards = [coord]
+  let moveResponse: MoveResponse = move(startGameState) // necessary to instantiate the hazardSpiral for gameData
+}
+
 export function createGameState(me: Battlesnake): GameState {
   let settings = createRulesetSettings()
   let timeout: number
-  if (settings.hazardDamagePerTurn > 0) {
+  const hazardDamage: number = settings.hazardDamagePerTurn || 0
+  if (hazardDamage > 0) {
     timeout = 600
   } else {
     timeout = 500
@@ -1303,11 +1319,12 @@ describe('MoveSnake tests', () => {
     gameState.board.hazards = [{x: 2, y: 0}, {x: 2, y: 1}, {x: 2, y: 2}, {x: 2, y: 3}, {x: 2, y: 4}, {x: 2, y: 5}, {x: 2, y: 6}, {x: 2, y: 7}, {x: 2, y: 8}, {x: 2, y: 9}, {x: 2, y: 10}]
 
     const board2d = new Board2d(gameState)
+    const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
 
     moveSnake(gameState, snek, board2d, Direction.Up)
 
     expect(snek.length).toBe(5) // length shouldn't have changed
-    expect(snek.health).toBe(80 - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn) // health should be one less, and also hazardDamagePerTurn less
+    expect(snek.health).toBe(80 - 1 - hazardDamage) // health should be one less, and also hazardDamagePerTurn less
     expect(snek.head.x).toBe(2)
     expect(snek.head.y).toBe(3)
     expect(snek.body[0].x).toBe(snek.head.x)
@@ -1496,6 +1513,35 @@ describe('Hazard tests', () => {
         let moveResponse: MoveResponse = move(gameState)
         expect(moveResponse.move).not.toBe("down") // right leads towards larger otherSnek & is pretty bad, but down is certain death. Up is the correct choice
       }
+  })
+  it('properly determines snake health after moving into hazard', () => { 
+    const gameState: GameState = {"game":{"id":"424f4ec5-dbd5-47b0-9cb8-e51c9009fefa","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":600,"source":"arena"},"turn":130,"board":{"width":11,"height":11,"food":[{"x":1,"y":1},{"x":0,"y":1},{"x":1,"y":8}],"hazards":[{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8},{"x":0,"y":9},{"x":0,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":1,"y":9},{"x":1,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":2},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":2},{"x":6,"y":0},{"x":6,"y":1},{"x":6,"y":2},{"x":7,"y":0},{"x":7,"y":1},{"x":7,"y":2},{"x":8,"y":0},{"x":8,"y":1},{"x":8,"y":2},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":2},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2}],"snakes":[{"id":"gs_xrRtr9B8ftcjkySSr8Hh6HrR","name":"Jaguar Meets Snake","body":[{"x":2,"y":2},{"x":2,"y":3},{"x":3,"y":3},{"x":3,"y":4},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":3,"y":8},{"x":2,"y":8},{"x":2,"y":7},{"x":2,"y":6}],"health":82,"latency":208,"head":{"x":2,"y":2},"length":13,"shout":"","squad":""},{"id":"gs_Qk9Xh8VYrVyDYjpk4Y3DjYCc","name":"snakos","body":[{"x":7,"y":3},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":7,"y":8},{"x":7,"y":7},{"x":7,"y":6},{"x":8,"y":6},{"x":9,"y":6}],"health":90,"latency":109,"head":{"x":7,"y":3},"length":16,"shout":"chasing snack","squad":""}]},"you":{"id":"gs_xrRtr9B8ftcjkySSr8Hh6HrR","name":"Jaguar Meets Snake","body":[{"x":2,"y":2},{"x":2,"y":3},{"x":3,"y":3},{"x":3,"y":4},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":3,"y":8},{"x":2,"y":8},{"x":2,"y":7},{"x":2,"y":6}],"health":82,"latency":208,"head":{"x":2,"y":2},"length":13,"shout":"","squad":""}}
+    const moveResponse: MoveResponse = move(gameState)
+    const moveDir: Direction = stringToDirection(moveResponse.move) || Direction.Up
+    const healthBefore = gameState.you.health
+    const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+    const regularDamage = 1
+    moveSnake(gameState, gameState.you, new Board2d(gameState), moveDir)
+    updateGameStateAfterMove(gameState)
+    expect(gameState.you.health).toBe(healthBefore - hazardDamage - regularDamage)
+    expect(gameState.you.health).toBe(82 - 14 - 1)
+  })
+  it('properly determines snake health after moving out of hazard', () => { 
+    const snek = new Battlesnake("snek", "snek", 80, [{x: 3, y: 0}, {x: 4, y: 0}, {x: 5, y: 0}], "30", "", "")
+    const gameState = createGameState(snek)
+
+    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
+    gameState.board.snakes.push(otherSnek)
+
+    createHazardRow(gameState.board, 0)
+
+    const moveDir: Direction = Direction.Up
+    const healthBefore = gameState.you.health
+    const regularDamage = 1
+    moveSnake(gameState, gameState.you, new Board2d(gameState), moveDir)
+    updateGameStateAfterMove(gameState)
+    expect(gameState.you.health).toBe(healthBefore - regularDamage)
+    expect(gameState.you.health).toBe(80 - 1)
   })
 })
 
@@ -2809,6 +2855,19 @@ describe('Voronoi tests', () => {
 
     moveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("left") // left gets us cut off by otherSnek, if otherSnek were to go up
+  })
+  it('properly determines snake health after moving into hazard spiral', () => { 
+    const gameState: GameState = {"game":{"id":"d2dbbfc1-d124-4991-b815-bb51cf10cba4","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"arena"},"turn":205,"board":{"width":11,"height":11,"food":[{"x":5,"y":9},{"x":2,"y":8},{"x":6,"y":1},{"x":3,"y":3}],"hazards":[{"x":5,"y":3},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":6,"y":2},{"x":5,"y":2},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":7,"y":5},{"x":7,"y":4},{"x":7,"y":3},{"x":7,"y":2},{"x":7,"y":1},{"x":6,"y":1},{"x":5,"y":1},{"x":4,"y":1},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":6},{"x":5,"y":6},{"x":6,"y":6},{"x":7,"y":6},{"x":8,"y":6},{"x":8,"y":5},{"x":8,"y":4},{"x":8,"y":3},{"x":8,"y":2},{"x":8,"y":1},{"x":8,"y":0},{"x":7,"y":0},{"x":6,"y":0},{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":3,"y":7},{"x":4,"y":7},{"x":5,"y":7},{"x":6,"y":7},{"x":7,"y":7},{"x":8,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":9,"y":5},{"x":9,"y":4},{"x":9,"y":3},{"x":9,"y":2},{"x":9,"y":1},{"x":9,"y":0}],"snakes":[{"id":"gs_pYBVpB4xTg7VB4PDDygqPypX","name":"Jaguar Meets Snake","body":[{"x":4,"y":1},{"x":4,"y":0},{"x":4,"y":10},{"x":5,"y":10},{"x":6,"y":10},{"x":7,"y":10},{"x":7,"y":0},{"x":8,"y":0},{"x":8,"y":10},{"x":8,"y":9},{"x":7,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":5,"y":8},{"x":4,"y":8},{"x":4,"y":9},{"x":3,"y":9},{"x":3,"y":10},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":10},{"x":1,"y":10},{"x":0,"y":10},{"x":0,"y":9}],"health":70,"latency":199,"head":{"x":4,"y":1},"length":24,"shout":"","squad":""},{"id":"gs_yhGw98fx3QR8Sjx7G7G7cvJT","name":"Jaeger","body":[{"x":3,"y":7},{"x":3,"y":6},{"x":3,"y":5},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":7},{"x":6,"y":7},{"x":7,"y":7},{"x":7,"y":6},{"x":7,"y":5},{"x":8,"y":5},{"x":8,"y":4},{"x":9,"y":4},{"x":9,"y":5},{"x":10,"y":5},{"x":0,"y":5},{"x":1,"y":5},{"x":1,"y":4},{"x":0,"y":4},{"x":0,"y":3},{"x":0,"y":2}],"health":10,"latency":382,"head":{"x":3,"y":7},"length":22,"shout":"","squad":""},{"id":"gs_8D7jJgTbfyfYchvkMvdhqptW","name":"Pea Eater","body":[{"x":0,"y":8},{"x":10,"y":8},{"x":10,"y":9},{"x":9,"y":9},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":0},{"x":0,"y":0},{"x":1,"y":0},{"x":1,"y":1},{"x":0,"y":1}],"health":47,"latency":440,"head":{"x":0,"y":8},"length":11,"shout":"","squad":""}]},"you":{"id":"gs_pYBVpB4xTg7VB4PDDygqPypX","name":"Jaguar Meets Snake","body":[{"x":4,"y":1},{"x":4,"y":0},{"x":4,"y":10},{"x":5,"y":10},{"x":6,"y":10},{"x":7,"y":10},{"x":7,"y":0},{"x":8,"y":0},{"x":8,"y":10},{"x":8,"y":9},{"x":7,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":5,"y":8},{"x":4,"y":8},{"x":4,"y":9},{"x":3,"y":9},{"x":3,"y":10},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":10},{"x":1,"y":10},{"x":0,"y":10},{"x":0,"y":9}],"health":70,"latency":199,"head":{"x":4,"y":1},"length":24,"shout":"","squad":""}}
+    const moveResponse: MoveResponse = move(gameState)
+    const moveDir: Direction = stringToDirection(moveResponse.move) || Direction.Up
+    const healthBefore = gameState.you.health
+    const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+    const regularDamage = 1
+    createHazardSpiralGameData({x: 5, y: 3}, 3, gameState)
+    moveSnake(gameState, gameState.you, new Board2d(gameState), moveDir)
+    updateGameStateAfterMove(gameState)
+    expect(gameState.you.health).toBe(healthBefore - hazardDamage - regularDamage)
+    expect(gameState.you.health).toBe(70 - 14 - 1)
   })
   it('prioritizes following its tail closely when another snake could cut its tail off', () => {
     const gameState: GameState = {"game":{"id":"a1e601e7-c828-4684-9c7b-d43261467ca4","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"arena"},"turn":435,"board":{"width":11,"height":11,"food":[{"x":8,"y":8},{"x":3,"y":7},{"x":4,"y":5}],"hazards":[],"snakes":[{"id":"gs_8rJ4d48w7hTCX3fKj3JrvTjJ","name":"Jaguar Meets Snake","body":[{"x":7,"y":9},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":9},{"x":9,"y":9},{"x":9,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":10,"y":6},{"x":0,"y":6},{"x":0,"y":5},{"x":1,"y":5},{"x":2,"y":5},{"x":2,"y":4},{"x":1,"y":4},{"x":0,"y":4},{"x":10,"y":4},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":7,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":5,"y":7},{"x":5,"y":8},{"x":4,"y":8},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8}],"health":77,"latency":67,"head":{"x":7,"y":9},"length":38,"shout":"","squad":""},{"id":"gs_JTBjdGBkvBxY8yTCF7bT7CXR","name":"Shapeshifter","body":[{"x":5,"y":10},{"x":6,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":8,"y":2},{"x":9,"y":2},{"x":9,"y":1},{"x":9,"y":0},{"x":10,"y":0},{"x":0,"y":0},{"x":0,"y":10},{"x":1,"y":10},{"x":2,"y":10},{"x":2,"y":0},{"x":1,"y":0},{"x":1,"y":1},{"x":0,"y":1},{"x":0,"y":2},{"x":10,"y":2},{"x":10,"y":3},{"x":9,"y":3},{"x":8,"y":3},{"x":7,"y":3},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":4,"y":3},{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":1}],"health":78,"latency":305,"head":{"x":5,"y":10},"length":33,"shout":"","squad":""}]},"you":{"id":"gs_8rJ4d48w7hTCX3fKj3JrvTjJ","name":"Jaguar Meets Snake","body":[{"x":7,"y":9},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":9},{"x":9,"y":9},{"x":9,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":10,"y":6},{"x":0,"y":6},{"x":0,"y":5},{"x":1,"y":5},{"x":2,"y":5},{"x":2,"y":4},{"x":1,"y":4},{"x":0,"y":4},{"x":10,"y":4},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":7,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":5,"y":7},{"x":5,"y":8},{"x":4,"y":8},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8}],"health":77,"latency":67,"head":{"x":7,"y":9},"length":38,"shout":"","squad":""}}

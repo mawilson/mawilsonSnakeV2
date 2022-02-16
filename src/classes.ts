@@ -229,7 +229,7 @@ export class Board2d {
     let board: Board = gameState.board
     this.width = board.width;
     this.height = board.height;
-    this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+    this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
     this.isWrapped = gameStateIsWrapped(gameState)
     this.isConstrictor = gameStateIsConstrictor(gameState)
     this.cells = new Array(this.width * this.height);
@@ -581,7 +581,8 @@ export class HazardWalls {
       return
     }
 
-    if (gameState.game.ruleset.settings.hazardDamagePerTurn > 0) { // if hazard does not exist, we can just leave the walls undefined
+    const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+    if (hazardDamage > 0) { // if hazard does not exist, we can just leave the walls undefined
       let xValues: { [key: number]: number} = {} // need to count up all hazards & determine if walls exist if gameState.board.height number of cells exist at that x value
       let yValues: { [key: number]: number} = {} // likewise, but for board.width at that y value
 

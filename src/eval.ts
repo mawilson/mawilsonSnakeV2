@@ -180,8 +180,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     otherSnakeHealth = otherSnakeHealth + snake.health
   })
 
-  const hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
-  const hazardFrequency = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
   const isWrapped = gameStateIsWrapped(gameState)
   const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const isConstrictor = gameStateIsConstrictor(gameState)

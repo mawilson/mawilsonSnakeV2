@@ -119,7 +119,8 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
-  return gameStateIsWrapped(gameState) && (gameState.game.ruleset.settings.hazardDamagePerTurn > 0)
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  return gameStateIsWrapped(gameState) && (hazardDamage > 0)
 }
 
 export function gameStateIsSolo(gameState: GameState): boolean {
@@ -471,6 +472,7 @@ export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2
 
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
   if (_move === Direction.AlreadyMoved) {
     return // snake has already moved, don't move it
   }
@@ -489,7 +491,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
       snake.health = 100
       snake.body.push(snake.body[snake.body.length - 1]) // snake should duplicate its tail cell if it has just eaten
     } else if (newCell.hazard) {
-      snake.health = snake.health - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn
+      snake.health = snake.health - 1 - hazardDamage
     } else {
       snake.health = snake.health - 1
     }
@@ -655,6 +657,7 @@ export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
 
 // Disables moves which will cause the snakes death, taking into account normal turn damage, hazard damage, & food acquisition
 export function checkForHealth(me: Battlesnake, gameState: GameState, board: Board2d, moves: Moves) {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
   function checkCell(x: number, y: number) : boolean {
     let newCoord = new Coord(x, y)
     let newCell = board.getCell(newCoord)
@@ -662,7 +665,7 @@ export function checkForHealth(me: Battlesnake, gameState: GameState, board: Boa
       if (newCell.food) {
         return true // will not starve if we got food on this cell
       } else if (newCell.hazard) {
-        return (me.health - 1 - gameState.game.ruleset.settings.hazardDamagePerTurn) > 0 // true if I will not starve here after accounting for hazard, false if not
+        return (me.health - 1 - hazardDamage) > 0 // true if I will not starve here after accounting for hazard, false if not
       } else {
         return (me.health - 1) > 0 // true if I will not starve here, false if not
       }
@@ -853,7 +856,7 @@ export function createHazardRow(board: Board, height: number) {
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any.
 export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWalls: HazardWalls, gameState : GameState) : boolean {  
-  if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
+  if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // if hazard is 0 or undefined, return false
     return false
   }
   let selfCell = board2d.getCell(coord)
@@ -868,7 +871,7 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWal
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any. Returns false for spaces that are themselves hazard
 export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
-  if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // if hazard is not enabled, return false
+  if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // if hazard is 0 or undefined, return false
     return false
   } else if (gameStateIsHazardSpiral(gameState)) { // hazard wall adjacency doesn't make sense when hazard spirals
     return false
@@ -1498,7 +1501,7 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
     return false
   } else if (_snake === undefined) { // undefined snakes cannot be cut off
     return false
-  } else if (gameState.game.ruleset.settings.hazardDamagePerTurn === 0) { // cannot do hazard cutoff in a game without hazard
+  } else if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // cannot do hazard cutoff in a game without hazard
     return false
   } else if (gameStateIsHazardSpiral(gameState)) { // cannot do hazard cutoff in a hazard spiral game
     return false
@@ -2074,17 +2077,17 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 // given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
 export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: VoronoiResults} {
   let cellTotals: {[key: string]: VoronoiResults} = {}
-  const hazardDamage: number = 1 + gameState.game.ruleset.settings.hazardDamagePerTurn
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
   let hazardValue: number
   let hazardFoodValue: number
   const isWrapped: boolean = gameStateIsWrapped(gameState)
   if (isWrapped) { // it's easier than standard modes to avoid hazard
     hazardValue = voronoiHazardValueWrapped
     hazardFoodValue = voronoiHazardFoodValueWrapped
-  } else if (hazardDamage < 15) {
+  } else if (hazardDamage < 14) {
     hazardValue = voronoiHazardValueLarge
     hazardFoodValue = voronoiHazardFoodValueLarge
-  } else if (hazardDamage < 30) {
+  } else if (hazardDamage < 29) {
     hazardValue = voronoiHazardValueSmall
     hazardFoodValue = voronoiHazardFoodValueSmall
   } else {

@@ -15,7 +15,7 @@ export interface MoveResponse {
 }
 
 export interface RoyaleSettings {
-  shrinkEveryNTurns: number;
+  shrinkEveryNTurns?: number;
 }
 
 export interface SquadSettings {
@@ -28,9 +28,11 @@ export interface SquadSettings {
 export interface RulesetSettings {
   foodSpawnChance: number;
   minimumFood: number;
-  hazardDamagePerTurn: number;
-  royale:RoyaleSettings;
-  squad:SquadSettings;
+  hazardDamagePerTurn?: number;
+  royale: RoyaleSettings;
+  squad: SquadSettings;
+  map?: string;
+  map_author?: string;
 }
 
 export interface Ruleset {
