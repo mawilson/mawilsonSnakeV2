@@ -31,6 +31,7 @@ function createRulesetSettings() : RulesetSettings {
 function createHazardSpiralGameData(coord: Coord, startTurn: number, gameState: GameState) { // creates a hazard spiral object at starting coord & turn, & assigns to gameState ID
   let snek = new Battlesnake(gameState.you.id, "snek", 85, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
   let startGameState = createGameState(snek) // need to assign to appropriate gameDataId, which is generated from a game ID & a snake ID
+  startGameState.game.ruleset.settings.map = "hz_spiral"
   startGameState.game.id = gameState.game.id // ^^
 
   let otherSnek = new Battlesnake("otherSnek", "otherSnek", 42, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
@@ -2830,6 +2831,7 @@ describe('Voronoi tests', () => {
   it('does not choose an escape route through tail if that route does not exist', () => {
     let snek = new Battlesnake("snek", "snek", 85, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
     const gameState = createGameState(snek)
+    gameState.game.ruleset.settings.map = "hz_spiral"
 
     let otherSnek = new Battlesnake("otherSnek", "otherSnek", 42, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
@@ -2911,6 +2913,7 @@ describe('Hazard spiral tests', () => {
   it('can successfully map spiral hazards given a central starting point', () => {
     const snek = new Battlesnake("snek", "snek", 69, [{x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
     const gameState = createGameState(snek)
+    gameState.game.ruleset.settings.map = "hz_spiral"
 
     const otherSnek = new Battlesnake("otherSnek", "otherSnek", 89, [{x: 9, y: 8}, {x: 9, y: 7}, {x: 9, y: 6}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 6, y: 5}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
@@ -2931,6 +2934,7 @@ describe('Hazard spiral tests', () => {
   it('can successfully map spiral hazards given a non-central starting point', () => {
     const snek = new Battlesnake("snek", "snek", 69, [{x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
     const gameState = createGameState(snek)
+    gameState.game.ruleset.settings.map = "hz_spiral"
 
     const otherSnek = new Battlesnake("otherSnek", "otherSnek", 89, [{x: 9, y: 8}, {x: 9, y: 7}, {x: 9, y: 6}, {x: 9, y: 5}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 6, y: 5}], "30", "", "")
     gameState.board.snakes.push(otherSnek)
@@ -2966,6 +2970,7 @@ describe('Hazard spiral tests', () => {
   it('does not apply hazard penalty for moving into a hazard that arrived as I moved onto it', () => {
     const snek = new Battlesnake("snek", "snek", 95, [{x: 3, y: 6}, {x: 2, y: 6}, {x: 1, y: 6}], "30", "", "")
     const gameState = createGameState(snek)
+    gameState.game.ruleset.settings.map = "hz_spiral"
     
     gameState.game.ruleset.name = "wrapped"
     gameState.game.ruleset.settings.hazardDamagePerTurn = 14

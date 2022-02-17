@@ -119,6 +119,7 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
+  // return gameState.game.ruleset.settings.map === "hz_spiral" // map is not implemented yet
   const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
   return gameStateIsWrapped(gameState) && (hazardDamage > 0)
 }
