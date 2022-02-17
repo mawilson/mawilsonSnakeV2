@@ -229,7 +229,7 @@ export class Board2d {
     let board: Board = gameState.board
     this.width = board.width;
     this.height = board.height;
-    this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn
+    this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
     this.isWrapped = gameStateIsWrapped(gameState)
     this.isConstrictor = gameStateIsConstrictor(gameState)
     this.cells = new Array(this.width * this.height);
@@ -327,9 +327,13 @@ export class Board2d {
                     if (this.isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
                       isBodyCell = true
                     } else {
+                      let effectiveIndex: number
+                      if (neighbor.snakeCell.bodyIndex === (neighbor.snakeCell.snake.length - 1) && snakeHasEaten(neighbor.snakeCell.snake)) {
+                        effectiveIndex = neighbor.snakeCell.bodyIndex - 1 // this body index was replaced by its successor - decrement it again
+                      } else {
+                        effectiveIndex = neighbor.snakeCell.bodyIndex
+                      }
                       if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
-                        let ateAtLastDepth: boolean = voronoiSnake.effectiveHealth === 100
-                        let effectiveIndex: number = ateAtLastDepth? neighbor.snakeCell.bodyIndex - 1 : neighbor.snakeCell.bodyIndex // if I ate at the previous depth, my bodyIndex is effectively one less because I didn't shrink this turn
                         isBodyCell = (voronoiSnake.effectiveLength - effectiveIndex) > depth
                       } else {
                         let totalPossibleEats: number = 0
@@ -339,7 +343,7 @@ export class Board2d {
                           }
                         })
                         let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + totalPossibleEats
-                        isBodyCell = (neighborSnakeEffectiveLength - neighbor.snakeCell.bodyIndex) > depth
+                        isBodyCell = (neighborSnakeEffectiveLength - effectiveIndex) > depth
                       }
                     }
                   }
@@ -581,7 +585,8 @@ export class HazardWalls {
       return
     }
 
-    if (gameState.game.ruleset.settings.hazardDamagePerTurn > 0) { // if hazard does not exist, we can just leave the walls undefined
+    const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+    if (hazardDamage > 0) { // if hazard does not exist, we can just leave the walls undefined
       let xValues: { [key: number]: number} = {} // need to count up all hazards & determine if walls exist if gameState.board.height number of cells exist at that x value
       let yValues: { [key: number]: number} = {} // likewise, but for board.width at that y value
 

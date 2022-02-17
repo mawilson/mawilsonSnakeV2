@@ -15,7 +15,7 @@ export interface MoveResponse {
 }
 
 export interface RoyaleSettings {
-  shrinkEveryNTurns: number;
+  shrinkEveryNTurns?: number;
 }
 
 export interface SquadSettings {
@@ -28,9 +28,11 @@ export interface SquadSettings {
 export interface RulesetSettings {
   foodSpawnChance: number;
   minimumFood: number;
-  hazardDamagePerTurn: number;
-  royale:RoyaleSettings;
-  squad:SquadSettings;
+  hazardDamagePerTurn?: number;
+  royale: RoyaleSettings;
+  squad: SquadSettings;
+  map?: string; // map is not implemented yet, but making this optional should allow us to include it preemptively
+  map_author?: string; // as with map, not implemented yet, but should be safe to be optional
 }
 
 export interface Ruleset {
