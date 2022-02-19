@@ -12,18 +12,6 @@ export function logToFile(file: WriteStream, str: string) {
   }
 }
 
-const voronoiHazardValueSmall: number = 3/8
-const voronoiHazardFoodValueSmall: number = 3/4
-
-const voronoiHazardValueLarge: number = 3/4
-const voronoiHazardFoodValueLarge: number = 7/8
-
-const voronoiHazardValueSpicy: number = 3/16
-const voronoiHazardFoodValueSpicy: number = 3/8
-
-const voronoiHazardValueWrapped: number = 5/16
-const voronoiHazardFoodValueWrapped: number = 5/8
-
 let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 
 export function getRandomInt(min: number, max: number) : number {
@@ -2078,23 +2066,8 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 // given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
 export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: VoronoiResults} {
   let cellTotals: {[key: string]: VoronoiResults} = {}
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
-  let hazardValue: number
-  let hazardFoodValue: number
-  const isWrapped: boolean = gameStateIsWrapped(gameState)
-  if (isWrapped) { // it's easier than standard modes to avoid hazard
-    hazardValue = voronoiHazardValueWrapped
-    hazardFoodValue = voronoiHazardFoodValueWrapped
-  } else if (hazardDamage < 14) {
-    hazardValue = voronoiHazardValueLarge
-    hazardFoodValue = voronoiHazardFoodValueLarge
-  } else if (hazardDamage < 29) {
-    hazardValue = voronoiHazardValueSmall
-    hazardFoodValue = voronoiHazardFoodValueSmall
-  } else {
-    hazardValue = voronoiHazardValueSpicy
-    hazardFoodValue = voronoiHazardFoodValueSpicy
-  }
+  let hazardValue: number = determineVoronoiHazardValue(gameState)
+  let hazardFoodValue: number = determineVoronoiHazardFoodValue(gameState)
   gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = new VoronoiResults() }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
@@ -2137,4 +2110,82 @@ export function isFlip(coord: Coord) {
   let xIsEven: boolean = coord.x % 2 === 0
   let yIsEven: boolean = coord.y % 2 === 0
   return (xIsEven && yIsEven) || (!xIsEven && !yIsEven)
+}
+
+function determineVoronoiHazardValue(gameState: GameState): number {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  if (hazardDamage <= 0) {
+    return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
+  }
+  const voronoiHazardValueSmall: number = 3/8
+  const voronoiHazardValueLarge: number = 3/4
+  const voronoiHazardValueSpicy: number = 3/16
+  const voronoiHazardValueWrapped: number = 5/16
+  const isWrapped: boolean = gameStateIsWrapped(gameState)
+  let baseValue: number
+  if (isWrapped) {
+    baseValue = voronoiHazardValueWrapped
+  } else if (hazardDamage < 14) {
+    baseValue = voronoiHazardValueLarge
+  } else if (hazardDamage < 29) {
+    baseValue = voronoiHazardValueSmall
+  } else {
+    baseValue = voronoiHazardValueSpicy
+  }
+
+  const boardSize: number = gameState.board.height * gameState.board.width
+  const hazardRatio: number = gameState.board.hazards.length / boardSize
+  const baseRatio: number = 0.4
+  if (hazardRatio < baseRatio) {
+    return baseValue // if there are fewer hazards than baseRatio, return the base value for hazards
+  } else { // as there are more hazards in game, penalize snake less for entering hazard
+    if (isWrapped) {
+      return (275/336) * Math.pow(hazardRatio, 2) + (61/336) // formula is 275/336 * hazardRatio^2 + 61/336. This works out to 5/16 for 40%, 1 for 100%
+    } else if (hazardDamage < 14) {
+      return (15/36) * hazardRatio + 21/36 // formula is 15/36 * hazardRatio + 21/36. This works out to 3/4 for 40%, 1 for 100%
+    } else if (hazardDamage < 29) {
+      return (125/168) * Math.pow(hazardRatio, 2) + (43/168) // formula is 125/168 * hazardRatio^2 + 43/168. This works out to 3/8 for 40%, 1 for 100%
+    } else { // hazardDamage >= 29
+      return (125/144) * Math.pow(hazardRatio, 3) + (19/144) // formula is 125/144 * hazardRatio^3 + 19/144. This works out to 3/16 for 40%, 1 for 100%
+    }
+  }
+}
+
+function determineVoronoiHazardFoodValue(gameState: GameState): number {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  if (hazardDamage <= 0) {
+    return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
+  }
+  const voronoiHazardFoodValueSmall: number = 3/4
+  const voronoiHazardFoodValueLarge: number = 7/8
+  const voronoiHazardFoodValueSpicy: number = 3/8
+  const voronoiHazardFoodValueWrapped: number = 5/8
+  const isWrapped: boolean = gameStateIsWrapped(gameState)
+  let baseValue: number
+  if (isWrapped) {
+    baseValue = voronoiHazardFoodValueWrapped
+  } else if (hazardDamage < 14) {
+    baseValue = voronoiHazardFoodValueLarge
+  } else if (hazardDamage < 29) {
+    baseValue = voronoiHazardFoodValueSmall
+  } else {
+    baseValue = voronoiHazardFoodValueSpicy
+  }
+
+  const boardSize: number = gameState.board.height * gameState.board.width
+  const hazardRatio: number = gameState.board.hazards.length / boardSize
+  const baseRatio: number = 0.4
+  if (hazardRatio < baseRatio) {
+    return baseValue // if there are fewer hazards than baseRatio, return the base value for hazards
+  } else { // as there are more hazards in game, penalize snake less for entering hazard
+    if (isWrapped) {
+      return (25/56) * Math.pow(hazardRatio, 2) + (31/56) // formula is 25/56 * hazardRatio^2 + 31/56. This works out to 5/8 for 40%, 1 for 100%
+    } else if (hazardDamage < 14) {
+      return (5/24) * hazardRatio + (19/24) // formula is 5/24 * hazardRatio + 19/24. This works out to 7/8 for 40%, 1 for 100%
+    } else if (hazardDamage < 29) {
+      return (25/84) * Math.pow(hazardRatio, 2) + (59/84) // formula is 25/84 * hazardRatio^2 + 59/84. This works out to 3/4 for 40%, 1 for 100%
+    } else { // hazardDamage >= 29
+      return (625/936) * Math.pow(hazardRatio, 3) + (311/936) // formula is 625/936 * hazardRatio^3 + 311/936. This works out to 3/8 for 40%, 1 for 100%
+    }
+  }
 }
