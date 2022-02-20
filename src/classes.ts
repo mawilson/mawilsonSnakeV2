@@ -207,13 +207,23 @@ export class BoardCell {
   }
 }
 
-export class VoronoiResults {
+export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
 
   constructor() {
     this.reachableCells = 0
     this.food = {}
+  }
+}
+
+export class VoronoiResults {
+  snakeResults: {[key: string]: VoronoiResultsSnake}
+  totalReachableCells: number // due to hazard & hazard food penalties, this number will not be equivalent to board dimensions
+
+  constructor() {
+    this.snakeResults = {}
+    this.totalReachableCells = 0
   }
 }
 

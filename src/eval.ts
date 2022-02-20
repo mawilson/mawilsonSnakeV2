@@ -1,7 +1,7 @@
 import { GameState } from "./types"
-import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -355,8 +355,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalVoronoiPositiveStep = 4.5
   const evalVoronoiDeltaStepConstrictor = 50
   const evalVoronoiDeltaStepDuel = 5
-  const evalVoronoiBaseGood = 9
-  const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
   const evalAvailableMoves0Moves = -400
 
@@ -522,10 +520,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     evaluationResult.kissOfMurderSelfBonus = evalKissOfMurderSelfBonus
   }
 
-  let reachableCells = calculateReachableCells(gameState, board2d)
-  let voronoiResults = reachableCells[myself.id]
-  let voronoiMyself: number = voronoiResults.reachableCells
-  let nearbyFood = voronoiResults.food
+  let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
+  let voronoiResultsSelf: VoronoiResultsSnake = voronoiResults.snakeResults[myself.id]
+  let voronoiMyself: number = voronoiResultsSelf.reachableCells
+  let nearbyFood: {[key: number]: Coord[]} = voronoiResultsSelf.food
+
+  const evalVoronoiBaseGood: number = determineVoronoiBaseGood(gameState, voronoiResults) // in a duel, there is more space to work with, & anything significantly less than half the board necessarily implies the otherSnake is doing better
+  
+  const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   let foodToHunt : Coord[] = []
@@ -653,13 +655,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       let voronoiLargest: number = 0
       if (isOriginalSnake) { // originalSnake wants to maximize its Voronoi coverage
         otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
-          let voronoiOtherSnake: number | undefined = reachableCells[snake.id]?.reachableCells
+          let voronoiOtherSnake: number | undefined = voronoiResults.snakeResults[snake.id]?.reachableCells
           if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
             voronoiLargest = voronoiOtherSnake
           }
         })
       } else { // otherSnakes want to minimize originalSnakes' Voronoi coverage, paranoid style
-        let voronoiOriginalSnake: number | undefined = reachableCells[gameState.you.id]?.reachableCells
+        let voronoiOriginalSnake: number | undefined = voronoiResults.snakeResults[gameState.you.id]?.reachableCells
         if (voronoiOriginalSnake !== undefined) {
           voronoiLargest = voronoiOriginalSnake
         }
@@ -680,7 +682,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     // more paranoia - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
     // apply this award in addition to the Duel paranoia award, if it's duel. This rewards snakes for trapping originalSnake in bad positions, even if other moves grant it higher Voronoi delta
     if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
-      let originalSnakeVoronoi: number | undefined = reachableCells[originalSnake.id].reachableCells
+      let originalSnakeVoronoi: number | undefined = voronoiResults.snakeResults[originalSnake.id].reachableCells
       if (originalSnakeVoronoi !== undefined) {
         if (originalSnakeVoronoi < evalVoronoiBaseGood && voronoiMyself > originalSnakeVoronoi) { // don't assume otherSnake will do a move that gives itself even worse Voronoi coverage than originalSnake
           let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep

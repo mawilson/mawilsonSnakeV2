@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -11,18 +11,6 @@ export function logToFile(file: WriteStream, str: string) {
 `)
   }
 }
-
-const voronoiHazardValueSmall: number = 3/8
-const voronoiHazardFoodValueSmall: number = 3/4
-
-const voronoiHazardValueLarge: number = 3/4
-const voronoiHazardFoodValueLarge: number = 7/8
-
-const voronoiHazardValueSpicy: number = 3/16
-const voronoiHazardFoodValueSpicy: number = 3/8
-
-const voronoiHazardValueWrapped: number = 5/16
-const voronoiHazardFoodValueWrapped: number = 5/8
 
 let consoleWriteStream = createLogAndCycle("consoleLogs_util")
 
@@ -2076,26 +2064,12 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 }
 
 // given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
-export function calculateReachableCells(gameState: GameState, board2d: Board2d): {[key: string]: VoronoiResults} {
-  let cellTotals: {[key: string]: VoronoiResults} = {}
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
-  let hazardValue: number
-  let hazardFoodValue: number
-  const isWrapped: boolean = gameStateIsWrapped(gameState)
-  if (isWrapped) { // it's easier than standard modes to avoid hazard
-    hazardValue = voronoiHazardValueWrapped
-    hazardFoodValue = voronoiHazardFoodValueWrapped
-  } else if (hazardDamage < 14) {
-    hazardValue = voronoiHazardValueLarge
-    hazardFoodValue = voronoiHazardFoodValueLarge
-  } else if (hazardDamage < 29) {
-    hazardValue = voronoiHazardValueSmall
-    hazardFoodValue = voronoiHazardFoodValueSmall
-  } else {
-    hazardValue = voronoiHazardValueSpicy
-    hazardFoodValue = voronoiHazardFoodValueSpicy
-  }
-  gameState.board.snakes.forEach(snake => { cellTotals[snake.id] = new VoronoiResults() }) // instantiate each snake object
+export function calculateReachableCells(gameState: GameState, board2d: Board2d): VoronoiResults {
+  let voronoiResults: VoronoiResults = new VoronoiResults()
+  let hazardValue: number = determineVoronoiHazardValue(gameState)
+  let hazardFoodValue: number = determineVoronoiHazardFoodValue(gameState)
+  let totalReachableCells: number = 0
+  gameState.board.snakes.forEach(snake => { voronoiResults.snakeResults[snake.id] = new VoronoiResultsSnake() }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
@@ -2106,30 +2080,41 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
           if (voronoiSnake !== undefined) {
             let depth = cell? cell.voronoiDepth() : undefined
             if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
-              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1 // normal Voronoi reward
+              voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + 1 // normal Voronoi reward
             } else if (cell && cell.hazard) { // for hazard cells
               if (cell.food) { // hazard food reward
-                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardFoodValue
+                voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + hazardFoodValue
               } else { // hazard reward without food
-                cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + hazardValue
+                voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + hazardValue
               }
             } else { // normal Voronoi reward
-              cellTotals[snakeId].reachableCells = cellTotals[snakeId].reachableCells + 1
+              voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + 1
             }
 
             if (cell && cell.food && depth !== undefined) {
-              if (cellTotals[snakeId].food[depth] !== undefined) {
-                cellTotals[snakeId].food[depth].push(cell.coord)
+              if (voronoiResults.snakeResults[snakeId].food[depth] !== undefined) {
+                voronoiResults.snakeResults[snakeId].food[depth].push(cell.coord)
               } else {
-                cellTotals[snakeId].food[depth] = [cell.coord]
+                voronoiResults.snakeResults[snakeId].food[depth] = [cell.coord]
               }
             }
           }
         })
+
+        if (cell.hazard) {
+          if (cell.food) {
+            totalReachableCells = totalReachableCells + hazardFoodValue
+          } else {
+            totalReachableCells = totalReachableCells + hazardValue
+          }
+        } else {
+          totalReachableCells = totalReachableCells + 1
+        }
       }
     }
   }
-  return cellTotals
+  voronoiResults.totalReachableCells = totalReachableCells
+  return voronoiResults
 }
 
 // flip if both x & y are even, or x & y are odd
@@ -2137,4 +2122,96 @@ export function isFlip(coord: Coord) {
   let xIsEven: boolean = coord.x % 2 === 0
   let yIsEven: boolean = coord.y % 2 === 0
   return (xIsEven && yIsEven) || (!xIsEven && !yIsEven)
+}
+
+function determineVoronoiHazardValue(gameState: GameState): number {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  if (hazardDamage <= 0) {
+    return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
+  }
+  const voronoiHazardValueSmall: number = 3/8
+  const voronoiHazardValueLarge: number = 3/4
+  const voronoiHazardValueSpicy: number = 3/16
+  const voronoiHazardValueWrapped: number = 5/16
+  const isWrapped: boolean = gameStateIsWrapped(gameState)
+  let baseValue: number
+  if (isWrapped) {
+    baseValue = voronoiHazardValueWrapped
+  } else if (hazardDamage < 14) {
+    baseValue = voronoiHazardValueLarge
+  } else if (hazardDamage < 29) {
+    baseValue = voronoiHazardValueSmall
+  } else {
+    baseValue = voronoiHazardValueSpicy
+  }
+
+  const boardSize: number = gameState.board.height * gameState.board.width
+  const hazardRatio: number = gameState.board.hazards.length / boardSize
+  const baseRatio: number = 0.4
+  if (hazardRatio < baseRatio) {
+    return baseValue // if there are fewer hazards than baseRatio, return the base value for hazards
+  } else { // as there are more hazards in game, penalize snake less for entering hazard
+    if (isWrapped) {
+      return (275/336) * Math.pow(hazardRatio, 2) + (61/336) // formula is 275/336 * hazardRatio^2 + 61/336. This works out to 5/16 for 40%, 1 for 100%
+    } else if (hazardDamage < 14) {
+      return (15/36) * hazardRatio + 21/36 // formula is 15/36 * hazardRatio + 21/36. This works out to 3/4 for 40%, 1 for 100%
+    } else if (hazardDamage < 29) {
+      return (125/168) * Math.pow(hazardRatio, 2) + (43/168) // formula is 125/168 * hazardRatio^2 + 43/168. This works out to 3/8 for 40%, 1 for 100%
+    } else { // hazardDamage >= 29
+      return (125/144) * Math.pow(hazardRatio, 3) + (19/144) // formula is 125/144 * hazardRatio^3 + 19/144. This works out to 3/16 for 40%, 1 for 100%
+    }
+  }
+}
+
+function determineVoronoiHazardFoodValue(gameState: GameState): number {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  if (hazardDamage <= 0) {
+    return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
+  }
+  const voronoiHazardFoodValueSmall: number = 3/4
+  const voronoiHazardFoodValueLarge: number = 7/8
+  const voronoiHazardFoodValueSpicy: number = 3/8
+  const voronoiHazardFoodValueWrapped: number = 5/8
+  const isWrapped: boolean = gameStateIsWrapped(gameState)
+  let baseValue: number
+  if (isWrapped) {
+    baseValue = voronoiHazardFoodValueWrapped
+  } else if (hazardDamage < 14) {
+    baseValue = voronoiHazardFoodValueLarge
+  } else if (hazardDamage < 29) {
+    baseValue = voronoiHazardFoodValueSmall
+  } else {
+    baseValue = voronoiHazardFoodValueSpicy
+  }
+
+  const boardSize: number = gameState.board.height * gameState.board.width
+  const hazardRatio: number = gameState.board.hazards.length / boardSize
+  const baseRatio: number = 0.4
+  if (hazardRatio < baseRatio) {
+    return baseValue // if there are fewer hazards than baseRatio, return the base value for hazards
+  } else { // as there are more hazards in game, penalize snake less for entering hazard
+    if (isWrapped) {
+      return (25/56) * Math.pow(hazardRatio, 2) + (31/56) // formula is 25/56 * hazardRatio^2 + 31/56. This works out to 5/8 for 40%, 1 for 100%
+    } else if (hazardDamage < 14) {
+      return (5/24) * hazardRatio + (19/24) // formula is 5/24 * hazardRatio + 19/24. This works out to 7/8 for 40%, 1 for 100%
+    } else if (hazardDamage < 29) {
+      return (25/84) * Math.pow(hazardRatio, 2) + (59/84) // formula is 25/84 * hazardRatio^2 + 59/84. This works out to 3/4 for 40%, 1 for 100%
+    } else { // hazardDamage >= 29
+      return (625/936) * Math.pow(hazardRatio, 3) + (311/936) // formula is 625/936 * hazardRatio^3 + 311/936. This works out to 3/8 for 40%, 1 for 100%
+    }
+  }
+}
+
+// takes a GameState & a VoronoiResults & returns the threshold at which a reachableCells total is considered 'good'
+export function determineVoronoiBaseGood(gameState: GameState, voronoiResults: VoronoiResults): number {
+  const numSnakes: number = gameState.board.snakes.length
+  const total: number = voronoiResults.totalReachableCells
+  if (gameStateIsSolo(gameState)) {
+    return total / 2 // in a solo game we generally should be able to reach most of the cells on the board
+  }
+  if (numSnakes === 2) { // is duel, limiting board coverage is more important
+    return total / 6 // for a 11x11 game without hazard, this means 20. For an 11x11 game with 40% hazard, this means 15.125
+  } else { // for any game with more than 2 snakes, we want a sane threshold. Too high means we'll be too paranoid, too low means we won't be paranoid enough. Used to be 9 for 3 & 4 snakes on an 11x11 board.
+    return total / (6 + numSnakes) // for an 11x11 game with 40% hazard, this means 10.1 for 3 snakes, 9.1 for 4 snakes. For an 11x11 game with no hazard, this means 13.4 for 3 snakes, 12.1 for 4 snakes
+  }
 }
