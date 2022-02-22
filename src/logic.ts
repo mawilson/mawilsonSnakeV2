@@ -1,9 +1,9 @@
-export const version: string = "1.3.1" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.2" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove, getLongestOtherSnake } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -529,6 +529,28 @@ export function move(gameState: GameState): MoveResponse {
   thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
   if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
     thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
+  }
+
+  // logic to seek out a prey snake
+  if (gameState.turn > 25 && gameState.board.snakes.length > 2) { // now that the game has shaken out some, start predating on the largest snake
+    if (thisGameData.prey === undefined) {
+      const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
+        return snake.id !== gameState.you.id
+      })
+      const randomSnakeIdx = getRandomInt(0, otherSnakes.length)
+
+      thisGameData.prey = otherSnakes[randomSnakeIdx]
+    } else { // thisGameData prey is defined. Check to see if it still lives, & find a new one if not
+      let preyAlive: boolean = gameState.board.snakes.some(snake => { return thisGameData.prey !== undefined && snake.id === thisGameData.prey.id })
+      if (!preyAlive) {
+        const otherSnakes: Battlesnake[] = gameState.board.snakes.filter(function filterMeOut(snake) {
+          return snake.id !== gameState.you.id
+        })
+        const randomSnakeIdx = getRandomInt(0, otherSnakes.length)
+  
+        thisGameData.prey = otherSnakes[randomSnakeIdx]
+      }
+    }
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)

@@ -196,6 +196,17 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
+  let preySnake: Battlesnake | undefined
+  if (!isOriginalSnake && originalSnake) {
+    preySnake = originalSnake // due to paranoia, assume all otherSnakes are out to get originalSnake
+  } else { // it's originalSnake. If duel, prey is duel opponent, if not duel, look for prey in gameData
+    if (isDuel) {
+      preySnake = otherSnakes[0]
+    } else {
+      preySnake = thisGameData?.prey
+    }
+  }
+
   // returns the evaluation value associated with the given kissOfDeathState
   function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState): number {
     switch (kissOfDeathState) {
@@ -678,23 +689,24 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       evaluationResult.voronoiSelf = voronoiSelf
     }
 
-    let voronoiSelfBonus: number = 0
-    // more paranoia - tells otherSnakes to reward positions that trap originalSnake. Value can be as high as reward for self position is low, minmax style.
-    // apply this award in addition to the Duel paranoia award, if it's duel. This rewards snakes for trapping originalSnake in bad positions, even if other moves grant it higher Voronoi delta
-    if (!isOriginalSnake && originalSnake) { // reward otherSnakes for limiting originalSnakes' Voronoi score
-      let originalSnakeVoronoi: number | undefined = voronoiResults.snakeResults[originalSnake.id].reachableCells
-      if (originalSnakeVoronoi !== undefined) {
-        if (originalSnakeVoronoi < evalVoronoiBaseGood && voronoiMyself > originalSnakeVoronoi) { // don't assume otherSnake will do a move that gives itself even worse Voronoi coverage than originalSnake
-          let howBad: number = (evalVoronoiBaseGood - originalSnakeVoronoi) * evalVoronoiNegativeStep
-          //howBad = howBad / 2 // award for otherSnakes penalizing me needs to be less than their own award, otherwise Jaguar is too paranoid
-          voronoiSelfBonus = voronoiSelfBonus + howBad // add how bad originalSnakes' score is to our own evaluation
+    let voronoiPredatorBonus: number = 0
+    // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
+    if (!isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
+      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
+      voronoiPredatorBonus = lastVoronoiReward
+    } else if (preySnake !== undefined) {
+      let preySnakeVoronoi: number | undefined = voronoiResults.snakeResults[preySnake.id].reachableCells
+      if (preySnakeVoronoi !== undefined) {
+        if (preySnakeVoronoi < evalVoronoiBaseGood && voronoiMyself > preySnakeVoronoi) { // don't assume otherSnake will do a move that gives itself even worse Voronoi coverage than originalSnake
+          let howBad: number = (evalVoronoiBaseGood - preySnakeVoronoi) * evalVoronoiNegativeStep
+          if (isOriginalSnake && !isDuel) {
+            howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
+          }
+          voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
         }
       }
-    } else if (!isOriginalSnake && !isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
-      voronoiSelfBonus = lastVoronoiReward
     }
-    evaluationResult.voronoiSelfBonus = voronoiSelfBonus
+    evaluationResult.voronoiPredator = voronoiPredatorBonus
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)

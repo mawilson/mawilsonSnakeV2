@@ -1508,6 +1508,7 @@ export class GameData {
   timesTaken: number[]
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
   source: string
+  prey: Battlesnake | undefined
 
   constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
@@ -1516,6 +1517,7 @@ export class GameData {
     this.timesTaken = []
     this.evaluationsForLookaheads = []
     this.source = source
+    this.prey = undefined
   }
 }
 
@@ -1640,7 +1642,7 @@ export class EvaluationResult {
   otherSnakeHealth: number = 0
   food: number = 0
   voronoiSelf: number = 0
-  voronoiSelfBonus: number = 0
+  voronoiPredator: number = 0
   selfMoves: number = 0
 
   // scores specific to certain game modes (wrapped, solo)
