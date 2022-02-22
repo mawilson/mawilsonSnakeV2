@@ -695,7 +695,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
       voronoiPredatorBonus = lastVoronoiReward
     } else if (preySnake !== undefined) {
-      let preySnakeVoronoi: number | undefined = voronoiResults.snakeResults[preySnake.id].reachableCells
+      let preySnakeVoronoi: number | undefined = voronoiResults.snakeResults[preySnake.id]?.reachableCells
       if (preySnakeVoronoi !== undefined) {
         if (preySnakeVoronoi < evalVoronoiBaseGood && voronoiMyself > preySnakeVoronoi) { // don't assume otherSnake will do a move that gives itself even worse Voronoi coverage than originalSnake
           let howBad: number = (evalVoronoiBaseGood - preySnakeVoronoi) * evalVoronoiNegativeStep
