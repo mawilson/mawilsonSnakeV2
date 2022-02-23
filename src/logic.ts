@@ -104,6 +104,7 @@ export async function end(gameState: GameState): Promise<void> {
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, startLookahead: number): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
   let thisGameData: GameData | undefined = gameData[gameDataString]
+  const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
 
   let root: Leaf | undefined = undefined
   let tree: Tree = new Tree(myself)
@@ -210,7 +211,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
-    if (!stillHaveTime) { // if we need to leave early due to time
+    if (!isTesting && !stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
@@ -540,6 +541,7 @@ export function move(gameState: GameState): MoveResponse {
       const randomSnakeIdx = getRandomInt(0, otherSnakes.length)
 
       thisGameData.prey = otherSnakes[randomSnakeIdx]
+      //logToFile(consoleWriteStream, `new prey snake ${thisGameData.prey.name}`)
     } else { // thisGameData prey is defined. Check to see if it still lives, & find a new one if not
       let preyAlive: boolean = gameState.board.snakes.some(snake => { return thisGameData.prey !== undefined && snake.id === thisGameData.prey.id })
       if (!preyAlive) {
@@ -549,6 +551,7 @@ export function move(gameState: GameState): MoveResponse {
         const randomSnakeIdx = getRandomInt(0, otherSnakes.length)
   
         thisGameData.prey = otherSnakes[randomSnakeIdx]
+        //logToFile(consoleWriteStream, `new prey snake ${thisGameData.prey.name}`)
       }
     }
   }

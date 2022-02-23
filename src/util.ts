@@ -2077,18 +2077,23 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         let voronoiKeys = Object.keys(cell.voronoi)
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
+          let voronoiValue: number
           if (voronoiSnake !== undefined) {
             let depth = cell? cell.voronoiDepth() : undefined
             if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
-              voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + 1 // normal Voronoi reward
+              voronoiValue = 1
+              voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue // normal Voronoi reward
             } else if (cell && cell.hazard) { // for hazard cells
               if (cell.food) { // hazard food reward
-                voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + hazardFoodValue
+                voronoiValue = hazardFoodValue
+                voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue
               } else { // hazard reward without food
-                voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + hazardValue
+                voronoiValue = hazardValue
+                voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue
               }
             } else { // normal Voronoi reward
-              voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + 1
+              voronoiValue = 1
+              voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue
             }
 
             if (cell && cell.food && depth !== undefined) {
@@ -2096,6 +2101,13 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
                 voronoiResults.snakeResults[snakeId].food[depth].push(cell.coord)
               } else {
                 voronoiResults.snakeResults[snakeId].food[depth] = [cell.coord]
+              }
+            }
+
+            if (voronoiSnake.tailOffset === 0 && snakeId !== cell?.snakeCell?.snake.id) { // if this Voronoi cell hit a snake body cell exactly at its tail index, this is a tail chase
+              if (depth !== undefined) {
+                let tailChases: number = voronoiResults.snakeResults[snakeId].tailChases[depth] | 0 // if not yet defined, tailChases starts at 0
+                voronoiResults.snakeResults[snakeId].tailChases[depth] = tailChases + voronoiValue // increment tail chases at this depth by the Voronoi value of this cell
               }
             }
           }
@@ -2115,6 +2127,33 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
   }
   voronoiResults.totalReachableCells = totalReachableCells
   return voronoiResults
+}
+
+export function determineVoronoiSelf(voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean) {
+  const evalVoronoiTailChaseDepthCoefficient: number = 1/10 // in mx+b, this is m
+  const evalVoronoiTailChaseOffset: number = 1/10 // in mx+b, this is b
+  const evalVoronoiTailChaseMinPenalty: number = 0.4 // tail chase Voronoi penalty at min depth
+  const evalVoronoiTailChaseMaxPenalty: number = 0.9 // tail chase Voronoi penalty at max depth
+
+  let voronoiTailChasePenalty: number = 0 // this will end up being a fraction of voronoiMyself, which we will subtract from voronoiMyself
+  voronoiResultsSnake.tailChases.forEach((num, idx) => {
+    if (idx > 1) { // it's safe to chase a tail at depth 1, & depth 0 or less shouldn't exist in here
+      // note that each multiplies by num, to account for the number of tails that can be chased at this depth, & also the Voronoi value of those cells
+      if (idx >= 8) {
+        voronoiTailChasePenalty = voronoiTailChasePenalty + num * evalVoronoiTailChaseMaxPenalty
+      } else if (idx === 3) {
+        voronoiTailChasePenalty = voronoiTailChasePenalty + num * evalVoronoiTailChaseMinPenalty
+      } else {
+        voronoiTailChasePenalty = voronoiTailChasePenalty + (num * (evalVoronoiTailChaseDepthCoefficient * idx + evalVoronoiTailChaseOffset)) // formula is 1/10 * depth - 1/20. Works out to 0.25 penalty at depth 3, 0.75 penalty at depth 8
+      }
+    }
+  })
+
+  if (isOriginalSnake) {
+    return voronoiResultsSnake.reachableCells - voronoiBaseGood - voronoiTailChasePenalty
+  } else { // otherSnakes don't consider tail chase penalty
+    return voronoiResultsSnake.reachableCells - voronoiBaseGood
+  }
 }
 
 // flip if both x & y are even, or x & y are odd
@@ -2208,8 +2247,9 @@ export function determineVoronoiBaseGood(gameState: GameState, voronoiResults: V
   const total: number = voronoiResults.totalReachableCells
   if (gameStateIsSolo(gameState)) {
     return total / 2 // in a solo game we generally should be able to reach most of the cells on the board
-  }
-  if (numSnakes === 2) { // is duel, limiting board coverage is more important
+  } else if (numSnakes === 1) { // for when we have won, need to appropriately award Voronoi predator, which is based on baseGood
+    return total / 5 // if the only snake on the board, make baseGood slightly higher than if there were one other snake on the board
+  } else if (numSnakes === 2) { // is duel, limiting board coverage is more important
     return total / 6 // for a 11x11 game without hazard, this means 20. For an 11x11 game with 40% hazard, this means 15.125
   } else { // for any game with more than 2 snakes, we want a sane threshold. Too high means we'll be too paranoid, too low means we won't be paranoid enough. Used to be 9 for 3 & 4 snakes on an 11x11 board.
     return total / (6 + numSnakes) // for an 11x11 game with 40% hazard, this means 10.1 for 3 snakes, 9.1 for 4 snakes. For an 11x11 game with no hazard, this means 13.4 for 3 snakes, 12.1 for 4 snakes

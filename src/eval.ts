@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood, determineVoronoiSelf } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -196,14 +196,16 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
 
-  let preySnake: Battlesnake | undefined
+  let preySnake: Battlesnake | undefined = undefined
   if (!isOriginalSnake && originalSnake) {
     preySnake = originalSnake // due to paranoia, assume all otherSnakes are out to get originalSnake
   } else { // it's originalSnake. If duel, prey is duel opponent, if not duel, look for prey in gameData
     if (isDuel) {
       preySnake = otherSnakes[0]
     } else {
-      preySnake = thisGameData?.prey
+      // if (gameState.game.source !== "testing") {
+      //   preySnake = thisGameData?.prey
+      // }
     }
   }
 
@@ -652,6 +654,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     evaluationResult.food = foodCalc
   }
 
+  // Voronoi stuff
   if (gameState.turn > 1) { // don't calculate on early turns, just get early food
     let isParanoid: boolean = false // used to determine if Voronoi calq is Paranoid or MaxN
     if (isConstrictor) {
@@ -660,6 +663,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       isParanoid = true
     }
 
+    let voronoiSelf: number = determineVoronoiSelf(voronoiResultsSelf, evalVoronoiBaseGood, isOriginalSnake)
     if (isParanoid) {
       const voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
       let voronoiDelta: number = 0
@@ -679,8 +683,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       }
       voronoiDelta = voronoiMyself - voronoiLargest
       evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
-    } else {
-      let voronoiSelf: number = voronoiMyself - evalVoronoiBaseGood // if voronoiMyself is better than evalVoronoiBaseGood, it's a 'good', positive score
+    } else { // if voronoiMyself, after tail chase considerations, is better than evalVoronoiBaseGood, it's a 'good', positive score
       if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
         voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
       } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
@@ -691,14 +694,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
 
     let voronoiPredatorBonus: number = 0
     // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
-    if (!isSolo && gameState.board.snakes.length === 1) { // add max originalSnake Voronoi reward for last snake so as not to encourage it to keep me alive for that sweet reward
-      let lastVoronoiReward: number = evalVoronoiNegativeMax // this will be negative, so negate it to make it a reward
+    if (!isSolo && gameState.board.snakes.length === 1) { // add max Voronoi reward for last snake so as not to encourage it to keep opponent alive for that sweet reward
+      let lastVoronoiReward: number = evalVoronoiNegativeMax
       voronoiPredatorBonus = lastVoronoiReward
     } else if (preySnake !== undefined) {
-      let preySnakeVoronoi: number | undefined = voronoiResults.snakeResults[preySnake.id]?.reachableCells
-      if (preySnakeVoronoi !== undefined) {
-        if (preySnakeVoronoi < evalVoronoiBaseGood && voronoiMyself > preySnakeVoronoi) { // don't assume otherSnake will do a move that gives itself even worse Voronoi coverage than originalSnake
-          let howBad: number = (evalVoronoiBaseGood - preySnakeVoronoi) * evalVoronoiNegativeStep
+      let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
+      if (preySnakeResults !== undefined) {
+        let preySnakeVoronoi: number = determineVoronoiSelf(preySnakeResults, evalVoronoiBaseGood, !isOriginalSnake) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
+        if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
+          let howBad: number = -preySnakeVoronoi * evalVoronoiNegativeStep // preySnakeVoronoi is negative so need to negate this
           if (isOriginalSnake && !isDuel) {
             howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
           }

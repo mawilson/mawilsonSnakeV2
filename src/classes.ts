@@ -162,12 +162,14 @@ export class VoronoiSnake {
   depth: number
   effectiveLength: number
   effectiveHealth: number
+  tailOffset: number | undefined
 
-  constructor(snake: Battlesnake, depth: number, effectiveLength: number, effectiveHealth: number) {
+  constructor(snake: Battlesnake, depth: number, effectiveLength: number, effectiveHealth: number, tailOffset: number | undefined) {
     this.snake = snake
     this.depth = depth
     this.effectiveLength = effectiveLength
     this.effectiveHealth = effectiveHealth
+    this.tailOffset = tailOffset
   }
 }
 
@@ -210,10 +212,12 @@ export class BoardCell {
 export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
+  tailChases: number[]
 
   constructor() {
     this.reachableCells = 0
     this.food = {}
+    this.tailChases = []
   }
 }
 
@@ -263,7 +267,7 @@ export class Board2d {
             board2dCell.snakeCell = newSnakeCell
           }
           if (isHead && populateVoronoi) {
-            board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0, inputSnake.length, inputSnake.health) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
+            board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0, inputSnake.length, inputSnake.health, undefined) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
             voronoiPoints.push(board2dCell)
             snakePossibleEats[inputSnake.id] = [snakeHasEaten(inputSnake)] // initialize snakePossibleEats array - has eaten if inputSnake just ate
           }
@@ -333,6 +337,7 @@ export class Board2d {
                   // in order to allow for tails, cells with snakeCells whose length would have removed the tail by this depth will be allowed
 
                   let isBodyCell: boolean = false // only true if neighbor contains a snakeCell which has not receded as a tail by this depth
+                  let tailOffset: number | undefined = undefined // used to keep track of following otherSnake tail danger
                   if (neighbor.snakeCell !== undefined) {
                     if (this.isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
                       isBodyCell = true
@@ -344,7 +349,7 @@ export class Board2d {
                         effectiveIndex = neighbor.snakeCell.bodyIndex
                       }
                       if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
-                        isBodyCell = (voronoiSnake.effectiveLength - effectiveIndex) > depth
+                        isBodyCell = (voronoiSnake.effectiveLength - effectiveIndex) > depth // do not care about tailOffset, as we can always chase our own tail without fear of food growth
                       } else {
                         let totalPossibleEats: number = 0
                         snakePossibleEats[neighbor.snakeCell.snake.id].forEach((gotFood, idx) => {
@@ -353,7 +358,8 @@ export class Board2d {
                           }
                         })
                         let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + totalPossibleEats
-                        isBodyCell = (neighborSnakeEffectiveLength - effectiveIndex) > depth
+                        tailOffset = neighborSnakeEffectiveLength - effectiveIndex - depth
+                        isBodyCell = tailOffset > 0
                       }
                     }
                   }
@@ -367,44 +373,44 @@ export class Board2d {
                       let voronoiSnakeNewEffectiveLength: number = neighbor.food || this.isConstrictor? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
                       if (neighborVoronoiKeys.length === 0) { // if I am the first one to this boardCell, add myself to its voronoi array
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
-                          neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100)
+                          neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage))
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
                           } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1))
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
                           }
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && (voronoiSnakeNewEffectiveLength > neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength)) { // else if I am at the same depth as, & larger than the existing snakes in this board cell, remove them, & add myself
                         neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
-                          neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100)
+                          neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage))
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
                           } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1))
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
                           }
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && voronoiSnakeNewEffectiveLength === neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength) { // else if I am at the same depth as, & equal to the existing snakes in this board cell, add myself
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
-                          neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100)
+                          neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage))
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
                           } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1))
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
                           }
                         }
