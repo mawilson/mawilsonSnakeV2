@@ -9,7 +9,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 })
 
 // constants used in other files
-export const evalNoMeStandard: number = -2250 // no me is the worst possible state, give a very bad score
+export const evalNoMeStandard: number = -2600 // no me is the worst possible state, give a very bad score
 export const evalNoMeConstrictor: number = -6000 // constrictor noMe is considerably lower due to different Voronoi calq 
 
 const evalBase: number = 500
@@ -153,13 +153,15 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     newSnakeOther.health = newSnakeSelf.health
   }
 
-  let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
+  let board2d: Board2d = new Board2d(newGameState, true)
+  let voronoiResults: VoronoiResults = calculateReachableCells(newGameState, board2d)
+  let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo), board2d, voronoiResults)
   evaluation.tieValue = evalTieFactor // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluation
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissStates: KissStatesForEvaluate) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissStates: KissStatesForEvaluate, board2d: Board2d, voronoiResults: VoronoiResults) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -254,6 +256,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
 
   // values to tweak
   const evalNoMeCertainty: number = 200 // value that being murdered is better than starving. Still highly likely, but slightly less likely than straight starvation
+  const evalNoMeCertaintyMutual: number = 300 // value that being murdered by a tie snake is better than starving. Needs to be more than evalNoMeCertainty
   let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
   if (gameState.turn % hazardFrequency === 0) { // turn 25, & increments of 25
     evalHazardWallPenalty = -8
@@ -388,7 +391,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       return evaluationResult
     } else if (priorKissStates.deathState !== KissOfDeathState.kissOfDeathNo) {
       if (isOriginalSnake && [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual].includes(priorKissStates.deathState)) {
-        evaluationResult.noMe = evalNoMe + evalNoMeCertainty
+        if (priorKissStates.deathState === KissOfDeathState.kissOfDeathCertainty) {
+          evaluationResult.noMe = evalNoMe + evalNoMeCertainty
+        } else {
+          evaluationResult.noMe = evalNoMe + evalNoMeCertaintyMutual
+        }
         return evaluationResult // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
       } else {
         evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState)
@@ -406,7 +413,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
-  const board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
@@ -533,7 +539,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     evaluationResult.kissOfMurderSelfBonus = evalKissOfMurderSelfBonus
   }
 
-  let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
   let voronoiResultsSelf: VoronoiResultsSnake = voronoiResults.snakeResults[myself.id]
   let voronoiMyself: number = voronoiResultsSelf.reachableCells
   let nearbyFood: {[key: number]: Coord[]} = voronoiResultsSelf.food

@@ -696,19 +696,21 @@ export class HazardSpiral {
   startingCoord: Coord | undefined
   isWrapped: boolean
 
-  constructor(gameState: GameState, hazardFrequency: number) {
+  constructor(gameState: GameState, hazardFrequency: number, _startingTurn?: number, _startingCoord?: Coord) {
     this.hazardFrequency = hazardFrequency
     this.height = gameState.board.height
     this.width = gameState.board.width
     this.cells = new Array(this.height * this.width)
     this.isWrapped = gameStateIsWrapped(gameState)
-    if (gameState.board.hazards.length < 1) {
+    if (_startingCoord !== undefined) {
+      this.startingCoord = _startingCoord
+    } else if (gameState.board.hazards.length < 1) {
       return
     } else {
       this.startingCoord = gameState.board.hazards[0]
     }
 
-    let startingTurn: number = gameState.turn // the turn that the first hazard appeared
+    let startingTurn: number = _startingTurn !== undefined? _startingTurn : gameState.turn // the turn that the first hazard appeared
 
     let startingIdx: number = this.getIndex(this.startingCoord.x, this.startingCoord.y)
     let startingCell = new HazardSpiralCell(this.startingCoord, startingTurn)

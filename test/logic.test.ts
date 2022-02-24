@@ -1,7 +1,7 @@
 import { info, move, decideMove, start, gameData } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
 import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord, GameData, VoronoiResults, VoronoiResultsSnake } from '../src/classes'
-import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells, getDistance } from '../src/util'
+import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells, getDistance, createGameDataId } from '../src/util'
 import { evaluate } from '../src/eval'
 import { machineLearningDataResult, server } from '../src/index'
 
@@ -28,20 +28,14 @@ function createRulesetSettings() : RulesetSettings {
   }
 }
 
-function createHazardSpiralGameData(coord: Coord, startTurn: number, gameState: GameState) { // creates a hazard spiral object at starting coord & turn, & assigns to gameState ID
-  let snek = new Battlesnake(gameState.you.id, "snek", 85, [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}], "30", "", "")
-  let startGameState = createGameState(snek) // need to assign to appropriate gameDataId, which is generated from a game ID & a snake ID
-  startGameState.game.ruleset.settings.map = "hz_spiral"
-  startGameState.game.id = gameState.game.id // ^^
-
-  let otherSnek = new Battlesnake("otherSnek", "otherSnek", 42, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
-  startGameState.board.snakes.push(otherSnek)
-
-  startGameState.game.ruleset.name = "wrapped"
-
-  startGameState.turn = startTurn
-  startGameState.board.hazards = [coord]
-  let moveResponse: MoveResponse = move(startGameState) // necessary to instantiate the hazardSpiral for gameData
+function createHazardSpiralGameData(gameState: GameState, startTurn: number, startCoord: Coord) { // creates a hazard spiral object at starting coord & turn, & assigns to gameState ID
+  let gameDataId = createGameDataId(gameState)
+  if (gameData[gameDataId]) {
+    gameData[gameDataId].hazardSpiral = new HazardSpiral(gameState, startTurn, 3, startCoord)
+  } else {
+    gameData[gameDataId] = new GameData("testing")
+    gameData[gameDataId].hazardSpiral = new HazardSpiral(gameState, startTurn, 3, startCoord)
+  }
 }
 
 export function createGameState(me: Battlesnake): GameState {
@@ -73,10 +67,6 @@ export function createGameState(me: Battlesnake): GameState {
 }
 
 beforeAll(() => {
-  const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 5}, {x: 5, y: 5}, {x: 5, y: 5}], "30", "", "")
-  let gameState = createGameState(snek)
-  start(gameState) // initializes gameData
-
   // TODO: Fix, currently this is just an empty object after returning, despite it theoretically waiting on the promise to finish
   return machineLearningDataResult // wait for machine learning data to be processed
 })
@@ -388,7 +378,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health, new Board2d(gameState, true))
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -399,7 +389,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health)
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health, new Board2d(gameState, true))
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -968,6 +958,13 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).not.toBe("down") // I have three options, down is the sole possible death. otherSnek2 will want the food & to escape otherSnek3, so will likely go left. Avoid the tie.
     }
   })
+  it('chooses a mutual kiss of death over a non-mutual kiss of death', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const gameState: GameState = {"game":{"id":"74b25bd6-fb6b-438b-82d6-bf555f567793","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":37,"board":{"width":11,"height":11,"food":[{"x":8,"y":0}],"hazards":[],"snakes":[{"id":"gs_m96PyHgh7k8wq9FqFkyxckd7","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":2,"y":2}],"health":100,"latency":162,"head":{"x":0,"y":3},"length":5,"shout":"","squad":""},{"id":"gs_7h4kTwyjPCMx6dkyxdYqGVx8","name":"Jaguar Meets Snake","body":[{"x":1,"y":4},{"x":2,"y":4},{"x":3,"y":4},{"x":3,"y":5},{"x":2,"y":5},{"x":1,"y":5},{"x":0,"y":5},{"x":0,"y":6}],"health":97,"latency":22,"head":{"x":1,"y":4},"length":8,"shout":"","squad":""},{"id":"gs_kk9M8WW7RYy8FHdxpvqP9yvV","name":"businesssssnake","body":[{"x":9,"y":4},{"x":8,"y":4},{"x":7,"y":4},{"x":7,"y":3},{"x":7,"y":2},{"x":6,"y":2}],"health":86,"latency":474,"head":{"x":9,"y":4},"length":6,"shout":"","squad":""},{"id":"gs_hgCXXbXxWq6cvySgqMV4cHpS","name":"Jaguar Meets Snake","body":[{"x":0,"y":1},{"x":1,"y":1},{"x":2,"y":1},{"x":2,"y":0},{"x":3,"y":0}],"health":95,"latency":42,"head":{"x":0,"y":1},"length":5,"shout":"","squad":""}]},"you":{"id":"gs_m96PyHgh7k8wq9FqFkyxckd7","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":2,"y":2}],"health":100,"latency":162,"head":{"x":0,"y":3},"length":5,"shout":"","squad":""}}
+      const moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("down") // up is certain death against larger snake, down is a tie death if smaller Jaguar decides he wants it
+    }
+  })
 })
 
 describe('Kiss of murder tests', () => {
@@ -1411,9 +1408,11 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         gameState.board.snakes.push(otherSnek)
         
         let kissStates = new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
-        let evalSnek = evaluate(gameState, snek, kissStates)
+        let board2d: Board2d = new Board2d(gameState, true)
+        let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
+        let evalSnek = evaluate(gameState, snek, kissStates, board2d, voronoiResults)
         let evalSnekScore = evalSnek.sum()
-        let evalOtherSnek = evaluate(gameState, otherSnek, kissStates)
+        let evalOtherSnek = evaluate(gameState, otherSnek, kissStates, board2d, voronoiResults)
         let evalOtherSnekScore = evalOtherSnek.sum()
 
         expect(evalSnekScore).toBeGreaterThan(evalOtherSnekScore)
@@ -1543,6 +1542,12 @@ describe('Hazard tests', () => {
     updateGameStateAfterMove(gameState)
     expect(gameState.you.health).toBe(healthBefore - regularDamage)
     expect(gameState.you.health).toBe(80 - 1)
+  })
+  it('hazardSpiral1: does not jump into hazard unnecessarily', () => {
+    const gameState = {"game":{"id":"8df95668-02d9-4df5-b515-ea000174cd06","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"testing"},"turn":146,"board":{"width":11,"height":11,"food":[{"x":5,"y":6}],"hazards":[{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":6},{"x":6,"y":5},{"x":6,"y":4},{"x":5,"y":4},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":7},{"x":6,"y":7},{"x":7,"y":7},{"x":7,"y":6},{"x":7,"y":5},{"x":7,"y":4},{"x":7,"y":3},{"x":6,"y":3},{"x":5,"y":3},{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":8},{"x":5,"y":8},{"x":6,"y":8},{"x":7,"y":8},{"x":8,"y":8},{"x":8,"y":7},{"x":8,"y":6},{"x":8,"y":5},{"x":8,"y":4},{"x":8,"y":3},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2},{"x":5,"y":2},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7}],"snakes":[{"id":"gs_7bcCkhXjg987yfVQ8PxhpSrc","name":"hawthhhh++","body":[{"x":9,"y":4},{"x":10,"y":4},{"x":10,"y":5},{"x":0,"y":5},{"x":0,"y":4},{"x":1,"y":4},{"x":2,"y":4},{"x":3,"y":4},{"x":3,"y":3},{"x":2,"y":3},{"x":1,"y":3},{"x":0,"y":3},{"x":0,"y":2},{"x":0,"y":1}],"health":94,"latency":476,"head":{"x":9,"y":4},"length":14,"shout":"","squad":""},{"id":"gs_qYRVxpBCBM7hPYtQmcGbJWxP","name":"Jaguar Meets Snake","body":[{"x":5,"y":1},{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":3,"y":10},{"x":2,"y":10},{"x":1,"y":10},{"x":1,"y":9},{"x":2,"y":9},{"x":2,"y":8},{"x":2,"y":7},{"x":2,"y":6},{"x":1,"y":6},{"x":0,"y":6},{"x":10,"y":6},{"x":10,"y":7},{"x":9,"y":7}],"health":83,"latency":412,"head":{"x":5,"y":1},"length":17,"shout":"","squad":""},{"id":"gs_WyRWDVyVjg6RCt7qmWFPX9k7","name":"Shapeshifter","body":[{"x":6,"y":9},{"x":5,"y":9},{"x":5,"y":10},{"x":6,"y":10},{"x":7,"y":10},{"x":8,"y":10},{"x":8,"y":0},{"x":9,"y":0},{"x":9,"y":10},{"x":9,"y":9},{"x":9,"y":8}],"health":78,"latency":297,"head":{"x":6,"y":9},"length":11,"shout":"","squad":""}]},"you":{"id":"gs_qYRVxpBCBM7hPYtQmcGbJWxP","name":"Jaguar Meets Snake","body":[{"x":5,"y":1},{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":3,"y":10},{"x":2,"y":10},{"x":1,"y":10},{"x":1,"y":9},{"x":2,"y":9},{"x":2,"y":8},{"x":2,"y":7},{"x":2,"y":6},{"x":1,"y":6},{"x":0,"y":6},{"x":10,"y":6},{"x":10,"y":7},{"x":9,"y":7}],"health":83,"latency":412,"head":{"x":5,"y":1},"length":17,"shout":"","squad":""}}
+    createHazardSpiralGameData(gameState, 3, {x: 5, y: 5})
+    const moveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("up") // up puts us in the hazard, with a lone food as bait. We have two perfectly reasonable non-hazard moves to make
   })
 })
 
@@ -2865,7 +2870,7 @@ describe('Voronoi tests', () => {
     const healthBefore = gameState.you.health
     const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
     const regularDamage = 1
-    createHazardSpiralGameData({x: 5, y: 3}, 3, gameState)
+    createHazardSpiralGameData(gameState, 3, {x: 5, y: 3})
     moveSnake(gameState, gameState.you, new Board2d(gameState), moveDir)
     updateGameStateAfterMove(gameState)
     expect(gameState.you.health).toBe(healthBefore - hazardDamage - regularDamage)
@@ -2882,27 +2887,40 @@ describe('Voronoi tests', () => {
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("down") // going up lets hawthh & pea eater trap us in a few turns. Should go down as it's clearly a safer option.
   })
-  it('vtail1: does not choose an escape route which closely follows another snake tail at a small depth given another option', () => {
+  // tough case where food spawned two away from a snake in exactly the spot I didn't want it to. Lots of tail chasing though!
+  it.skip('vtail1: does not choose an escape route which closely follows another snake tail at a small depth given another option', () => {
     for (let i: number = 0; i < 3; i++) {
       const gameState: GameState = {"game":{"id":"b5650968-cc82-4681-ad5a-58351ae7a919","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"testing"},"turn":126,"board":{"width":11,"height":11,"food":[{"x":0,"y":3},{"x":10,"y":8}],"hazards":[{"x":5,"y":6},{"x":5,"y":7},{"x":6,"y":7},{"x":6,"y":6},{"x":6,"y":5},{"x":5,"y":5},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":8},{"x":6,"y":8},{"x":7,"y":8},{"x":7,"y":7},{"x":7,"y":6},{"x":7,"y":5},{"x":7,"y":4},{"x":6,"y":4},{"x":5,"y":4},{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":8,"y":9},{"x":8,"y":8},{"x":8,"y":7},{"x":8,"y":6},{"x":8,"y":5},{"x":8,"y":4},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3},{"x":5,"y":3},{"x":4,"y":3},{"x":3,"y":3}],"snakes":[{"id":"gs_dqVffdSmFdPTwhTRmyjVdXFX","name":"Salazar Slitherin","body":[{"x":9,"y":4},{"x":9,"y":5},{"x":10,"y":5},{"x":10,"y":6},{"x":10,"y":7},{"x":0,"y":7},{"x":1,"y":7},{"x":2,"y":7},{"x":3,"y":7},{"x":4,"y":7},{"x":4,"y":8},{"x":3,"y":8},{"x":2,"y":8},{"x":2,"y":9},{"x":2,"y":10},{"x":1,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":0,"y":1},{"x":10,"y":1},{"x":9,"y":1}],"health":99,"latency":406,"head":{"x":9,"y":4},"length":21,"shout":"6 4 125","squad":""},{"id":"gs_DfcRK8HyHdC7pw3tFbgKtPyD","name":"Jaguar Meets Snake","body":[{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":2},{"x":4,"y":2},{"x":5,"y":2},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":7}],"health":34,"latency":169,"head":{"x":3,"y":0},"length":12,"shout":"","squad":""},{"id":"gs_kmrPbkGp7fdqCtGTMXJhypQF","name":"Shapeshifter","body":[{"x":4,"y":4},{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":4},{"x":2,"y":4},{"x":1,"y":4},{"x":1,"y":3},{"x":1,"y":2},{"x":0,"y":2},{"x":10,"y":2},{"x":9,"y":2}],"health":70,"latency":298,"head":{"x":4,"y":4},"length":11,"shout":"","squad":""},{"id":"gs_mF8BVGKrkXkf3KpfRXdWH9mX","name":"Combat Reptile","body":[{"x":9,"y":9},{"x":10,"y":9},{"x":10,"y":10},{"x":9,"y":10},{"x":9,"y":0},{"x":8,"y":0},{"x":8,"y":10},{"x":7,"y":10}],"health":59,"latency":442,"head":{"x":9,"y":9},"length":8,"shout":"","squad":""}]},"you":{"id":"gs_DfcRK8HyHdC7pw3tFbgKtPyD","name":"Jaguar Meets Snake","body":[{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":2},{"x":4,"y":2},{"x":5,"y":2},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":7}],"health":34,"latency":169,"head":{"x":3,"y":0},"length":12,"shout":"","squad":""}}
+      createHazardSpiralGameData(gameState, 3, {x: 5, y: 6})
       const moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("left")
     }
   })
   it('vtail2: does not choose an escape route which closely follows another snake tail v2', () => {
     const gameState: GameState = {"game":{"id":"998af34a-e7d2-4d2d-93f4-9b2b1abbaf3c","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"testing"},"turn":88,"board":{"width":11,"height":11,"food":[{"x":0,"y":4}],"hazards":[{"x":7,"y":5},{"x":7,"y":6},{"x":8,"y":6},{"x":8,"y":5},{"x":8,"y":4},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":7},{"x":8,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":9,"y":5},{"x":9,"y":4},{"x":9,"y":3},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":6,"y":8},{"x":7,"y":8},{"x":8,"y":8}],"snakes":[{"id":"gs_QWFmb8DpjGy8wwJyVdypjYgD","name":"Demifemme (She or They pronouns)","body":[{"x":10,"y":10},{"x":10,"y":9},{"x":9,"y":9},{"x":9,"y":8},{"x":9,"y":7},{"x":10,"y":7},{"x":10,"y":6},{"x":0,"y":6}],"health":72,"latency":449,"head":{"x":10,"y":10},"length":8,"shout":"","squad":""},{"id":"gs_BthJbH4yxSR4WxQmwmmSvKhX","name":"Jaguar Meets Snake","body":[{"x":0,"y":5},{"x":10,"y":5},{"x":10,"y":4},{"x":9,"y":4},{"x":9,"y":5},{"x":8,"y":5},{"x":8,"y":4},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3},{"x":6,"y":2},{"x":6,"y":1},{"x":5,"y":1},{"x":5,"y":0}],"health":97,"latency":22,"head":{"x":0,"y":5},"length":14,"shout":"","squad":""},{"id":"gs_76D8hGWvrByVW4ggKB9XkXb8","name":"Shapeshifter","body":[{"x":1,"y":2},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":1,"y":6},{"x":1,"y":5},{"x":1,"y":4},{"x":1,"y":3},{"x":0,"y":3},{"x":0,"y":2}],"health":97,"latency":296,"head":{"x":1,"y":2},"length":12,"shout":"","squad":""},{"id":"gs_r398htPpm87rCkb6FKjCB8T6","name":"Gadiuka","body":[{"x":5,"y":10},{"x":4,"y":10},{"x":3,"y":10},{"x":2,"y":10},{"x":2,"y":9},{"x":2,"y":8},{"x":2,"y":7},{"x":1,"y":7},{"x":1,"y":8},{"x":1,"y":9}],"health":99,"latency":257,"head":{"x":5,"y":10},"length":10,"shout":"","squad":""}]},"you":{"id":"gs_BthJbH4yxSR4WxQmwmmSvKhX","name":"Jaguar Meets Snake","body":[{"x":0,"y":5},{"x":10,"y":5},{"x":10,"y":4},{"x":9,"y":4},{"x":9,"y":5},{"x":8,"y":5},{"x":8,"y":4},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3},{"x":6,"y":2},{"x":6,"y":1},{"x":5,"y":1},{"x":5,"y":0}],"health":97,"latency":22,"head":{"x":0,"y":5},"length":14,"shout":"","squad":""}}
+    createHazardSpiralGameData(gameState, 3, {x: 7, y: 5})
     const moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // down traps us in a tunnel chasing Shapeshifter's tail if Demifemme also traps us, whereas up cannot be trapped
   })
   it('attempts to escape through its own tail rather than another tail it is flipflopped with', () => {
     const gameState: GameState = {"game":{"id":"6002ef4b-6e9f-4df4-8358-55809c3a8841","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"testing"},"turn":132,"board":{"width":11,"height":11,"food":[{"x":4,"y":6},{"x":0,"y":4}],"hazards":[{"x":7,"y":6},{"x":7,"y":7},{"x":8,"y":7},{"x":8,"y":6},{"x":8,"y":5},{"x":7,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":7,"y":8},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":7},{"x":9,"y":6},{"x":9,"y":5},{"x":9,"y":4},{"x":8,"y":4},{"x":7,"y":4},{"x":6,"y":4},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":8,"y":9},{"x":9,"y":9},{"x":10,"y":9},{"x":10,"y":8},{"x":10,"y":7},{"x":10,"y":6},{"x":10,"y":5},{"x":10,"y":4},{"x":10,"y":3},{"x":9,"y":3},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3},{"x":5,"y":3},{"x":4,"y":3},{"x":4,"y":4}],"snakes":[{"id":"gs_SxP6bQGJrQd4C7HjvkCmYMvR","name":"Combat Reptile","body":[{"x":10,"y":4},{"x":9,"y":4},{"x":9,"y":3},{"x":10,"y":3},{"x":10,"y":2},{"x":9,"y":2},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2}],"health":55,"latency":444,"head":{"x":10,"y":4},"length":9,"shout":"","squad":""},{"id":"gs_TtBW4YMWXj4kgK9Xgk7qDBQ7","name":"Shapeshifter","body":[{"x":8,"y":9},{"x":8,"y":10},{"x":8,"y":0},{"x":8,"y":1},{"x":9,"y":1},{"x":9,"y":0},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":0,"y":1},{"x":0,"y":0}],"health":82,"latency":298,"head":{"x":8,"y":9},"length":12,"shout":"","squad":""},{"id":"gs_tcHPbg84gCKy8T9kXSPFvYR8","name":"Jaguar Meets Snake","body":[{"x":3,"y":5},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":3,"y":8},{"x":4,"y":8},{"x":4,"y":7},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":4,"y":9},{"x":4,"y":10},{"x":5,"y":10},{"x":6,"y":10},{"x":6,"y":0},{"x":7,"y":0},{"x":7,"y":10}],"health":92,"latency":99,"head":{"x":3,"y":5},"length":18,"shout":"","squad":""},{"id":"gs_8bFB77vKFmFFmhPFpFxgRqpG","name":"WhitishMeteor","body":[{"x":4,"y":4},{"x":4,"y":3},{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":1},{"x":4,"y":1},{"x":4,"y":0},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":4}],"health":100,"latency":160,"head":{"x":4,"y":4},"length":15,"shout":"","squad":""}]},"you":{"id":"gs_tcHPbg84gCKy8T9kXSPFvYR8","name":"Jaguar Meets Snake","body":[{"x":3,"y":5},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":3,"y":8},{"x":4,"y":8},{"x":4,"y":7},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":4,"y":9},{"x":4,"y":10},{"x":5,"y":10},{"x":6,"y":10},{"x":6,"y":0},{"x":7,"y":0},{"x":7,"y":10}],"health":92,"latency":99,"head":{"x":3,"y":5},"length":18,"shout":"","squad":""}}
+    createHazardSpiralGameData(gameState, 3, {x: 7, y: 5})
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("down")
   })
   it('does not walk into a trap set by two snakes', () => {
     const gameState: GameState = {"game":{"id":"98254863-d040-47a6-9524-25e30c040433","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"testing"},"turn":92,"board":{"width":11,"height":11,"food":[{"x":4,"y":5},{"x":6,"y":5},{"x":3,"y":4},{"x":0,"y":2}],"hazards":[{"x":3,"y":3},{"x":3,"y":4},{"x":4,"y":4},{"x":4,"y":3},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":3,"y":5},{"x":4,"y":5},{"x":5,"y":5},{"x":5,"y":4},{"x":5,"y":3},{"x":5,"y":2},{"x":5,"y":1},{"x":4,"y":1},{"x":3,"y":1},{"x":2,"y":1},{"x":1,"y":1},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":2,"y":6},{"x":3,"y":6},{"x":4,"y":6},{"x":5,"y":6}],"snakes":[{"id":"gs_84SYMh44MWFqxwWjh4JwJQX7","name":"Salazar Slitherin","body":[{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":4,"y":8},{"x":4,"y":7},{"x":3,"y":7},{"x":2,"y":7},{"x":1,"y":7},{"x":0,"y":7},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":9,"y":5},{"x":9,"y":4},{"x":10,"y":4},{"x":10,"y":5}],"health":60,"latency":387,"head":{"x":5,"y":5},"length":17,"shout":"6 4 91","squad":""},{"id":"gs_vxHpq6XvSS389WfDk9kxFxPb","name":"Jaguar Meets Snake","body":[{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":5,"y":9},{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":2,"y":10},{"x":2,"y":0},{"x":3,"y":0},{"x":4,"y":0}],"health":88,"latency":227,"head":{"x":6,"y":7},"length":11,"shout":"","squad":""},{"id":"gs_kD6kp6B76HQm6QpRcxymGxfG","name":"Combat Reptile","body":[{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":9,"y":3},{"x":10,"y":3},{"x":10,"y":2},{"x":9,"y":2},{"x":9,"y":1},{"x":10,"y":1},{"x":10,"y":0}],"health":94,"latency":402,"head":{"x":8,"y":1},"length":10,"shout":"","squad":""},{"id":"gs_4jVccvTwhp4SDfW4YKfPDXKb","name":"Pea Eater","body":[{"x":7,"y":5},{"x":7,"y":4},{"x":7,"y":3},{"x":7,"y":2},{"x":7,"y":1}],"health":70,"latency":438,"head":{"x":7,"y":5},"length":5,"shout":"","squad":""}]},"you":{"id":"gs_vxHpq6XvSS389WfDk9kxFxPb","name":"Jaguar Meets Snake","body":[{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":5,"y":9},{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":2,"y":10},{"x":2,"y":0},{"x":3,"y":0},{"x":4,"y":0}],"health":88,"latency":227,"head":{"x":6,"y":7},"length":11,"shout":"","squad":""}}
+    createHazardSpiralGameData(gameState, 3, {x: 3, y: 3})
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).not.toBe("down") // down allows Pea Eater & Salazar to trap me immediately. Right is reasonably safe.
+  })
+  it('vhazardCoverage1: values non-hazard Voronoi coverage over hazard coverage', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const gameState: GameState = {"game":{"id":"49cb3797-7950-465e-a76b-e5cd62ada51d","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false},"map":"hz_spiral","map_author":"altersaddle"}},"timeout":500,"source":"testing"},"turn":224,"board":{"width":11,"height":11,"food":[{"x":9,"y":9},{"x":3,"y":8},{"x":2,"y":9},{"x":8,"y":2}],"hazards":[{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":7},{"x":5,"y":6},{"x":5,"y":5},{"x":4,"y":5},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":8},{"x":5,"y":8},{"x":6,"y":8},{"x":6,"y":7},{"x":6,"y":6},{"x":6,"y":5},{"x":6,"y":4},{"x":5,"y":4},{"x":4,"y":4},{"x":3,"y":4},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":2,"y":9},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":7,"y":8},{"x":7,"y":7},{"x":7,"y":6},{"x":7,"y":5},{"x":7,"y":4},{"x":7,"y":3},{"x":6,"y":3},{"x":5,"y":3},{"x":4,"y":3},{"x":3,"y":3},{"x":2,"y":3},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":1,"y":9},{"x":1,"y":10},{"x":2,"y":10},{"x":3,"y":10},{"x":4,"y":10},{"x":5,"y":10},{"x":6,"y":10},{"x":7,"y":10},{"x":8,"y":10},{"x":8,"y":9},{"x":8,"y":8},{"x":8,"y":7},{"x":8,"y":6},{"x":8,"y":5},{"x":8,"y":4},{"x":8,"y":3},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2},{"x":5,"y":2},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":0,"y":2},{"x":0,"y":3}],"snakes":[{"id":"gs_93RwCvCxkYmtFWVmPFpmqjrW","name":"Jaguar Meets Snake","body":[{"x":4,"y":10},{"x":3,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":2,"y":1},{"x":2,"y":0},{"x":1,"y":0},{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":10,"y":5},{"x":10,"y":4},{"x":10,"y":3},{"x":10,"y":2},{"x":10,"y":1},{"x":10,"y":0},{"x":9,"y":0},{"x":8,"y":0},{"x":7,"y":0},{"x":6,"y":0},{"x":5,"y":0},{"x":5,"y":10}],"health":59,"latency":157,"head":{"x":4,"y":10},"length":25,"shout":"","squad":""},{"id":"gs_bTJbCckvHDD6MVbJ3QTg9RVW","name":"Pea Eater","body":[{"x":8,"y":9},{"x":7,"y":9},{"x":6,"y":9},{"x":6,"y":10},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":0,"y":10},{"x":0,"y":9},{"x":10,"y":9},{"x":10,"y":8},{"x":10,"y":7},{"x":10,"y":6},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8}],"health":55,"latency":436,"head":{"x":8,"y":9},"length":17,"shout":"","squad":""}]},"you":{"id":"gs_93RwCvCxkYmtFWVmPFpmqjrW","name":"Jaguar Meets Snake","body":[{"x":4,"y":10},{"x":3,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":2,"y":1},{"x":2,"y":0},{"x":1,"y":0},{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":10,"y":5},{"x":10,"y":4},{"x":10,"y":3},{"x":10,"y":2},{"x":10,"y":1},{"x":10,"y":0},{"x":9,"y":0},{"x":8,"y":0},{"x":7,"y":0},{"x":6,"y":0},{"x":5,"y":0},{"x":5,"y":10}],"health":59,"latency":157,"head":{"x":4,"y":10},"length":25,"shout":"","squad":""}}
+      createHazardSpiralGameData(gameState, 3, {x: 4, y: 6})
+      const moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("down") // down either forces us to eat & traps us in sauce, or eats our health stupidly. Right or up both good.
+    }
   })
 })
 
