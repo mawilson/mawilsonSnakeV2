@@ -9,7 +9,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 })
 
 // constants used in other files
-export const evalNoMeStandard: number = -2600 // no me is the worst possible state, give a very bad score
+export const evalNoMeStandard: number = -2700 // no me is the worst possible state, give a very bad score
 export const evalNoMeConstrictor: number = -6000 // constrictor noMe is considerably lower due to different Voronoi calq 
 
 const evalBase: number = 500
