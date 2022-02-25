@@ -185,7 +185,16 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let isDuel: boolean = stateContainsMe && (gameState.board.snakes.length === 2)
     
-    let board2d: Board2d = lookahead === startLookahead? startingBoard2d : new Board2d(gameState, true)
+    let board2d: Board2d
+    if (lookahead === startLookahead) {
+      board2d = startingBoard2d
+    } else {
+      if (stateContainsMe) {
+        board2d = new Board2d(gameState, true)
+      } else { // don't bother generating Voronoi stuff if I'm dead
+        board2d = new Board2d(gameState, false)
+      }
+    }
     let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
 
     let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
