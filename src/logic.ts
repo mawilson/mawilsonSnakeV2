@@ -1,9 +1,9 @@
-export const version: string = "1.3.2" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.3" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove, getLongestOtherSnake } from "./util"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult, VoronoiResults, VoronoiResultsSnake } from "./classes"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, lookaheadDeterminatorOld, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove, calculateReachableCells } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -101,7 +101,7 @@ export async function end(gameState: GameState): Promise<void> {
 // TODO
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, startLookahead: number): MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, startLookahead: number, startingBoard2d: Board2d): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
   let thisGameData: GameData | undefined = gameData[gameDataString]
   const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
@@ -185,13 +185,23 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let isDuel: boolean = stateContainsMe && (gameState.board.snakes.length === 2)
     
-    let board2d = new Board2d(gameState)
+    let board2d: Board2d
+    if (lookahead === startLookahead) {
+      board2d = startingBoard2d
+    } else {
+      if (stateContainsMe) {
+        board2d = new Board2d(gameState, true)
+      } else { // don't bother generating Voronoi stuff if I'm dead
+        board2d = new Board2d(gameState, false)
+      }
+    }
+    let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
 
     let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
     let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
     let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
 
-    let _evalThisState = evaluate(gameState, myself, evaluateKisses)
+    let _evalThisState = evaluate(gameState, myself, evaluateKisses, board2d, voronoiResults)
     let evalThisState: number = _evalThisState.sum(noMe)
 
     if (isDevelopment) {
@@ -291,7 +301,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place        
 
             otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
-              return b.length - a.length
+              let lengthDiff: number = b.length - a.length
+              if (lengthDiff !== 0) {
+                return lengthDiff
+              } else { // tiebreaker is Voronoi coverage. Force the snake with better Voronoi coverage to pick first, gives the smaller snake a better chance to pick somewhere that won't kill it
+                return voronoiResults.snakeResults[b.id].reachableCells - voronoiResults.snakeResults[a.id].reachableCells
+              }
             })
 
             otherSnakes.forEach(snake => {
@@ -398,7 +413,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
             }
           } else { // base case, just run the eval
-            evaluationResult = evaluate(newGameState, newSelf, kissArgs)
+            let newBoard2d: Board2d = new Board2d(newGameState, true)
+            let newVoronoiResults = calculateReachableCells(newGameState, newBoard2d)
+            evaluationResult = evaluate(newGameState, newSelf, kissArgs, newBoard2d, newVoronoiResults)
             evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
           }
           if (isDevelopment) {
@@ -499,10 +516,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
 export function move(gameState: GameState): MoveResponse {
   let timeBeginning = Date.now()
-  let futureSight: number = lookaheadDeterminator(gameState)
   let hazardWalls = new HazardWalls(gameState) // only need to calculate this once
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
+  let board2d: Board2d = new Board2d(gameState, true)
+  let futureSight: number = lookaheadDeterminatorOld(gameState, board2d)
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
@@ -557,7 +575,7 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d)
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState)) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {

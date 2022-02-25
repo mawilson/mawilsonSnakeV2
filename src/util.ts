@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake, GameData, HazardSpiral } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -19,7 +19,7 @@ export function getRandomInt(min: number, max: number) : number {
   max = Math.floor(max);
   
   let res: number = Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
-  logToFile(consoleWriteStream, `getRandomInt for min ${min}, max ${max} returned ${res}`)
+  //logToFile(consoleWriteStream, `getRandomInt for min ${min}, max ${max} returned ${res}`)
   return res
 }
 
@@ -1178,7 +1178,7 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
 }
 
 // finely tuned lookahead determinator based on various things - available moves, timeout, etc
-export function lookaheadDeterminator(gameState: GameState): number {
+export function lookaheadDeterminatorOld(gameState: GameState, board2d: Board2d): number {
   let lookahead: number
   let isSpeedSnake: boolean = gameState.game.timeout < 500
   let gameKeys = Object.keys(gameData)
@@ -1267,6 +1267,55 @@ export function lookaheadDeterminator(gameState: GameState): number {
     lookahead = lookahead > 0? lookahead - 1 : lookahead
     logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
   }
+
+  return lookahead
+}
+
+export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): number {
+  let lookahead: number
+  let isSpeedSnake: boolean = gameState.game.timeout < 500
+  let gameKeys = Object.keys(gameData)
+  let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 4)
+
+  if (isSpeedSnake) {
+    if (gameState.turn === 0) {
+      lookahead = 0
+    } else if (gameKeys.length > 1) { // if at least one other game is already running, run the game with one lookahead to avoid excess CPU usage 
+        lookahead = 1
+        logToFile(consoleWriteStream, `more than one game was running, decrementing lookahead to ${lookahead}`)
+    } else if (gameState.turn < 15) {
+      lookahead = 2
+    } else {
+      lookahead = 3
+    }
+    return lookahead
+  }
+
+  if (gameState.turn === 0) {
+    lookahead = 0
+  } else if (gameState.turn < 5) {
+    lookahead = 2
+  } else {
+    if (branchingFactor > 85) { // 86 & up
+      lookahead = 3
+    } else if (branchingFactor > 55) { // 56 & up
+      lookahead = 4
+    } else if (branchingFactor > 35) { // 36 & up
+      lookahead = 5
+    } else { // 35 & below
+      lookahead = 6
+    }
+  }
+
+  if (gameKeys.length >= 3) { // if three or more games are already running, run the game with two less lookahead to avoid excess CPU usage 
+    lookahead = ((lookahead - 2) >= 0)? lookahead - 2 : 0
+    logToFile(consoleWriteStream, `three or more games were running, decrementing lookahead to ${lookahead}`)
+  } else if (gameKeys.length === 2) {// if two games are currently running, run the game with one less lookahead to avoid excess CPU usage
+    lookahead = lookahead > 0? lookahead - 1 : lookahead
+    logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
+  }
+  lookahead = gameState.turn > 0 && lookahead < 1? 1 : lookahead // lookahead should always be at least 1, except on turn 0
+  logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} found branching factor of ${branchingFactor}. Returned lookahead of ${lookahead}`)
   return lookahead
 }
 
@@ -2069,21 +2118,39 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
   let hazardValue: number = determineVoronoiHazardValue(gameState)
   let hazardFoodValue: number = determineVoronoiHazardFoodValue(gameState)
   let totalReachableCells: number = 0
+  let isHazardSpiral: boolean = gameStateIsHazardSpiral(gameState)
+    let hazardSpiral: HazardSpiral | undefined
+    if (isHazardSpiral) {
+      let gameDataId = createGameDataId(gameState)
+      let thisGameData: GameData | undefined = gameData[gameDataId]
+      if (thisGameData) {
+        hazardSpiral = thisGameData.hazardSpiral
+      }
+    }
   gameState.board.snakes.forEach(snake => { voronoiResults.snakeResults[snake.id] = new VoronoiResultsSnake() }) // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
+
       if (cell !== undefined) {
         let voronoiKeys = Object.keys(cell.voronoi)
+        let depth = cell? cell.voronoiDepth() : undefined
+        let isHazard: boolean
+        if (isHazardSpiral && hazardSpiral !== undefined && cell !== undefined && depth !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
+          let hazardSpiralCell = hazardSpiral.getCell(cell.coord)
+          isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : cell.hazard // gameState turn + depth is effective turn
+          // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
+        } else {
+          isHazard = cell.hazard
+        }
         voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           let voronoiValue: number
           if (voronoiSnake !== undefined) {
-            let depth = cell? cell.voronoiDepth() : undefined
             if (voronoiSnake.depth === 0) { // cell that snake is currently occupying should always have a value of at least 1
               voronoiValue = 1
               voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue // normal Voronoi reward
-            } else if (cell && cell.hazard) { // for hazard cells
+            } else if (cell && isHazard) { // for hazard cells
               if (cell.food) { // hazard food reward
                 voronoiValue = hazardFoodValue
                 voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue
@@ -2113,7 +2180,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
           }
         })
 
-        if (cell.hazard) {
+        if (isHazard) {
           if (cell.food) {
             totalReachableCells = totalReachableCells + hazardFoodValue
           } else {
@@ -2127,6 +2194,28 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
   }
   voronoiResults.totalReachableCells = totalReachableCells
   return voronoiResults
+}
+
+// used by lookahead determinator to give a rough estimate of branching factor
+function calculateReachableCellsAtDepth(board2d: Board2d, depth: number): number {
+  let total: number = 0
+  for (let i: number = 0; i < board2d.width; i++) {
+    for (let j: number = 0; j < board2d.height; j++) {
+      let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
+      if (cell !== undefined) {
+        let voronoiKeys = Object.keys(cell.voronoi)
+        voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
+          let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
+          if (voronoiSnake !== undefined) {
+            if (voronoiSnake.depth <= depth) {
+              total = total + 1
+            }
+          }
+        })
+      }
+    }
+  }
+  return total
 }
 
 export function determineVoronoiSelf(voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean) {

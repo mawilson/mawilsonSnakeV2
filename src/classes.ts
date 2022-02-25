@@ -250,6 +250,14 @@ export class Board2d {
     let self : Board2d = this
 
     let isHazardSpiral: boolean = gameStateIsHazardSpiral(gameState)
+    let hazardSpiral: HazardSpiral | undefined
+    if (isHazardSpiral) {
+      let gameDataId = createGameDataId(gameState)
+      let thisGameData: GameData | undefined = gameData[gameDataId]
+      if (thisGameData) {
+        hazardSpiral = thisGameData.hazardSpiral
+      }
+    }
 
     let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
     let snakePossibleEats: {[key: string]: boolean[]} = {} // for Voronoi points, keeps track of depths & whether it ate at that depth
@@ -369,6 +377,14 @@ export class Board2d {
 
                   if (neighbor.snakeCell === undefined || !isBodyCell) {
                     let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
+                    let isHazard: boolean
+                    if (isHazardSpiral && hazardSpiral !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
+                      let hazardSpiralCell = hazardSpiral.getCell(neighbor.coord)
+                      isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : neighbor.hazard // gameState turn + depth is effective turn
+                      // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
+                    } else {
+                      isHazard = neighbor.hazard
+                    }
                     if (!neighborVoronoiKeys.includes(snakeId)) { // if another voronoiPoint has already added this snakeId to this cell, no need to revisit
                       let voronoiSnakeNewEffectiveLength: number = neighbor.food || this.isConstrictor? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
                       if (neighborVoronoiKeys.length === 0) { // if I am the first one to this boardCell, add myself to its voronoi array
@@ -377,10 +393,10 @@ export class Board2d {
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
-                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                          if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
-                          } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
+                          } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
                           }
@@ -392,10 +408,10 @@ export class Board2d {
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
-                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                          if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
-                          } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
+                          } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
                           }
@@ -406,10 +422,10 @@ export class Board2d {
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
-                          if (neighbor.hazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                          if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
-                          } else if (!neighbor.hazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
+                          } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
                           }
@@ -424,7 +440,7 @@ export class Board2d {
                         }
 
                         let oldHealth = neighbor.voronoi[snakeId].effectiveHealth
-                        let newHealth: number = (neighbor.food || this.isConstrictor)? 100 : neighbor.hazard? voronoiSnake.effectiveHealth - 1 - self.hazardDamage : voronoiSnake.effectiveHealth - 1
+                        let newHealth: number = (neighbor.food || this.isConstrictor)? 100 : isHazard? voronoiSnake.effectiveHealth - 1 - self.hazardDamage : voronoiSnake.effectiveHealth - 1
                         if (newHealth > oldHealth) {
                           neighbor.voronoi[snakeId].effectiveHealth = newHealth
                         }
@@ -680,19 +696,21 @@ export class HazardSpiral {
   startingCoord: Coord | undefined
   isWrapped: boolean
 
-  constructor(gameState: GameState, hazardFrequency: number) {
+  constructor(gameState: GameState, hazardFrequency: number, _startingTurn?: number, _startingCoord?: Coord) {
     this.hazardFrequency = hazardFrequency
     this.height = gameState.board.height
     this.width = gameState.board.width
     this.cells = new Array(this.height * this.width)
     this.isWrapped = gameStateIsWrapped(gameState)
-    if (gameState.board.hazards.length < 1) {
+    if (_startingCoord !== undefined) {
+      this.startingCoord = _startingCoord
+    } else if (gameState.board.hazards.length < 1) {
       return
     } else {
       this.startingCoord = gameState.board.hazards[0]
     }
 
-    let startingTurn: number = gameState.turn // the turn that the first hazard appeared
+    let startingTurn: number = _startingTurn !== undefined? _startingTurn : gameState.turn // the turn that the first hazard appeared
 
     let startingIdx: number = this.getIndex(this.startingCoord.x, this.startingCoord.y)
     let startingCell = new HazardSpiralCell(this.startingCoord, startingTurn)
