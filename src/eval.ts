@@ -153,15 +153,13 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     newSnakeOther.health = newSnakeSelf.health
   }
 
-  let board2d: Board2d = new Board2d(newGameState, true)
-  let voronoiResults: VoronoiResults = calculateReachableCells(newGameState, board2d)
-  let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo), board2d, voronoiResults)
+  let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
   evaluation.tieValue = evalTieFactor // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluation
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissStates: KissStatesForEvaluate, board2d: Board2d, voronoiResults: VoronoiResults) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissStates: KissStatesForEvaluate) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -413,6 +411,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
+  const board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
@@ -539,6 +538,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     evaluationResult.kissOfMurderSelfBonus = evalKissOfMurderSelfBonus
   }
 
+  let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
   let voronoiResultsSelf: VoronoiResultsSnake = voronoiResults.snakeResults[myself.id]
   let voronoiMyself: number = voronoiResultsSelf.reachableCells
   let nearbyFood: {[key: number]: Coord[]} = voronoiResultsSelf.food
