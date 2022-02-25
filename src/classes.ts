@@ -402,19 +402,21 @@ export class Board2d {
                           }
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && (voronoiSnakeNewEffectiveLength > neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength)) { // else if I am at the same depth as, & larger than the existing snakes in this board cell, remove them, & add myself
-                        neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
+                          neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
+                            neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
+                            neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
                             isNewVoronoiBoardCell = true
-                          }
+                          } // do not clear out old, smaller voronoiSnakes if snake would starve by stealing this cell away
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && voronoiSnakeNewEffectiveLength === neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength) { // else if I am at the same depth as, & equal to the existing snakes in this board cell, add myself
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
@@ -569,9 +571,9 @@ export class Board2d {
             str = str + "None " // each cell should be size 5
           } else if (voronoiKeys.length === 1) {
             if (tempCell.voronoi[voronoiKeys[0]].depth > 9) {
-              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 4) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
+              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 3) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
             } else {
-              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 5) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
+              str = str + (tempCell.voronoi[voronoiKeys[0]].snake.name).substring(0, 4) + tempCell.voronoi[voronoiKeys[0]].depth // each cell should be size 5
             }
           } else {
             if (tempCell.voronoi[voronoiKeys[0]].depth > 9) {
