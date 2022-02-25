@@ -1408,11 +1408,9 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         gameState.board.snakes.push(otherSnek)
         
         let kissStates = new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo)
-        let board2d: Board2d = new Board2d(gameState, true)
-        let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
-        let evalSnek = evaluate(gameState, snek, kissStates, board2d, voronoiResults)
+        let evalSnek = evaluate(gameState, snek, kissStates)
         let evalSnekScore = evalSnek.sum()
-        let evalOtherSnek = evaluate(gameState, otherSnek, kissStates, board2d, voronoiResults)
+        let evalOtherSnek = evaluate(gameState, otherSnek, kissStates)
         let evalOtherSnekScore = evalOtherSnek.sum()
 
         expect(evalSnekScore).toBeGreaterThan(evalOtherSnekScore)

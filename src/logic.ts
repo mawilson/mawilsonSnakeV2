@@ -1,9 +1,9 @@
-export const version: string = "1.3.3" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.4" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult, VoronoiResults, VoronoiResultsSnake } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, lookaheadDeterminatorOld, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove, calculateReachableCells } from "./util"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminatorOld, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -189,19 +189,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     if (lookahead === startLookahead) {
       board2d = startingBoard2d
     } else {
-      if (stateContainsMe) {
-        board2d = new Board2d(gameState, true)
-      } else { // don't bother generating Voronoi stuff if I'm dead
-        board2d = new Board2d(gameState, false)
-      }
+      board2d = new Board2d(gameState, false)
     }
-    let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
 
     let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
     let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
     let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
 
-    let _evalThisState = evaluate(gameState, myself, evaluateKisses, board2d, voronoiResults)
+    let _evalThisState = evaluate(gameState, myself, evaluateKisses)
     let evalThisState: number = _evalThisState.sum(noMe)
 
     if (isDevelopment) {
@@ -301,12 +296,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place        
 
             otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
-              let lengthDiff: number = b.length - a.length
-              if (lengthDiff !== 0) {
-                return lengthDiff
-              } else { // tiebreaker is Voronoi coverage. Force the snake with better Voronoi coverage to pick first, gives the smaller snake a better chance to pick somewhere that won't kill it
-                return voronoiResults.snakeResults[b.id].reachableCells - voronoiResults.snakeResults[a.id].reachableCells
-              }
+              return b.length - a.length
             })
 
             otherSnakes.forEach(snake => {
@@ -413,9 +403,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
             }
           } else { // base case, just run the eval
-            let newBoard2d: Board2d = new Board2d(newGameState, true)
-            let newVoronoiResults = calculateReachableCells(newGameState, newBoard2d)
-            evaluationResult = evaluate(newGameState, newSelf, kissArgs, newBoard2d, newVoronoiResults)
+            evaluationResult = evaluate(newGameState, newSelf, kissArgs)
             evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
           }
           if (isDevelopment) {
