@@ -1,4 +1,4 @@
-export const version: string = "1.3.4" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.5" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -508,7 +508,7 @@ export function move(gameState: GameState): MoveResponse {
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
   let board2d: Board2d = new Board2d(gameState, true)
-  let futureSight: number = lookaheadDeterminatorOld(gameState, board2d)
+  let futureSight: number = lookaheadDeterminatorOld(gameState)
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
@@ -564,7 +564,7 @@ export function move(gameState: GameState): MoveResponse {
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d)
-  let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, new Board2d(gameState)) // if decideMove has somehow not decided up on a move, get a default direction to go in
+  let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, board2d) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {
     let timeTaken: number = Date.now() - timeBeginning

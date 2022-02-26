@@ -213,11 +213,13 @@ export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
   tailChases: number[]
+  effectiveHealths: number[]
 
   constructor() {
     this.reachableCells = 0
     this.food = {}
     this.tailChases = []
+    this.effectiveHealths = []
   }
 }
 

@@ -1178,7 +1178,7 @@ export function determineKissStateForDirection(direction: Direction, kissStates:
 }
 
 // finely tuned lookahead determinator based on various things - available moves, timeout, etc
-export function lookaheadDeterminatorOld(gameState: GameState, board2d: Board2d): number {
+export function lookaheadDeterminatorOld(gameState: GameState): number {
   let lookahead: number
   let isSpeedSnake: boolean = gameState.game.timeout < 500
   let gameKeys = Object.keys(gameData)
@@ -1267,6 +1267,7 @@ export function lookaheadDeterminatorOld(gameState: GameState, board2d: Board2d)
     lookahead = lookahead > 0? lookahead - 1 : lookahead
     logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
   }
+  logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} returned lookahead of ${lookahead}`)
 
   return lookahead
 }
@@ -2177,6 +2178,8 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
                 voronoiResults.snakeResults[snakeId].tailChases[depth] = tailChases + voronoiValue // increment tail chases at this depth by the Voronoi value of this cell
               }
             }
+
+            voronoiResults.snakeResults[snakeId].effectiveHealths.push(voronoiSnake.effectiveHealth)
           }
         })
 
