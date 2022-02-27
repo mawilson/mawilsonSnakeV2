@@ -689,20 +689,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       voronoiDelta = voronoiMyself - voronoiLargest
       evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
     } else { // if voronoiMyself, after tail chase considerations, is better than evalVoronoiBaseGood, it's a 'good', positive score
+      let voronoiSelfAdjusted: number
       if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
-        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+        voronoiSelfAdjusted = voronoiSelf * evalVoronoiPositiveStep
       } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
-        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
+        voronoiSelfAdjusted = voronoiSelf * evalVoronoiNegativeStep
       }
 
-      if (hazardDamage > 0 && voronoiSelf > 0) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
+      // outcome only improved in wrapped games, went from 54% to 40% in standard royale after implementing this
+      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && isWrapped) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
         const healthSum: number = voronoiResultsSelf.effectiveHealths.reduce((sum: number, health: number) => { return sum + health})
         const healthAverage: number = healthSum / voronoiResultsSelf.effectiveHealths.length // is average health of snake in reachable cells
         const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
-        voronoiSelf = voronoiSelf * healthRatio // Voronoi reward is dependent on average health in squares I can cover - makes hazard dives without a plan less glamorous
+        voronoiSelfAdjusted = voronoiSelfAdjusted * healthRatio // Voronoi reward is dependent on average health in squares I can cover - makes hazard dives without a plan less glamorous
       }
 
-      evaluationResult.voronoiSelf = voronoiSelf
+      evaluationResult.voronoiSelf = voronoiSelfAdjusted
     }
 
     let voronoiPredatorBonus: number = 0
@@ -716,6 +718,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         let preySnakeVoronoi: number = determineVoronoiSelf(preySnakeResults, evalVoronoiBaseGood, !isOriginalSnake) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
         if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
           let howBad: number = -preySnakeVoronoi * evalVoronoiNegativeStep // preySnakeVoronoi is negative so need to negate this
+          if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
+            howBad = howBad - evalAvailableMoves0Moves // evalAvailableMoves0Moves is negative, but here we negate it as a reward
+          }
           if (isOriginalSnake && !isDuel) {
             howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
           }
