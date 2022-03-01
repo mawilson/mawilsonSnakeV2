@@ -25,17 +25,17 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
   const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
   const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealth6 = evalHealth7 - healthTierDifference // 75 - 10 = 65
-  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 65 - 10 - (1 * 1) = 54
-  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // 54 - 10 - (1 * 2) = 42
-  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // 42 - 10 - (1 * 3) = 29
-  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // 29 - 10 - (1 * 4) = 15
-  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) // 15 - 10 - (1 * 5) = 0
+  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 65 - 10 - (6 * 1) = 49
+  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // 54 - 10 - (6 * 2) = 27
+  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // 42 - 10 - (6 * 3) = -1
+  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // 29 - 10 - (6 * 4) = -35
+  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) // 15 - 10 - (6 * 5) = -75
   const evalHealth0 = -200 // this needs to be a steep penalty, else may choose never to eat
   let evaluation: number = 0
 
   if (snake.health <= 0) {
     evaluation = evaluation + evalHealthStarved
-  } else if (hazardDamage <= 5 && snake.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
+  } else if (hazardDamage <= 0 && snake.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
     evaluation = evaluation + evalHealth0
   } else if (validHazardTurns > 6) {
     evaluation = evaluation + evalHealth7
@@ -50,10 +50,8 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
   } else if (validHazardTurns > 1) {
     evaluation = evaluation + evalHealth2 
   } else if (validHazardTurns > 0) {
-    evaluation = evaluation + evalHealth0
-  } else {
-    evaluation = evaluation + evalHealth0
-  }
+    evaluation = evaluation + evalHealth1
+  } // validHazardTurns will never be <= 0, as that is starvation & would match the top if
 
   return evaluation
 }
@@ -267,7 +265,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
-  const evalHealthStep = 3
+  const evalHealthStep = hazardDamage > 0? 6 : 3
   const evalHealthTierDifference = 10
 
   const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
