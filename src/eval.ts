@@ -18,6 +18,7 @@ const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to twea
 
 const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
 const evalHealthOthersnakeDuelStep = -3
+const evalHealthOthersnakeStarveReward = 50
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
 function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
@@ -723,6 +724,18 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
             howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
           }
           voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
+        }
+
+        if (hazardDamage > 0) { // additional reward for starving out prey snake
+          const validHazardTurns = Math.floor(preySnake.health / (hazardDamage + 1))
+          const preySnakeFoodKeys = Object.keys(preySnakeResults.food)
+          if (preySnakeFoodKeys.length === 0) { // if prey snake cannot reach any food in this state, & is starving, give additional starvation reward
+            if (validHazardTurns === 1) {
+              evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward
+            } else if (validHazardTurns === 0) {
+              evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3
+            }
+          }
         }
       }
     }

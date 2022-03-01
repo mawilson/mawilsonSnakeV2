@@ -1,9 +1,9 @@
-export const version: string = "1.3.7" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.8" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminatorOld, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -325,33 +325,39 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 // allow snakes that died to reroll their move
                 if (murderSnake !== undefined) {
                   let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(newGameState, snake, new Board2d(newGameState)).validMoves()
+                  let murderSnakeBeforeMove: Battlesnake | undefined = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
+                    return murderSnake !== undefined && priorSnake.id === murderSnake.id
+                  })
+                  let newMove: MoveWithEval
                   switch (otherSnakeAvailableMoves.length) { // allow otherSnake to choose again if that may make a difference
                     case 0: // otherSnake has no other options, don't change its move
                       break
                     case 1: // otherSnake has only one other option left. Evaluate it, choose it if it's better than a tie
                     case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie
-                      let newMove = _decideMove(newGameState, snake, 0, undefined, Direction.AlreadyMoved) // let snake decide again, no lookahead this time, & tell it that myself already moved
-                      // note that in this case, otherSnake will end up moving myself again (e.g. myself snake has moved twice), which may result in it choosing badly
-                      if (newMove.score !== undefined) { // don't choose a move whose score is undefined, can't determine if it's better than what we have
-                        if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
-                          adjustedMove = newMove
-                        } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
-                          let murderSnakeBeforeMove: Battlesnake | undefined = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
-                            return murderSnake !== undefined && priorSnake.id === murderSnake.id
-                          })
-                          if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
-                            if (!isDuel) { // it's not a duel
-                              if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
-                                adjustedMove = newMove
-                              } else if (murderSnake.id !== gameState.you.id) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, rechoose
-                                adjustedMove = newMove
-                              }
-                            } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
+                      if (otherSnakeAvailableMoves.length === 1) {
+                        if (isDuel && murderSnakeBeforeMove !== undefined && murderSnakeBeforeMove.length === snake.length) {
+                          newMove = _decideMove(newGameState, snake, 0, undefined, Direction.AlreadyMoved) // let snake decide again, no lookahead this time, & tell it that myself already moved
+                        } else {
+                          newMove = new MoveWithEval(otherSnakeAvailableMoves[0], undefined) // with only one other move available, score only matters in a duel tie
+                        }
+                      } else {
+                        newMove = _decideMove(newGameState, snake, 0, undefined, Direction.AlreadyMoved) // let snake decide again, no lookahead this time, & tell it that myself already moved
+                      }
+                      if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
+                        adjustedMove = newMove
+                      } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
+                        if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
+                          if (!isDuel) { // it's not a duel
+                            if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
                               adjustedMove = newMove
-                            } else if (newMove.score > (2 * determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum(noMe))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
+                            } else if (murderSnake.id !== gameState.you.id) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, rechoose
                               adjustedMove = newMove
-                            } // if it fails all three of those, we won't rechoose
-                          }
+                            }
+                          } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
+                            adjustedMove = newMove
+                          } else if (newMove.score !== undefined && newMove.score > (2 * determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum(noMe))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
+                            adjustedMove = newMove
+                          } // if it fails all three of those, we won't rechoose
                         }
                       }
                       break
@@ -508,7 +514,7 @@ export function move(gameState: GameState): MoveResponse {
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
   let board2d: Board2d = new Board2d(gameState, true)
-  let futureSight: number = lookaheadDeterminatorOld(gameState)
+  let futureSight: number = lookaheadDeterminator(gameState, board2d)
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
