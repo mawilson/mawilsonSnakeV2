@@ -1,9 +1,9 @@
-export const version: string = "1.3.9" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.10" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, lookaheadDeterminator, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -177,8 +177,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       timeStart = Date.now()
     }
     
-    let stillHaveTime = checkTime(startTime, gameState, isDevelopment) // if this is true, we need to hurry & return a value without doing any more significant calculation
-    
+    let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
+    if (!stillHaveTime) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
+
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
       return snake.id === myself.id
     })
@@ -216,7 +217,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
-    if (!isTesting && !stillHaveTime) { // if we need to leave early due to time
+    if (!stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
@@ -265,7 +266,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead)
     let averageMoveScore: number | undefined = evaluationsForMachineLearning[snakeScoreHash]
     let doneEvaluating: boolean = false
-    availableMoves.forEach(function evaluateMove(move) {
+    for (let i: number = 0; i < availableMoves.length; i++) {
+      let move: Direction = availableMoves[i]
+      if (!checkTime(startTime, gameState)) { return new MoveWithEval(undefined, undefined) }
       if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && myself.id === gameState.you.id) { // machine learning check! Only do for self
         if (averageMoveScore !== undefined) { // if an average move score exists for this game state
           if (averageMoveScore > 0 && bestMove.score >= (averageMoveScore * 1.1)) { // if the average move score isn't objectively bad, & bestMove is appreciably better than it
@@ -441,7 +444,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
         } // if newSelf isn't defined, I have died, will evaluate the state without me lower down
       }
-    })
+    }
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
     let canLearn: boolean = averageMoveScore === undefined || averageMoveScore < 0 // can still learn if we didn't have data for this move, or the only data we had was worthless
@@ -514,7 +517,7 @@ export function move(gameState: GameState): MoveResponse {
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
   let board2d: Board2d = new Board2d(gameState, true)
-  let futureSight: number = lookaheadDeterminator(gameState, board2d)
+  let futureSight: number = gameState.turn > 0? 7 : 0
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
@@ -569,7 +572,20 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
-  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d)
+  let chosenMove: MoveWithEval = decideMove(gameState, gameState.you, timeBeginning, 0, board2d)
+
+  let i: number = 1
+  let newMove: MoveWithEval
+  while(checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
+    newMove = decideMove(gameState, gameState.you, timeBeginning, i, board2d) // choose another move with increased lookahead depth
+    if (checkTime(timeBeginning, gameState)) { 
+      chosenMove = newMove // if chosenMove was determined with time to spare, can use it
+      i = i + 1
+    } else {
+      break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
+    } 
+  }
+
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, board2d) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {
