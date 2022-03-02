@@ -1267,7 +1267,7 @@ export function lookaheadDeterminatorOld(gameState: GameState): number {
     lookahead = lookahead > 0? lookahead - 1 : lookahead
     logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
   }
-  logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} returned lookahead of ${lookahead}`)
+  //logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} returned lookahead of ${lookahead}`)
 
   return lookahead
 }
@@ -1276,7 +1276,7 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
   let lookahead: number
   let isSpeedSnake: boolean = gameState.game.timeout < 500
   let gameKeys = Object.keys(gameData)
-  let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 4)
+  let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 3)
 
   if (isSpeedSnake) {
     if (gameState.turn === 0) {
@@ -1294,16 +1294,16 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
 
   if (gameState.turn === 0) {
     lookahead = 0
-  } else if (gameState.turn < 5) {
+  } else if (gameState.turn < 11) {
     lookahead = 2
   } else {
-    if (branchingFactor > 85) { // 86 & up
+    if (branchingFactor > 45) { // 46 & up
       lookahead = 3
-    } else if (branchingFactor > 55) { // 56 & up
+    } else if (branchingFactor > 28) { // 29 & up
       lookahead = 4
-    } else if (branchingFactor > 35) { // 36 & up
+    } else if (branchingFactor > 17) { // 18 & up
       lookahead = 5
-    } else { // 35 & below
+    } else { // 17 & below
       lookahead = 6
     }
   }
