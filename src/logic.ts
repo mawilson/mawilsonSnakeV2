@@ -1,4 +1,4 @@
-export const version: string = "1.3.8" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.9" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -177,7 +177,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       timeStart = Date.now()
     }
     
-    let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
+    let stillHaveTime = checkTime(startTime, gameState, isDevelopment) // if this is true, we need to hurry & return a value without doing any more significant calculation
     
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
       return snake.id === myself.id

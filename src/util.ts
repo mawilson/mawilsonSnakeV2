@@ -910,6 +910,13 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
   return moves
 }
 
+// gets available moves based on health & walls alone
+export function getAvailableMovesHealth(gameState: GameState, myself: Battlesnake, board2d: Board2d): Moves {
+  let moves: Moves = new Moves(true, true, true, true)
+  checkForHealth(myself, gameState, board2d, moves)
+  return moves
+}
+
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
@@ -1277,6 +1284,7 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
   let isSpeedSnake: boolean = gameState.game.timeout < 500
   let gameKeys = Object.keys(gameData)
   let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 3)
+  let numSnakes: number = gameState.board.snakes.length
 
   if (isSpeedSnake) {
     if (gameState.turn === 0) {
@@ -1300,11 +1308,23 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     if (branchingFactor > 45) { // 46 & up
       lookahead = 3
     } else if (branchingFactor > 28) { // 29 & up
-      lookahead = 4
+      if (numSnakes > 2) {
+        if (branchingFactor > 40) {
+          lookahead = 3
+        } else {
+          lookahead = 4
+        }
+      } else {
+        lookahead = 4
+      }
     } else if (branchingFactor > 17) { // 18 & up
-      lookahead = 5
+      if (numSnakes > 2) {
+        lookahead = 4
+      } else {
+        lookahead = 5
+      }
     } else { // 17 & below
-      lookahead = 6
+      lookahead = 5
     }
   }
 
