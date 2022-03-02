@@ -1306,25 +1306,25 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     lookahead = 2
   } else {
     if (branchingFactor > 45) { // 46 & up
-      lookahead = 3
+      lookahead = 4
     } else if (branchingFactor > 28) { // 29 & up
       if (numSnakes > 2) {
         if (branchingFactor > 40) {
-          lookahead = 3
-        } else {
           lookahead = 4
+        } else {
+          lookahead = 5
         }
-      } else {
-        lookahead = 4
-      }
-    } else if (branchingFactor > 17) { // 18 & up
-      if (numSnakes > 2) {
-        lookahead = 4
       } else {
         lookahead = 5
       }
+    } else if (branchingFactor > 17) { // 18 & up
+      if (numSnakes > 2) {
+        lookahead = 5
+      } else {
+        lookahead = 6
+      }
     } else { // 17 & below
-      lookahead = 5
+      lookahead = 6
     }
   }
 
@@ -1336,7 +1336,7 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
   }
   lookahead = gameState.turn > 0 && lookahead < 1? 1 : lookahead // lookahead should always be at least 1, except on turn 0
-  logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} found branching factor of ${branchingFactor}. Returned lookahead of ${lookahead}`)
+  //logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} found branching factor of ${branchingFactor}. Returned lookahead of ${lookahead}`)
   return lookahead
 }
 
