@@ -910,6 +910,13 @@ export function getAvailableMoves(gameState: GameState, myself: Battlesnake, boa
   return moves
 }
 
+// gets available moves based on health & walls alone
+export function getAvailableMovesHealth(gameState: GameState, myself: Battlesnake, board2d: Board2d): Moves {
+  let moves: Moves = new Moves(true, true, true, true)
+  checkForHealth(myself, gameState, board2d, moves)
+  return moves
+}
+
 // given a set of deathMoves that lead us into possibly being eaten,
 // killMoves that lead us into possibly eating another snake,
 // and moves, which is our actual move decision array
