@@ -1306,25 +1306,25 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     lookahead = 2
   } else {
     if (branchingFactor > 45) { // 46 & up
-      lookahead = 4
+      lookahead = 3
     } else if (branchingFactor > 28) { // 29 & up
       if (numSnakes > 2) {
         if (branchingFactor > 40) {
-          lookahead = 4
+          lookahead = 3
         } else {
-          lookahead = 5
+          lookahead = 4
         }
       } else {
-        lookahead = 5
+        lookahead = 4
       }
     } else if (branchingFactor > 17) { // 18 & up
       if (numSnakes > 2) {
-        lookahead = 5
+        lookahead = 4
       } else {
-        lookahead = 6
+        lookahead = 5
       }
     } else { // 17 & below
-      lookahead = 6
+      lookahead = 5
     }
   }
 
