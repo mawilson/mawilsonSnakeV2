@@ -1,4 +1,4 @@
-export const version: string = "1.3.11" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.12" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -580,6 +580,7 @@ export function move(gameState: GameState): MoveResponse {
     let i: number = 1
     let newMove: MoveWithEval
     while(checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
+      thisGameData.lookahead = i
       newMove = decideMove(gameState, gameState.you, timeBeginning, i, board2d, true) // choose another move with increased lookahead depth
       if (checkTime(timeBeginning, gameState)) { 
         chosenMove = newMove // if chosenMove was determined with time to spare, can use it
@@ -588,6 +589,7 @@ export function move(gameState: GameState): MoveResponse {
         break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
       } 
     }
+    logToFile(consoleWriteStream, `max lookahead depth for iterative deepening: ${i - 1}`)
   } else { // if running three or more games at once, do not iteratively deepen, may time out on the basic stuff
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d, false)
   }
