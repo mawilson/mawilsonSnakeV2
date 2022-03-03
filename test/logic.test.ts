@@ -378,7 +378,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 10, y: 10}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 9, y: 10}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health, new Board2d(gameState, true))
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health, new Board2d(gameState, true), true)
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -389,7 +389,7 @@ describe('BattleSnake can chase tail', () => {
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 1, y: 0}, {x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}, {x: 3, y: 0}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
-      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health, new Board2d(gameState, true))
+      let otherSnekMove = decideMove(gameState, otherSnek, Date.now(), snek.health, new Board2d(gameState, true), true)
       expect(otherSnekMove.direction).toBe(Direction.Left)
     }
   })
@@ -3323,5 +3323,15 @@ describe('league early return tests', () => {
 
       expect(gameState.board.snakes.length).toBe(2) // snek should not have already killed itself
     }
+  })
+})
+
+describe('iterative deepening tests', () => {
+  it('does not time out when iterative deepening', () => {
+    const gameState = {"game":{"id":"92670e3f-df6f-440c-9296-ae22750f48dc","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"custom"},"turn":58,"board":{"width":11,"height":11,"food":[{"x":2,"y":0}],"hazards":[],"snakes":[{"id":"gs_CVHPcpFqG9YXQHXcw4QHHDb7","name":"🇺🇦 Jaguar Meets Snake 🇺🇦","body":[{"x":5,"y":3},{"x":5,"y":2},{"x":4,"y":2},{"x":3,"y":2},{"x":3,"y":3},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5}],"health":97,"latency":453,"head":{"x":5,"y":3},"length":8,"shout":"","squad":""},{"id":"gs_kBXb4YwSpp6vkqgR3RKXkpmV","name":"marrrvin","body":[{"x":9,"y":3},{"x":8,"y":3},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7}],"health":91,"latency":20,"head":{"x":9,"y":3},"length":7,"shout":"","squad":""},{"id":"gs_rcBtTTTcfXHX6tC8vJvKPRhK","name":"nomblegomble","body":[{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":10},{"x":5,"y":10}],"health":50,"latency":127,"head":{"x":5,"y":9},"length":4,"shout":"3","squad":""}]},"you":{"id":"gs_CVHPcpFqG9YXQHXcw4QHHDb7","name":"🇺🇦 Jaguar Meets Snake 🇺🇦","body":[{"x":5,"y":3},{"x":5,"y":2},{"x":4,"y":2},{"x":3,"y":2},{"x":3,"y":3},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5}],"health":97,"latency":453,"head":{"x":5,"y":3},"length":8,"shout":"","squad":""}}
+    const startTime = Date.now()
+    const moveResponse = move(gameState)
+    const endTime = Date.now()
+    expect(endTime - startTime).toBeLessThan(500)
   })
 })
