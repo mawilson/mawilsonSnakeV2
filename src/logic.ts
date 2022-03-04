@@ -1,4 +1,4 @@
-export const version: string = "1.3.12" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.13" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -217,7 +217,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
-    if (!stillHaveTime) { // if we need to leave early due to time
+    if (!isTesting && !stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
@@ -573,9 +573,13 @@ export function move(gameState: GameState): MoveResponse {
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   
   let chosenMove: MoveWithEval
-  if (gameDataIds.length === 1) { // if running only one game, do iterative deepening
+  if (gameDataIds.length === 1 && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, 0, board2d, true)
-    futureSight = gameState.turn > 0? 7 : 0
+    if (gameState.turn === 0) {
+      futureSight = 0
+    } else {
+      futureSight = 7
+    }
 
     let i: number = 1
     let newMove: MoveWithEval

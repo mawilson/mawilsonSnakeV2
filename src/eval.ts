@@ -10,7 +10,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 
 // constants used in other files
 export const evalNoMeStandard: number = -3100 // no me is the worst possible state, give a very bad score
-export const evalNoMeConstrictor: number = -6000 // constrictor noMe is considerably lower due to different Voronoi calq 
+export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq 
 
 const evalBase: number = 500
 const evalDefaultTieValue: number = 460 // the value I had evalNoSnakes at when I wrote this function. A generic 'good' eval state
@@ -684,6 +684,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         if (voronoiOriginalSnake !== undefined) {
           voronoiLargest = voronoiOriginalSnake
         }
+      }
+      if (haveWon) { // in the event of winning, consider voronoiMyself to be the max, regardless of the truth.
+        voronoiMyself = voronoiResults.totalReachableCells
       }
       voronoiDelta = voronoiMyself - voronoiLargest
       evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
