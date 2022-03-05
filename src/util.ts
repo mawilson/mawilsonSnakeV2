@@ -2275,7 +2275,7 @@ export function isFlip(coord: Coord) {
   return (xIsEven && yIsEven) || (!xIsEven && !yIsEven)
 }
 
-function determineVoronoiHazardValue(gameState: GameState): number {
+export function determineVoronoiHazardValue(gameState: GameState): number {
   const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
   if (hazardDamage <= 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
