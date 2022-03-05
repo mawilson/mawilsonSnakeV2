@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood, determineVoronoiSelf } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -13,12 +13,14 @@ export const evalNoMeStandard: number = -3100 // no me is the worst possible sta
 export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq 
 
 const evalBase: number = 500
-const evalDefaultTieValue: number = 460 // the value I had evalNoSnakes at when I wrote this function. A generic 'good' eval state
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
 
 const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
 const evalHealthOthersnakeDuelStep = -3
 const evalHealthOthersnakeStarveReward = 50
+
+const evalVoronoiNegativeStep = 100
+const evalVoronoiPositiveStep = 4.5
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
 function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
@@ -82,79 +84,54 @@ function determineEvalNoSnakesConstrictor(myself: Battlesnake): EvaluationResult
   return evaluationResult
 }
 
-// helper function to determine a good 'average' evaluate score, for use in determining whether a tie is better or worse than that
-// can either take a board where both snakes have already died, or a board where both snakes may soon die. Boards with neither 0 nor 2 snakes return a default value
+// normal evalNoSnakes must distinguish between self & otherSnakes due to difference in how Voronoi is awarded
 export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake, tieSnake: Battlesnake | undefined): EvaluationResult {
-  const thisGameData = gameData? gameData[gameState.game.id + gameState.you.id] : undefined
-  const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
-  const centers = calculateCenterWithHazard(gameState, hazardWalls)
-
   if (gameStateIsConstrictor(gameState)) {
     return determineEvalNoSnakesConstrictor(myself)
   }
+  let evaluationResult = new EvaluationResult(myself)
+  evaluationResult.base = evalBase
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const evalHealthStep = hazardDamage > 0? 6 : 3
+  const evalHealthTierDifference = 10
+  const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
 
-  let newGameState = cloneGameState(gameState)
-  newGameState.board.food = [] // remove food for neutrality
-
-  // try to position snakes at neutral, non-kiss positions on game board, ideally out of hazard
-  let leftSnakeX = centers.centerX - 2
-  let leftSnakeY = centers.centerY
-  let rightSnakeX = centers.centerX + 2
-  let rightSnakeY = centers.centerY
-  if (leftSnakeX < 0) { // if there wasn't room to move leftSnakeX two left, move it back to center
-    leftSnakeX = centers.centerX
+  evaluationResult.health = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMeStandard)
+  if (tieSnake) {
+    evaluationResult.otherSnakeHealth = determineOtherSnakeHealthEval([tieSnake])
   }
-  if (rightSnakeX >= gameState.board.width) { // likewise, if there wasn't room to move rightSnakeX two right, move it back to center
-    rightSnakeX = centers.centerX
-  }
-  if (leftSnakeX === rightSnakeX) { // if leftSnakeX & rightSnakeX are now equal, move leftSnakeX one to the left
-    leftSnakeX = leftSnakeX - 1
-  }
-  if (leftSnakeX < 0) { // if there still wasn't room to move leftSnakeX one left, give up
-    let result: EvaluationResult = new EvaluationResult(gameState.you)
-    result.tieValue = evalDefaultTieValue + evalTieFactor
-    return result
-  }
-
-  let leftSnakeBody = []
-  let rightSnakeBody = []
-  let newSnakeSelf: Battlesnake
-  let newSnakeOther: Battlesnake
-
-  if (tieSnake === undefined) { // we weren't sure who the tieSnake was, use a clone of myself instead
-    for (let i: number = 0; i < myself.length; i++) {
-      leftSnakeBody.push({x: leftSnakeX, y: leftSnakeY})
-      rightSnakeBody.push({x: rightSnakeX, y: rightSnakeY})
+  if (gameState.you.id === myself.id) {
+    if (hazardDamage > 0) { // hazard Voronoi calqs have smaller totalReachableCells & a healthRatio in wrapped
+      const hazardValue: number = determineVoronoiHazardValue(gameState)
+      const totalReachableCells: number = (gameState.board.height * gameState.board.width - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+      const myReachableCells: number = totalReachableCells / 2
+      const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
+      let voronoiSelf: number = myReachableCells - voronoiBaseGood // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
+      if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+      } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
+      }
+      if (gameStateIsWrapped(gameState)) {
+        const healthRatio = (myself.health / 2) / 100 // say average health is half of current health
+        voronoiSelf = voronoiSelf * healthRatio
+      }
+      evaluationResult.voronoiSelf = voronoiSelf
+    } else {
+      const totalReachableCells: number = gameState.board.height * gameState.board.width
+      const myReachableCells: number = totalReachableCells / 2
+      const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
+      let voronoiSelf: number = myReachableCells - voronoiBaseGood // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
+      if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+      } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
+      }
+      evaluationResult.voronoiSelf = voronoiSelf
     }
-    newSnakeSelf = new Battlesnake(myself.id, myself.name, myself.health, leftSnakeBody, myself.latency, myself.shout, myself.squad) // create new me, identical other than body
-    newSnakeOther = new Battlesnake(myself.id + "_clone", myself.name + "_clone", myself.health, rightSnakeBody, myself.latency, myself.shout, myself.squad) // create clone of me nearby, with different ID & name
-  } else {
-    for (let i: number = 0; i < myself.length; i++) {
-      leftSnakeBody.push({x: leftSnakeX, y: leftSnakeY})
-    }
-    newSnakeSelf = new Battlesnake(myself.id, myself.name, myself.health, leftSnakeBody, myself.latency, myself.shout, myself.squad) // create new me, identical other than body
-    while (leftSnakeBody.length > rightSnakeBody.length) { // these snakes tied, their lengths should always be even, don't let wonky scenarios like Constrictor break that
-      rightSnakeBody.push({x: rightSnakeX, y: rightSnakeY})
-    }
-    newSnakeOther = new Battlesnake(tieSnake.id, tieSnake.name, tieSnake.health, rightSnakeBody, tieSnake.latency, tieSnake.shout, tieSnake.squad) // create new otherSnake, identical other than body
-  }
-
-  if (newGameState.board.snakes.length === 2) { // want to determine what evalNoSnakes would be were both of these snakes to die at once
-    newGameState.board.snakes = [] // first, remove them - will add them back later at 'neutral' positions
-  }
-
-  newGameState.board.snakes.push(newSnakeSelf)
-  newGameState.board.snakes.push(newSnakeOther)
-
-  // addresses an edge case where tie score is wildly higher due food immediacy bonuses. That score is not representative of a neutral state.
-  if (newSnakeSelf.health === newSnakeOther.health && newSnakeSelf.health === 100) {
-    newSnakeSelf.health = 99 // don't give full reward for eating, otherwise evalNoSnakes would be way too high
-    newSnakeOther.health = newSnakeSelf.health
-  }
-
-  let evaluation = evaluate(newGameState, newSnakeSelf, new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo))
-  evaluation.tieValue = evalTieFactor // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
-  return evaluation
+  } // otherSnakes in duel use Voronoi delta, & Voronoi scores here should be identical, so can skip that entirely
+  evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
+  return evaluationResult
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
@@ -364,8 +341,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   let evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
-  const evalVoronoiNegativeStep = 100
-  const evalVoronoiPositiveStep = 4.5
   const evalVoronoiDeltaStepConstrictor = 50
   const evalVoronoiDeltaStepDuel = 5
 
@@ -410,7 +385,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   }
 
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
-  const board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
+  let board2d: Board2d
+  if (haveWon) {
+    board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
+  } else {
+    board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
+  } 
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
@@ -537,7 +517,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     evaluationResult.kissOfMurderSelfBonus = evalKissOfMurderSelfBonus
   }
 
-  let voronoiResults: VoronoiResults = calculateReachableCells(gameState, board2d)
+  const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
+  let voronoiResults: VoronoiResults
+  if (haveWon) { // don't want to build Voronoi graph here, so fudge the VoronoiResults object
+    voronoiResults = new VoronoiResults()
+    voronoiResults.snakeResults[myself.id] = new VoronoiResultsSnake()
+    if (hazardDamage > 0) {
+      voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
+    }
+    voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
+    const hazardValue: number = determineVoronoiHazardValue(gameState)
+    const totalReachableCells: number = (gameState.board.height * gameState.board.width - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+    voronoiResults.totalReachableCells = totalReachableCells
+    voronoiResults.snakeResults[myself.id].reachableCells = totalReachableCells
+  } else {
+    voronoiResults = calculateReachableCells(gameState, board2d)
+  }
   let voronoiResultsSelf: VoronoiResultsSnake = voronoiResults.snakeResults[myself.id]
   let voronoiMyself: number = voronoiResultsSelf.reachableCells
   let nearbyFood: {[key: number]: Coord[]} = voronoiResultsSelf.food
@@ -546,7 +541,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   
   const evalVoronoiNegativeMax = evalVoronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
-  const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   let foodToHunt : Coord[] = []
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
