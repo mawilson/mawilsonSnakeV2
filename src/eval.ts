@@ -394,7 +394,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
-  if (myCell !== undefined && myCell.hazard) {
+  if (myCell !== undefined && myCell.hazard && hazardDamage > 0) {
     evaluationResult.hazard = evalHazardPenalty
   }
 
@@ -402,7 +402,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
   // hazard walling
-  if (isDuel && hazardDamage > 0 && !isHazardSpiral) {
+  if (isDuel && hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap) { // hazard wall penalty only applies in standard hazard maps
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
       evalFoodVal = 2 // seek food less while building hazard walls, but don't stop
@@ -484,20 +484,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     }
   } // no kisses of murder nearby, not bothering to set value
 
-  let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
-    return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
-  })
-  if (canCutoffHazardSnake) {
-    evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
-    evaluationResult.cutoffHazard = evalCutoffHazardReward
-  }
-
-  if (!canCutoffHazardSnake) {
-    let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
-      return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+  if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap) { // hazard cutoffs only make sense in standard hazard maps
+    let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
+      return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
     })
-    if (canBeCutoffHazardBySnake) {
-      evaluationResult.cutoffHazard = evalCutoffHazardPenalty
+    if (canCutoffHazardSnake) {
+      evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
+      evaluationResult.cutoffHazard = evalCutoffHazardReward
+    }
+
+    if (!canCutoffHazardSnake) {
+      let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
+        return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+      })
+      if (canBeCutoffHazardBySnake) {
+        evaluationResult.cutoffHazard = evalCutoffHazardPenalty
+      }
     }
   }
   
@@ -637,7 +639,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         }
         foodToHunt.forEach(function adjustFoodValues(fud) {
           let foodCell = board2d.getCell(fud)
-          if (foodCell && foodCell.hazard) {
+          if (foodCell && foodCell.hazard && hazardDamage > 0) {
             foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
         })

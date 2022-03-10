@@ -647,7 +647,7 @@ export class HazardWalls {
   constructor(gameState?: GameState) {
     let _this = this
 
-    if (gameState === undefined || gameStateIsHazardSpiral(gameState)) { // hazard walls don't make sense in HazardSpiral mode
+    if (gameState === undefined || gameState.game.ruleset.settings.hazardMap) { // hazard walls don't make sense if a unique hazard map is specified (spiral, scatter)
       this.up = undefined
       this.down = undefined
       this.left = undefined

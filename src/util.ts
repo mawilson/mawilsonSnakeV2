@@ -107,9 +107,13 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
-  // return gameState.game.ruleset.settings.map === "hz_spiral" // map is not implemented yet
   const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
-  return gameStateIsWrapped(gameState) && (hazardDamage > 0)
+  return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
+}
+
+export function gameStateIsHazardScatter(gameState: GameState): boolean {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  return gameState.game.ruleset.settings.hazardMap === "hz_scatter" && hazardDamage > 0
 }
 
 export function gameStateIsSolo(gameState: GameState): boolean {
@@ -862,7 +866,7 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWal
 export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
   if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // if hazard is 0 or undefined, return false
     return false
-  } else if (gameStateIsHazardSpiral(gameState)) { // hazard wall adjacency doesn't make sense when hazard spirals
+  } else if (gameState.game.ruleset.settings.hazardMap) { // hazard wall adjacency doesn't make sense with non-standard hazard maps
     return false
   } else if (hazardWalls.left === undefined && coord.x === 0) { // if hazardWalls.left is undefined & coord.x is on the left wall, it's adjacent to hazard
     return true
@@ -1562,7 +1566,7 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
     return false
   } else if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // cannot do hazard cutoff in a game without hazard
     return false
-  } else if (gameStateIsHazardSpiral(gameState)) { // cannot do hazard cutoff in a hazard spiral game
+  } else if (gameState.game.ruleset.settings.hazardMap) { // cannot do hazard cutoff in non-standard hazard maps
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
