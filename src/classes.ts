@@ -209,9 +209,21 @@ export class BoardCell {
   }
 }
 
+export class VoronoiResultsSnakeTailOffset {
+  tailOffset: number
+  voronoiValue: number
+
+  constructor(tailOffset: number, voronoiValue: number) {
+    this.tailOffset = tailOffset
+    this.voronoiValue = voronoiValue
+  }
+}
+
 export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
+  tailOffsets: {[key: string]: VoronoiResultsSnakeTailOffset[][] } // when occupying a space that used to be a snake, this represents the distance from that snake's tail. Keep track of snake ID whose body we are occupying too.
+  // each entry in the VoronoiResultsSnakeTailOffset array is indexed by the depth found, & that itself is an array as there can be multiple entries per depth, each with its own tailOffset & voronoiValue
   tailChases: number[]
   effectiveHealths: number[]
 
@@ -220,6 +232,7 @@ export class VoronoiResultsSnake {
     this.food = {}
     this.tailChases = []
     this.effectiveHealths = []
+    this.tailOffsets = {}
   }
 }
 
@@ -376,7 +389,8 @@ export class Board2d {
                         effectiveIndex = neighbor.snakeCell.bodyIndex
                       }
                       if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
-                        isBodyCell = (voronoiSnake.effectiveLength - effectiveIndex) > depth // do not care about tailOffset, as we can always chase our own tail without fear of food growth
+                        tailOffset = voronoiSnake.effectiveLength - effectiveIndex - depth
+                        isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                       } else {
                         let totalPossibleEats: number = 0
                         snakePossibleEats[neighbor.snakeCell.snake.id].forEach((gotFood, idx) => {
@@ -647,7 +661,7 @@ export class HazardWalls {
   constructor(gameState?: GameState) {
     let _this = this
 
-    if (gameState === undefined || gameStateIsHazardSpiral(gameState)) { // hazard walls don't make sense in HazardSpiral mode
+    if (gameState === undefined || gameState.game.ruleset.settings.hazardMap) { // hazard walls don't make sense if a unique hazard map is specified (spiral, scatter)
       this.up = undefined
       this.down = undefined
       this.left = undefined

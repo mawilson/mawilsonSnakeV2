@@ -31,8 +31,8 @@ export interface RulesetSettings {
   hazardDamagePerTurn?: number;
   royale: RoyaleSettings;
   squad: SquadSettings;
-  map?: string; // map is not implemented yet, but making this optional should allow us to include it preemptively
-  map_author?: string; // as with map, not implemented yet, but should be safe to be optional
+  hazardMap?: string; // map is not implemented yet, but making this optional should allow us to include it preemptively
+  hazardMapAuthor?: string; // as with map, not implemented yet, but should be safe to be optional
 }
 
 export interface Ruleset {

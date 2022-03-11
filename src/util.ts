@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake, GameData, HazardSpiral } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -107,9 +107,13 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
-  // return gameState.game.ruleset.settings.map === "hz_spiral" // map is not implemented yet
   const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
-  return gameStateIsWrapped(gameState) && (hazardDamage > 0)
+  return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
+}
+
+export function gameStateIsHazardScatter(gameState: GameState): boolean {
+  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  return gameState.game.ruleset.settings.hazardMap === "hz_scatter" && hazardDamage > 0
 }
 
 export function gameStateIsSolo(gameState: GameState): boolean {
@@ -862,7 +866,7 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWal
 export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
   if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // if hazard is 0 or undefined, return false
     return false
-  } else if (gameStateIsHazardSpiral(gameState)) { // hazard wall adjacency doesn't make sense when hazard spirals
+  } else if (gameState.game.ruleset.settings.hazardMap) { // hazard wall adjacency doesn't make sense with non-standard hazard maps
     return false
   } else if (hazardWalls.left === undefined && coord.x === 0) { // if hazardWalls.left is undefined & coord.x is on the left wall, it's adjacent to hazard
     return true
@@ -1562,7 +1566,7 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
     return false
   } else if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // cannot do hazard cutoff in a game without hazard
     return false
-  } else if (gameStateIsHazardSpiral(gameState)) { // cannot do hazard cutoff in a hazard spiral game
+  } else if (gameState.game.ruleset.settings.hazardMap) { // cannot do hazard cutoff in non-standard hazard maps
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
@@ -2192,6 +2196,26 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
               }
             }
 
+            // tailOffsets of 0 indicate the tail (after receding), & numbers lower than that indicate further distance from tail.
+            // higher than 0 should not exist, as that means a body cell that a VoronoiSnake could not occupy
+            if (cell && cell.snakeCell && voronoiSnake.tailOffset !== undefined && depth !== undefined) { // if this cell had a snake, save that snake's info
+              let newTailOffset: VoronoiResultsSnakeTailOffset = new VoronoiResultsSnakeTailOffset(voronoiSnake.tailOffset, voronoiValue)
+              if(voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id] === undefined) { // create key & array for this snake ID if it did not exist yet
+                voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id] = []
+                if (voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth] === undefined) {
+                  voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth] = [newTailOffset]
+                } else {
+                  voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth].push(newTailOffset)
+                }
+              } else {
+                if (voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth] === undefined) {
+                  voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth] = [newTailOffset]
+                } else {
+                  voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth].push(newTailOffset)
+                }
+              }
+            }
+
             if (voronoiSnake.tailOffset === 0 && snakeId !== cell?.snakeCell?.snake.id) { // if this Voronoi cell hit a snake body cell exactly at its tail index, this is a tail chase
               if (depth !== undefined) {
                 let tailChases: number = voronoiResults.snakeResults[snakeId].tailChases[depth] | 0 // if not yet defined, tailChases starts at 0
@@ -2241,29 +2265,66 @@ function calculateReachableCellsAtDepth(board2d: Board2d, depth: number): number
   return total
 }
 
-export function determineVoronoiSelf(voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean) {
+export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean, hazardValue: number) {
   const evalVoronoiTailChaseDepthCoefficient: number = 1/10 // in mx+b, this is m
   const evalVoronoiTailChaseOffset: number = 1/10 // in mx+b, this is b
   const evalVoronoiTailChaseMinPenalty: number = 0.4 // tail chase Voronoi penalty at min depth
   const evalVoronoiTailChaseMaxPenalty: number = 0.9 // tail chase Voronoi penalty at max depth
+  const evalVoronoiTailChaseMinDepth: number = 3
+  const evalVoronoiTailChaseMaxDepth: number = 8
 
-  let voronoiTailChasePenalty: number = 0 // this will end up being a fraction of voronoiMyself, which we will subtract from voronoiMyself
-  voronoiResultsSnake.tailChases.forEach((num, idx) => {
-    if (idx > 1) { // it's safe to chase a tail at depth 1, & depth 0 or less shouldn't exist in here
-      // note that each multiplies by num, to account for the number of tails that can be chased at this depth, & also the Voronoi value of those cells
-      if (idx >= 8) {
-        voronoiTailChasePenalty = voronoiTailChasePenalty + num * evalVoronoiTailChaseMaxPenalty
-      } else if (idx === 3) {
-        voronoiTailChasePenalty = voronoiTailChasePenalty + num * evalVoronoiTailChaseMinPenalty
-      } else {
-        voronoiTailChasePenalty = voronoiTailChasePenalty + (num * (evalVoronoiTailChaseDepthCoefficient * idx + evalVoronoiTailChaseOffset)) // formula is 1/10 * depth - 1/20. Works out to 0.25 penalty at depth 3, 0.75 penalty at depth 8
-      }
-    }
-  })
+  const evalVoronoiTailOffsetCoefficient: number = -0.025
+  const evalVoronoiTailOffsetConstant: number = 0.3
+  const evalVoronoiTailOffsetMinPenalty: number = 0.7
+  const evalVoronoiTailOffsetMaxPenalty: number = 0.9
+  const evalVoronoiTailOffsetMinOffset: number = 0
+  const evalVoronoiTailOffsetMaxOffset: number = 8
 
   if (isOriginalSnake) {
-    return voronoiResultsSnake.reachableCells - voronoiBaseGood - voronoiTailChasePenalty
-  } else { // otherSnakes don't consider tail chase penalty
+    let voronoiTailOffsetPenalty: number = 0
+    let tailOffsetKeys: string[] = Object.keys(voronoiResultsSnake.tailOffsets)
+    tailOffsetKeys.forEach(snakeId => {
+      voronoiResultsSnake.tailOffsets[snakeId].forEach((tailOffsetArray: VoronoiResultsSnakeTailOffset[], depth: number) => { // each entry in tailOffsets contains a tailOffsetArray for that index, where the index is the depth
+        tailOffsetArray.forEach((offset: VoronoiResultsSnakeTailOffset) => {
+          let newOffsetPenalty: number = 0
+          if (snakeId !== myself.id) { // other snakes penalize tail chasing in addition to tailOffset penalty
+            if (offset.tailOffset === 0 && depth > 2) { // tailOffset 0 means we're directly on the tail. Only penalize chasing otherSnake tail past depth 2
+              if (depth >= evalVoronoiTailChaseMaxDepth) { // the latest depth at which we penalize tail chasing further
+                newOffsetPenalty = offset.voronoiValue * evalVoronoiTailChaseMaxPenalty
+              } else if (depth === evalVoronoiTailChaseMinDepth) { // the earliest depth at which we penalize tail chasing
+                newOffsetPenalty = offset.voronoiValue * evalVoronoiTailChaseMinPenalty
+              } else { // for the inbetween values, consult the formula
+                newOffsetPenalty = offset.voronoiValue * (evalVoronoiTailChaseDepthCoefficient * depth + evalVoronoiTailChaseOffset) // formula is 1/10 * depth - 1/20. Works out to 0.25 penalty at depth 3, 0.75 penalty at depth 8
+              }
+            }
+          }
+
+          if (hazardValue > 0) { // in hazard games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
+            let tailOffsetPenaltyPercentage: number
+            if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
+              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
+            } else if (offset.tailOffset >= evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
+              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
+            } else { // for the inbetween values, consult the formula
+              tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is -0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, 0.1 penalty at tailOffset 8
+            }
+            
+            if (newOffsetPenalty > 0) { // tailChase penalty already applied, need to add this on top of that
+              let currentVoronoiValue: number = offset.voronoiValue - newOffsetPenalty
+              currentVoronoiValue = currentVoronoiValue * tailOffsetPenaltyPercentage // apply tailOffsetPenalty as a percentage of currentVoronoiValue
+              newOffsetPenalty = offset.voronoiValue - currentVoronoiValue // recalq offset penalty by subtracting new currentVoronoiValue from original voronoiValue
+            } else {
+              newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
+            }
+          }
+
+          voronoiTailOffsetPenalty = voronoiTailOffsetPenalty + newOffsetPenalty
+        })
+      })
+    })
+
+    return voronoiResultsSnake.reachableCells - voronoiBaseGood - voronoiTailOffsetPenalty
+  } else { // otherSnakes don't consider tail chase or tail offset penalty
     return voronoiResultsSnake.reachableCells - voronoiBaseGood
   }
 }

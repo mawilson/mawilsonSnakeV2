@@ -103,10 +103,16 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   if (gameState.you.id === myself.id) {
     if (hazardDamage > 0) { // hazard Voronoi calqs have smaller totalReachableCells & a healthRatio in wrapped
       const hazardValue: number = determineVoronoiHazardValue(gameState)
-      const totalReachableCells: number = (gameState.board.height * gameState.board.width - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+      const boardSize: number = gameState.board.height * gameState.board.width
+      const totalReachableCells: number = (boardSize - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
       const myReachableCells: number = totalReachableCells / 2
+      const hazardRatio = gameState.board.hazards.length / boardSize
+      // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.7 & 0.8.
+      // penalty is applied based on the Voronoi value of the cell, so apply self.length * 2 * hazardValue * hazardRatio penalties for hazard squares, &
+      // self.length * 2 * 1 * (1 - hazardRatio) for non-hazard squares, where the first 1 is just a full, non-hazard Voronoi reward
+      let tailOffsetPenalty: number = (myself.length * 2 * hazardRatio * 0.2 * hazardValue) + (myself.length * 2 * (1 - hazardRatio) * 0.2)
       const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
-      let voronoiSelf: number = myReachableCells - voronoiBaseGood // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
+      let voronoiSelf: number = myReachableCells - voronoiBaseGood - tailOffsetPenalty // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
       if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
         voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
       } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
@@ -394,7 +400,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
-  if (myCell !== undefined && myCell.hazard) {
+  if (myCell !== undefined && myCell.hazard && hazardDamage > 0) {
     evaluationResult.hazard = evalHazardPenalty
   }
 
@@ -402,7 +408,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
 
   // hazard walling
-  if (isDuel && hazardDamage > 0 && !isHazardSpiral) {
+  if (isDuel && hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap) { // hazard wall penalty only applies in standard hazard maps
     let opponentCell = board2d.getCell(otherSnakes[0].head)
     if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
       evalFoodVal = 2 // seek food less while building hazard walls, but don't stop
@@ -484,20 +490,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
     }
   } // no kisses of murder nearby, not bothering to set value
 
-  let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
-    return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
-  })
-  if (canCutoffHazardSnake) {
-    evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
-    evaluationResult.cutoffHazard = evalCutoffHazardReward
-  }
-
-  if (!canCutoffHazardSnake) {
-    let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
-      return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+  if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap) { // hazard cutoffs only make sense in standard hazard maps
+    let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
+      return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
     })
-    if (canBeCutoffHazardBySnake) {
-      evaluationResult.cutoffHazard = evalCutoffHazardPenalty
+    if (canCutoffHazardSnake) {
+      evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
+      evaluationResult.cutoffHazard = evalCutoffHazardReward
+    }
+
+    if (!canCutoffHazardSnake) {
+      let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
+        return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+      })
+      if (canBeCutoffHazardBySnake) {
+        evaluationResult.cutoffHazard = evalCutoffHazardPenalty
+      }
     }
   }
   
@@ -637,7 +645,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
         }
         foodToHunt.forEach(function adjustFoodValues(fud) {
           let foodCell = board2d.getCell(fud)
-          if (foodCell && foodCell.hazard) {
+          if (foodCell && foodCell.hazard && hazardDamage > 0) {
             foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
         })
@@ -661,7 +669,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
       isParanoid = true
     }
 
-    let voronoiSelf: number = determineVoronoiSelf(voronoiResultsSelf, evalVoronoiBaseGood, isOriginalSnake)
+    let voronoiSelf: number = determineVoronoiSelf(myself, voronoiResultsSelf, evalVoronoiBaseGood, isOriginalSnake, hazardDamage)
     if (isParanoid) {
       const voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
       let voronoiDelta: number = 0
@@ -705,13 +713,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
 
     let voronoiPredatorBonus: number = 0
     // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
-    if (!isSolo && gameState.board.snakes.length === 1) { // add max Voronoi reward for last snake so as not to encourage it to keep opponent alive for that sweet reward
+    if (haveWon) { // add max Voronoi reward for winning snake so as not to encourage it to keep opponent alive for that sweet reward
       let lastVoronoiReward: number = evalVoronoiNegativeMax
       voronoiPredatorBonus = lastVoronoiReward
     } else if (preySnake !== undefined) {
       let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
       if (preySnakeResults !== undefined) {
-        let preySnakeVoronoi: number = determineVoronoiSelf(preySnakeResults, evalVoronoiBaseGood, !isOriginalSnake) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
+        let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, !isOriginalSnake, hazardDamage) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
         if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
           let howBad: number = -preySnakeVoronoi * evalVoronoiNegativeStep // preySnakeVoronoi is negative so need to negate this
           if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
