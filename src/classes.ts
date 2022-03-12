@@ -1626,8 +1626,9 @@ export class TimingData {
   isDevelopment: boolean
   source: string
   hazardDamage: number
+  hazardMap: string
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number | undefined) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number | undefined, hazardMap: string | undefined) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1640,6 +1641,7 @@ export class TimingData {
     this.isDevelopment = isDevelopment
     this.source = source
     this.hazardDamage = hazardDamage !== undefined? hazardDamage : 0
+    this.hazardMap = hazardMap !== undefined? hazardMap : ""
   }
 }
 

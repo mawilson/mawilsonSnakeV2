@@ -1,4 +1,4 @@
-export const version: string = "1.3.15" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.16" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -13,7 +13,7 @@ let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
@@ -70,7 +70,7 @@ export async function end(gameState: GameState): Promise<void> {
     const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
     if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
       let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, gameState.game.ruleset.settings.hazardDamagePerTurn)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, gameState.game.ruleset.settings.hazardDamagePerTurn, gameState.game.ruleset.settings.hazardMap)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
