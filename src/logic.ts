@@ -113,70 +113,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   const noMe: number = gameStateIsConstrictor(gameState)? evalNoMeConstrictor : evalNoMeStandard
 
-  // simple decideMove that merely looks at the snake & its available moves & chooses the one with the highest evaluate score
-  // does not move any other snakes, not for use with recursion
-  // Score decided upon does not particularly matter for this function, it's just for a direction
-  function decideMoveSelfOnly(gameState: GameState, myself: Battlesnake, board2d: Board2d): MoveWithEval {
-    let availableMoves = getAvailableMoves(gameState, myself, board2d).validMoves()
-    let stillHaveTime = checkTime(startTime, gameState)
-    if (availableMoves.length === 1) {
-      return new MoveWithEval(availableMoves[0], undefined)
-    } else if (availableMoves.length === 0 || !stillHaveTime) {
-      return new MoveWithEval(getDefaultMove(gameState, myself, board2d), undefined) // score does not matter for this function
-    } else {
-      let randomMove = getRandomInt(0, availableMoves.length)
-      return new MoveWithEval(availableMoves[randomMove], undefined) // sadly this is the best we can do. Some of the time, it will be okay! Better than fakeMove anyway
-    }
-  //   } else { // too expensive!!!
-  //     // simplified version of _decideMove's evaluateMove code, with no lookahead & no moving of other snakes
-  //     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
-  //     let board2d = new Board2d(gameState.board)
-  //     let moves: Moves = getAvailableMoves(gameState, myself, board2d)
-  //     let availableMoves = moves.validMoves()
-  //     let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
-  //     let kissOfMurderMoves = findKissMurderMoves(myself, board2d, moveNeighbors)
-  //     let kissOfDeathMoves = findKissDeathMoves(myself, board2d, moveNeighbors)
-  //     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
-
-  //     availableMoves.forEach(function evaluateMove(move) {
-  //       let newGameState = cloneGameState(gameState)
-
-  //       let newSelf: Battlesnake | undefined
-  //       newSelf = newGameState.board.snakes.find(function findSnake(snake) {
-  //         return snake.id === myself.id
-  //       })
-
-  //       let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
-  //       let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
-  //       let evalState = new MoveWithEval(move, evaluate(newGameState, newSelf, kissArgs))
-
-  //       if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
-  //         bestMove.direction = move
-  //         bestMove.score = evalState.score
-  //       } else {
-  //         if (evalState.score !== undefined) { // if evalState has a score, we want to compare it to bestMove's score
-  //           if (evalState.score > bestMove.score) { // if evalState represents a better move & score, assign bestMove to it
-  //             //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
-  //             bestMove.direction = move
-  //             bestMove.score = evalState.score
-  //           } else if (evalState.score === bestMove.score && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
-  //             //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
-  //             bestMove.direction = move
-  //             bestMove.score = evalState.score
-  //           } // else don't replace bestMove
-  //         } // evalState has no score, & bestMove does, we don't want to replace bestMove with evalState
-  //       }
-  //     })
-  //     return bestMove
-  //   }
-  }
-
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, originalSnakeMove?: Direction, parentLeaf?: Leaf): MoveWithEval {
-    let timeStart: number = 0
-    if (isDevelopment) {
-      timeStart = Date.now()
-    }
-    
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
@@ -398,7 +335,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           
           let evalState: MoveWithEval
           let evaluationResult: EvaluationResult | undefined = undefined
-          let kissArgs: KissStatesForEvaluate = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
+          let kissArgs: KissStatesForEvaluate | undefined
+          if (kissStates.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStates.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+            kissArgs = undefined
+          } else {
+            kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
+          }
+          
           let thisLeaf: Leaf | undefined = undefined
           if (isDevelopment) {
             if (myself.id === gameState.you.id && lookahead !== undefined) {
@@ -407,13 +350,26 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
             if (isDevelopment) {
-              evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, thisLeaf) // This is the recursive case!!!
+              if (kissArgs) {
+                evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, thisLeaf) // This is the recursive case!!!
+              } else {
+                evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
+              }
             } else {
-              evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
+              if (kissArgs) {
+                evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
+              } else {
+                evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
+              }
             }
           } else { // base case, just run the eval
-            evaluationResult = evaluate(newGameState, newSelf, kissArgs)
-            evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
+            if (kissArgs) {
+              evaluationResult = evaluate(newGameState, newSelf, kissArgs)
+              evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
+            } else {
+              evaluationResult = evaluate(newGameState, newSelf)
+              evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
+            }
           }
           if (isDevelopment) {
             if (thisLeaf !== undefined) {
@@ -472,18 +428,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
       bestMove.score = evalThisState
     }
-
-    // if (isDevelopment && timeStart !== 0) {
-    //   let timeEnd = Date.now()
-    //   let totalTimeTaken = timeEnd - timeStart
-    //   if (totalTimeTaken > 30) {
-    //     if (lookahead === startLookahead) {
-    //       logToFile(consoleWriteStream, `total time taken calculating _decideMove for ${myself.name} on turn ${gameState.turn} with lookahead ${lookahead}: ${totalTimeTaken}`)
-    //     } else {
-    //       logToFile(consoleWriteStream, `for lookahead ${lookahead}, time taken calculating _decideMove for ${myself.name} on turn ${gameState.turn}: ${totalTimeTaken}`)
-    //     }
-    //   }
-    // }
 
     return bestMove
   }

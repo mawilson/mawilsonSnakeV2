@@ -141,10 +141,16 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissStates: KissStatesForEvaluate) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
+  let priorKissStates: KissStatesForEvaluate
+  if (_priorKissStates) {
+    priorKissStates = _priorKissStates 
+  } else {
+    priorKissStates = new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, undefined, undefined)
+  }
 
   gameState.board.snakes.forEach(function processSnakes(snake) { // process all snakes in one go rather than multiple separate filters/finds
     if (snake.id === gameState.you.id) { // if snake ID matches gameState.you.id, this is the original snake
@@ -540,7 +546,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   if (haveWon) { // don't want to build Voronoi graph here, so fudge the VoronoiResults object
     voronoiResults = new VoronoiResults()
     voronoiResults.snakeResults[myself.id] = new VoronoiResultsSnake()
-    if (hazardDamage > 0) {
+    if (hazardDamage > 0 && isWrapped) {
       voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
     }
     voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
