@@ -1585,6 +1585,7 @@ export class GameData {
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
   source: string
   prey: Battlesnake | undefined
+  turn: number
 
   constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
@@ -1594,6 +1595,7 @@ export class GameData {
     this.evaluationsForLookaheads = []
     this.source = source
     this.prey = undefined
+    this.turn = 0
   }
 }
 
@@ -1626,8 +1628,9 @@ export class TimingData {
   isDevelopment: boolean
   source: string
   hazardDamage: number
+  hazardMap: string
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number | undefined) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number | undefined, hazardMap: string | undefined) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1640,6 +1643,7 @@ export class TimingData {
     this.isDevelopment = isDevelopment
     this.source = source
     this.hazardDamage = hazardDamage !== undefined? hazardDamage : 0
+    this.hazardMap = hazardMap !== undefined? hazardMap : ""
   }
 }
 
