@@ -238,12 +238,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, priorKissSt
   const evalNoMeCertainty: number = 200 // value that being murdered is better than starving. Still highly likely, but slightly less likely than straight starvation
   const evalNoMeCertaintyMutual: number = 300 // value that being murdered by a tie snake is better than starving. Needs to be more than evalNoMeCertainty
   let evalHazardWallPenalty: number = 0 // no penalty for most turns - we know exactly when they're gonna show up
-  if (gameState.turn % hazardFrequency === 0) { // turn 25, & increments of 25
-    evalHazardWallPenalty = -8
-  } else if (((gameState.turn + 1) % hazardFrequency) === 0) { // turn 24, & increments of 25
-    evalHazardWallPenalty = -4
-  } else if (((gameState.turn + 1) % hazardFrequency) > (hazardFrequency - 4)) {// turns 21, 22, 23, & increments of 25
-    evalHazardWallPenalty = -2
+  if (hazardDamage > 0 && !isWrapped) {
+    if (gameState.turn % hazardFrequency === 0) { // turn 25, & increments of 25
+      evalHazardWallPenalty = -50
+    } else if (((gameState.turn + 1) % hazardFrequency) === 0) { // turn 24, & increments of 25
+      evalHazardWallPenalty = -25
+    } else if (((gameState.turn + 1) % hazardFrequency) > (hazardFrequency - 4)) {// turns 21, 22, 23, & increments of 25
+      evalHazardWallPenalty = -10
+    } else {
+      let originalTurn: number = thisGameData? thisGameData.turn : gameState.turn
+      if (gameState.turn > originalTurn) { // if this is a lookahead turn, try to account for possibility that hazard has now spawned
+        let turnAfterHazardSpawn: number = gameState.turn % hazardFrequency // so for turn 28, this means 28 % 25 = 3 - need to account for hazard on 26, 27, 28
+        if (turnAfterHazardSpawn < (lookahead + 1)) { // if turnAfterHazardSpawn is within lookahead, need to penalize this space for potentially being hazard at this point
+          evalHazardWallPenalty = -50
+        }
+      }
+    }
   }
   let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
   // TODO: Evaluate removing or neutering the Moves metric & see how it performs

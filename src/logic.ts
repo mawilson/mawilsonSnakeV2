@@ -13,7 +13,7 @@ let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = true
+export const isDevelopment: boolean = false
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
@@ -542,6 +542,7 @@ export function move(gameState: GameState): MoveResponse {
 
   thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
   thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
+  thisGameData.turn = gameState.turn
   if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
     thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
   }
@@ -593,7 +594,7 @@ export function move(gameState: GameState): MoveResponse {
         break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
       } 
     }
-    logToFile(consoleWriteStream, `max lookahead depth for iterative deepening: ${i - 1}`)
+    logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
   } else { // if running three or more games at once, do not iteratively deepen, may time out on the basic stuff
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d, false)
   }

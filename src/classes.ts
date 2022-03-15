@@ -1585,6 +1585,7 @@ export class GameData {
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
   source: string
   prey: Battlesnake | undefined
+  turn: number
 
   constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
@@ -1594,6 +1595,7 @@ export class GameData {
     this.evaluationsForLookaheads = []
     this.source = source
     this.prey = undefined
+    this.turn = 0
   }
 }
 
