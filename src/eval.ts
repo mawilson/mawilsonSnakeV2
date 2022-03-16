@@ -183,6 +183,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
+  const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
+  const lookaheadDepth: number = gameState.turn - 1 - originalTurn // lookahead begins 2 turns after originalTurn - first turn is 0 lookahead. Note this will be negative for originalTurn
 
   let preySnake: Battlesnake | undefined = undefined
   if (!isOriginalSnake && originalSnake) {
@@ -252,7 +254,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     } else if (((gameState.turn + 1) % hazardFrequency) > (hazardFrequency - 4)) {// turns 21, 22, 23, & increments of 25
       evalHazardWallPenalty = -10
     } else {
-      let originalTurn: number = thisGameData? thisGameData.turn : gameState.turn
       if (gameState.turn > originalTurn) { // if this is a lookahead turn, try to account for possibility that hazard has now spawned
         let turnAfterHazardSpawn: number = gameState.turn % hazardFrequency // so for turn 28, this means 28 % 25 = 3 - need to account for hazard on 26, 27, 28
         if (turnAfterHazardSpawn < (lookahead + 1)) { // if turnAfterHazardSpawn is within lookahead, need to penalize this space for potentially being hazard at this point
@@ -546,7 +547,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (haveWon) { // don't want to build Voronoi graph here, so fudge the VoronoiResults object
     voronoiResults = new VoronoiResults()
     voronoiResults.snakeResults[myself.id] = new VoronoiResultsSnake()
-    if (hazardDamage > 0 && isWrapped) {
+    if (hazardDamage > 0) {
       voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
     }
     voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
@@ -625,6 +626,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
     let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+
+    if (lookaheadDepth > 0) { // the deeper we go into lookahead, the more the health evaluation is worth
+      healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less
+    }
     evaluationResult.health = healthEval
   }
 
@@ -717,8 +722,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
 
       // outcome only improved in wrapped games, went from 54% to 40% in standard royale after implementing this
-      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && isWrapped) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
-        const healthSum: number = voronoiResultsSelf.effectiveHealths.reduce((sum: number, health: number) => { return sum + health})
+      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && voronoiResultsSelf.effectiveHealths.length > 0) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
+        const healthSum: number = voronoiResultsSelf.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
         const healthAverage: number = healthSum / voronoiResultsSelf.effectiveHealths.length // is average health of snake in reachable cells
         const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
         voronoiSelfAdjusted = voronoiSelfAdjusted * healthRatio // Voronoi reward is dependent on average health in squares I can cover - makes hazard dives without a plan less glamorous
@@ -735,7 +740,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     } else if (preySnake !== undefined) {
       let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
       if (preySnakeResults !== undefined) {
-        let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, !isOriginalSnake, hazardDamage) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
+        let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, true, hazardDamage) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
         if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
           let howBad: number = -preySnakeVoronoi * evalVoronoiNegativeStep // preySnakeVoronoi is negative so need to negate this
           if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
