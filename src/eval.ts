@@ -722,7 +722,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
 
       // outcome only improved in wrapped games, went from 54% to 40% in standard royale after implementing this
-      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && voronoiResultsSelf.effectiveHealths.length > 0) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
+      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && isWrapped && voronoiResultsSelf.effectiveHealths.length > 0) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
         const healthSum: number = voronoiResultsSelf.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
         const healthAverage: number = healthSum / voronoiResultsSelf.effectiveHealths.length // is average health of snake in reachable cells
         const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
