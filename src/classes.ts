@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, createGameDataId, getAvailableMoves, getAvailableMovesHealth } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage} from "./util"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -258,7 +258,7 @@ export class Board2d {
     let board: Board = gameState.board
     this.width = board.width;
     this.height = board.height;
-    this.hazardDamage = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+    this.hazardDamage = getHazardDamage(gameState)
     this.isWrapped = gameStateIsWrapped(gameState)
     this.isConstrictor = gameStateIsConstrictor(gameState)
     this.cells = new Array(this.width * this.height);
@@ -669,7 +669,7 @@ export class HazardWalls {
       return
     }
 
-    const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+    const hazardDamage: number = getHazardDamage(gameState)
     if (hazardDamage > 0) { // if hazard does not exist, we can just leave the walls undefined
       let xValues: { [key: number]: number} = {} // need to count up all hazards & determine if walls exist if gameState.board.height number of cells exist at that x value
       let yValues: { [key: number]: number} = {} // likewise, but for board.width at that y value
@@ -1630,7 +1630,7 @@ export class TimingData {
   hazardDamage: number
   hazardMap: string
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number | undefined, hazardMap: string | undefined) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, hazardMap: string | undefined) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1642,7 +1642,7 @@ export class TimingData {
     this.gameMode = gameMode
     this.isDevelopment = isDevelopment
     this.source = source
-    this.hazardDamage = hazardDamage !== undefined? hazardDamage : 0
+    this.hazardDamage = hazardDamage
     this.hazardMap = hazardMap !== undefined? hazardMap : ""
   }
 }

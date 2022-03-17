@@ -756,6 +756,7 @@ describe('Kiss of death tests', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
+      gameState.game.ruleset.name = "royale"
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
@@ -2366,7 +2367,7 @@ describe('Food tests', () => {
   it('still seeks acquiring food when large enough to no longer want food, but low on health', () => {
     for (let i: number = 0; i < 3; i++) {
       // 30 health: snake is wanting for health, so will seek food
-      const snek = new Battlesnake("snek", "snek", 30, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
+      const snek = new Battlesnake("snek", "snek", 10, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
       const gameState = createGameState(snek)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
@@ -2911,7 +2912,8 @@ describe('Voronoi tests', () => {
     expect(gameState.you.health).toBe(healthBefore - hazardDamage - regularDamage)
     expect(gameState.you.health).toBe(70 - 14 - 1)
   })
-  it('prioritizes following its tail closely when another snake could cut its tail off', () => {
+  it.only('prioritizes following its tail closely when another snake could cut its tail off', () => {
+    debugger
     const gameState: GameState = {"game":{"id":"a1e601e7-c828-4684-9c7b-d43261467ca4","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":435,"board":{"width":11,"height":11,"food":[{"x":8,"y":8},{"x":3,"y":7},{"x":4,"y":5}],"hazards":[],"snakes":[{"id":"gs_8rJ4d48w7hTCX3fKj3JrvTjJ","name":"Jaguar Meets Snake","body":[{"x":7,"y":9},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":9},{"x":9,"y":9},{"x":9,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":10,"y":6},{"x":0,"y":6},{"x":0,"y":5},{"x":1,"y":5},{"x":2,"y":5},{"x":2,"y":4},{"x":1,"y":4},{"x":0,"y":4},{"x":10,"y":4},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":7,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":5,"y":7},{"x":5,"y":8},{"x":4,"y":8},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8}],"health":77,"latency":67,"head":{"x":7,"y":9},"length":38,"shout":"","squad":""},{"id":"gs_JTBjdGBkvBxY8yTCF7bT7CXR","name":"Shapeshifter","body":[{"x":5,"y":10},{"x":6,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":8,"y":2},{"x":9,"y":2},{"x":9,"y":1},{"x":9,"y":0},{"x":10,"y":0},{"x":0,"y":0},{"x":0,"y":10},{"x":1,"y":10},{"x":2,"y":10},{"x":2,"y":0},{"x":1,"y":0},{"x":1,"y":1},{"x":0,"y":1},{"x":0,"y":2},{"x":10,"y":2},{"x":10,"y":3},{"x":9,"y":3},{"x":8,"y":3},{"x":7,"y":3},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":4,"y":3},{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":1}],"health":78,"latency":305,"head":{"x":5,"y":10},"length":33,"shout":"","squad":""}]},"you":{"id":"gs_8rJ4d48w7hTCX3fKj3JrvTjJ","name":"Jaguar Meets Snake","body":[{"x":7,"y":9},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":9},{"x":9,"y":9},{"x":9,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":10,"y":6},{"x":0,"y":6},{"x":0,"y":5},{"x":1,"y":5},{"x":2,"y":5},{"x":2,"y":4},{"x":1,"y":4},{"x":0,"y":4},{"x":10,"y":4},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":7,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":5,"y":7},{"x":5,"y":8},{"x":4,"y":8},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8}],"health":77,"latency":67,"head":{"x":7,"y":9},"length":38,"shout":"","squad":""}}
     let moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("down") // our Voronoi coverage will disappear if we get food by going right->down because Shapeshifter will be able to cut us off at our tail. Should follow tail down.
