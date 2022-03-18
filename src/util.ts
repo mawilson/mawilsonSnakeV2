@@ -2275,8 +2275,8 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
 
   const evalVoronoiTailOffsetCoefficient: number = -0.025
   const evalVoronoiTailOffsetConstant: number = 0.3
-  const evalVoronoiTailOffsetMinPenalty: number = 0.7
-  const evalVoronoiTailOffsetMaxPenalty: number = 0.9
+  const evalVoronoiTailOffsetMinPenalty: number = 0.3
+  const evalVoronoiTailOffsetMaxPenalty: number = 0.1
   const evalVoronoiTailOffsetMinOffset: number = 0
   const evalVoronoiTailOffsetMaxOffset: number = 8
 
@@ -2299,23 +2299,22 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
             }
           }
 
-          if (true) { // in all games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
-            let tailOffsetPenaltyPercentage: number
-            if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
-              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
-            } else if (offset.tailOffset >= evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
-              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
-            } else { // for the inbetween values, consult the formula
-              tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is -0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, 0.1 penalty at tailOffset 8
-            }
-            
-            if (newOffsetPenalty > 0) { // tailChase penalty already applied, need to add this on top of that
-              let currentVoronoiValue: number = offset.voronoiValue - newOffsetPenalty
-              currentVoronoiValue = currentVoronoiValue * tailOffsetPenaltyPercentage // apply tailOffsetPenalty as a percentage of currentVoronoiValue
-              newOffsetPenalty = offset.voronoiValue - currentVoronoiValue // recalq offset penalty by subtracting new currentVoronoiValue from original voronoiValue
-            } else {
-              newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
-            }
+          // in all games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
+          let tailOffsetPenaltyPercentage: number
+          if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
+            tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
+          } else if (offset.tailOffset >= evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
+            tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
+          } else { // for the inbetween values, consult the formula
+            tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is -0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, 0.1 penalty at tailOffset 8
+          }
+          
+          if (newOffsetPenalty > 0) { // tailChase penalty already applied, need to add this on top of that
+            let currentVoronoiValue: number = offset.voronoiValue - newOffsetPenalty
+            currentVoronoiValue = currentVoronoiValue * (1 - tailOffsetPenaltyPercentage) // apply tailOffsetPenalty as a percentage of currentVoronoiValue
+            newOffsetPenalty = offset.voronoiValue - currentVoronoiValue // recalq offset penalty by subtracting new currentVoronoiValue from original voronoiValue
+          } else {
+            newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
           }
 
           voronoiTailOffsetPenalty = voronoiTailOffsetPenalty + newOffsetPenalty
