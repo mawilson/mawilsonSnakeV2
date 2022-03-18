@@ -2159,7 +2159,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
 
       if (cell !== undefined) {
         let voronoiKeys = Object.keys(cell.voronoi)
-        let depth = cell? cell.voronoiDepth() : undefined
+        let depth = cell? cell.voronoiDepth : undefined
         let isHazard: boolean
         if (isHazardSpiral && hazardSpiral !== undefined && cell !== undefined && depth !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
           let hazardSpiralCell = hazardSpiral.getCell(cell.coord)
