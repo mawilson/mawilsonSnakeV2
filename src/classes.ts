@@ -285,7 +285,7 @@ export class Board2d {
             board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0, inputSnake.length, inputSnake.health, undefined) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
             board2dCell.voronoiDepth = 0
             voronoiPoints.push(board2dCell)
-            snakePossibleEats[inputSnake.id] = snakeHasEaten(inputSnake)? 1 : 0 // initialize snakePossibleEats - 1 if inputSnake just ate, else 0
+            snakePossibleEats[inputSnake.id] = 0 // initialize snakePossibleEats. Even if snake has just eaten, that is not a 'possible' eat, it's already reflected in snake length, so this always starts at 0
           }
         }
       })
