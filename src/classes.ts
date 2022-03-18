@@ -268,7 +268,7 @@ export class Board2d {
     }
 
     let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
-    let snakePossibleEats: {[key: string]: boolean[]} = {} // for Voronoi points, keeps track of depths & whether it ate at that depth
+    let snakePossibleEats: {[key: string]: number} = {} // for Voronoi points, keeps track of times snake may have eaten up until this depth
 
     function processSnake(inputSnake : Battlesnake) : void {
       inputSnake.body.forEach(function addSnakeCell(part: Coord, idx: number) : void {
@@ -277,16 +277,15 @@ export class Board2d {
         let board2dCell = self.getCell(part)
         if (board2dCell) {
           // wild edge case - when repicking a murdered otherSnake, myself has already moved once, possibly onto another snake tail. Need to not replace my head with otherSnake tail.
-          if (board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail) {
+          if (!(board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail)) {
             //logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
-          } else {
             board2dCell.snakeCell = newSnakeCell
           }
           if (isHead && populateVoronoi) {
             board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0, inputSnake.length, inputSnake.health, undefined) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
             board2dCell.voronoiDepth = 0
             voronoiPoints.push(board2dCell)
-            snakePossibleEats[inputSnake.id] = [snakeHasEaten(inputSnake)] // initialize snakePossibleEats array - has eaten if inputSnake just ate
+            snakePossibleEats[inputSnake.id] = snakeHasEaten(inputSnake)? 1 : 0 // initialize snakePossibleEats - 1 if inputSnake just ate, else 0
           }
         }
       })
@@ -386,13 +385,7 @@ export class Board2d {
                         tailOffset = voronoiSnake.effectiveLength - effectiveIndex - depth
                         isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                       } else {
-                        let totalPossibleEats: number = 0
-                        snakePossibleEats[neighbor.snakeCell.snake.id].forEach((gotFood, idx) => {
-                          if (idx !== 0) { // food eaten at depth 0 is not 'possible', it's already eaten, we can see it reflected in snakeCell.snake.length
-                            totalPossibleEats = gotFood? totalPossibleEats + 1 : totalPossibleEats
-                          }
-                        })
-                        let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + totalPossibleEats
+                        let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + snakePossibleEats[neighbor.snakeCell.snake.id]
                         tailOffset = neighborSnakeEffectiveLength - effectiveIndex - depth
                         isBodyCell = tailOffset > 0
                       }
@@ -520,8 +513,8 @@ export class Board2d {
             // once we're moving on to a new depth, can update snakePossibleEats with the eats that each snake may have done at this depth
             let snakeIds = Object.keys(eatDepths)
             snakeIds.forEach(id => {
-              if (snakePossibleEats[id] !== undefined || this.isConstrictor) {
-                snakePossibleEats[id].push(eatDepths[id])
+              if (this.isConstrictor || eatDepths[id]) { // constrictor snakes always effectively eat, otherwise, check eatDepths to see if snake at at this depth
+                snakePossibleEats[id] = snakePossibleEats[id] + 1
               }
             })
 
