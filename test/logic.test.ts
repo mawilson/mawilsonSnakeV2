@@ -756,6 +756,7 @@ describe('Kiss of death tests', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 5}, {x: 4, y: 4}, {x: 4, y: 3}, {x: 4, y: 2}], "30", "", "")
       const gameState = createGameState(snek)
+      gameState.game.ruleset.name = "royale"
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 6, y: 5}, {x: 6, y: 6}, {x: 6, y: 7}, {x: 6, y: 8}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
@@ -1416,11 +1417,6 @@ describe('Evaluate a doomed snake and an undoomed snake', () => {
         expect(evalSnekScore).toBeGreaterThan(evalOtherSnekScore)
     })
 })
-
-// TODO
-// kiss of death selector - chooses kiss of death cell with higher evaluation score
-// tests for seeking open space
-// tests for MoveNeighbors prey calculator
 
 describe('Snake should not try for a maybe kill if it leads it to certain doom', () => {
   it('does not chase after a snake it cannot catch', () => {
@@ -2366,7 +2362,7 @@ describe('Food tests', () => {
   it('still seeks acquiring food when large enough to no longer want food, but low on health', () => {
     for (let i: number = 0; i < 3; i++) {
       // 30 health: snake is wanting for health, so will seek food
-      const snek = new Battlesnake("snek", "snek", 30, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
+      const snek = new Battlesnake("snek", "snek", 10, [{x: 8, y: 8}, {x: 8, y: 7}, {x: 8, y: 6}, {x: 8, y: 5}, {x: 8, y: 4}, {x: 8, y: 3}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 9, y: 3}], "30", "", "")
       const gameState = createGameState(snek)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 80, [{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}], "30", "", "")
@@ -3340,5 +3336,13 @@ describe('iterative deepening tests', () => {
     const moveResponse = move(gameState)
     const endTime = Date.now()
     expect(endTime - startTime).toBeLessThan(500)
+  })
+})
+
+describe('standard game mode tests', () => {
+  it.skip('does not relinquish center control when not necessary', () => {
+    const gameState = {"game":{"id":"d0c2009b-a7c6-41cc-9c21-e033fe3c996a","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":372,"board":{"width":11,"height":11,"food":[{"x":8,"y":10},{"x":8,"y":9}],"hazards":[],"snakes":[{"id":"gs_JyXYc4TThQWCJbhMmRrCHdhV","name":"Gruppe8","body":[{"x":3,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":1},{"x":4,"y":1},{"x":3,"y":1},{"x":2,"y":1},{"x":1,"y":1},{"x":1,"y":2},{"x":0,"y":2},{"x":0,"y":1},{"x":0,"y":0},{"x":1,"y":0},{"x":2,"y":0},{"x":3,"y":0},{"x":4,"y":0},{"x":5,"y":0},{"x":6,"y":0},{"x":7,"y":0},{"x":8,"y":0},{"x":8,"y":1}],"health":76,"latency":358,"head":{"x":3,"y":3},"length":24,"shout":"","squad":""},{"id":"gs_WGHkDXwrPRYJrMQ4tWxfgTPB","name":"Jaguar Meets Snake","body":[{"x":2,"y":4},{"x":2,"y":5},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":6},{"x":4,"y":7},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":8},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":7},{"x":9,"y":6},{"x":9,"y":5},{"x":8,"y":5},{"x":8,"y":6},{"x":7,"y":6},{"x":7,"y":7},{"x":6,"y":7},{"x":5,"y":7},{"x":5,"y":6},{"x":6,"y":6},{"x":6,"y":5},{"x":6,"y":4},{"x":5,"y":4},{"x":5,"y":5},{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4}],"health":95,"latency":134,"head":{"x":2,"y":4},"length":34,"shout":"","squad":""}]},"you":{"id":"gs_WGHkDXwrPRYJrMQ4tWxfgTPB","name":"Jaguar Meets Snake","body":[{"x":2,"y":4},{"x":2,"y":5},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":6},{"x":4,"y":7},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":8},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":7,"y":8},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":7},{"x":9,"y":6},{"x":9,"y":5},{"x":8,"y":5},{"x":8,"y":6},{"x":7,"y":6},{"x":7,"y":7},{"x":6,"y":7},{"x":5,"y":7},{"x":5,"y":6},{"x":6,"y":6},{"x":6,"y":5},{"x":6,"y":4},{"x":5,"y":4},{"x":5,"y":5},{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4}],"health":95,"latency":134,"head":{"x":2,"y":4},"length":34,"shout":"","squad":""}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("right") // left allows us to loop back on our tail but ultimately allows Gruppe to limit our board coverage - right keeps us in the middle
   })
 })

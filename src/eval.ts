@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -91,7 +91,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   }
   let evaluationResult = new EvaluationResult(myself)
   evaluationResult.base = evalBase
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   const evalHealthStep = hazardDamage > 0? 6 : 3
   const evalHealthTierDifference = 10
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
@@ -168,7 +168,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     otherSnakeHealth = otherSnakeHealth + snake.health
   })
 
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
   const isWrapped = gameStateIsWrapped(gameState)
   const isHazardSpiral = gameStateIsHazardSpiral(gameState)
@@ -690,7 +690,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       isParanoid = true
     }
 
-    let voronoiSelf: number = determineVoronoiSelf(myself, voronoiResultsSelf, evalVoronoiBaseGood, isOriginalSnake, hazardDamage)
+    let voronoiSelf: number = determineVoronoiSelf(myself, voronoiResultsSelf, evalVoronoiBaseGood, isOriginalSnake)
     if (isParanoid) {
       const voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
       let voronoiDelta: number = 0
@@ -740,7 +740,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     } else if (preySnake !== undefined) {
       let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
       if (preySnakeResults !== undefined) {
-        let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, true, hazardDamage) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
+        let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, true) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
         if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
           let howBad: number = -preySnakeVoronoi * evalVoronoiNegativeStep // preySnakeVoronoi is negative so need to negate this
           if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!

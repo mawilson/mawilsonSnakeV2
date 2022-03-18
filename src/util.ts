@@ -107,12 +107,12 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
 }
 
 export function gameStateIsHazardScatter(gameState: GameState): boolean {
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   return gameState.game.ruleset.settings.hazardMap === "hz_scatter" && hazardDamage > 0
 }
 
@@ -465,7 +465,7 @@ export function getDefaultMove(gameState: GameState, myself: Battlesnake, board2
 
 // moveSnake will move the input snake in the move direction, & if it can't, will move it in the next direction in line, until it succeeds
 export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Board2d, _move: Direction | undefined) : void {
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   if (_move === Direction.AlreadyMoved) {
     return // snake has already moved, don't move it
   }
@@ -650,7 +650,7 @@ export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
 
 // Disables moves which will cause the snakes death, taking into account normal turn damage, hazard damage, & food acquisition
 export function checkForHealth(me: Battlesnake, gameState: GameState, board: Board2d, moves: Moves) {
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   function checkCell(x: number, y: number) : boolean {
     let newCoord = new Coord(x, y)
     let newCell = board.getCell(newCoord)
@@ -849,7 +849,7 @@ export function createHazardRow(board: Board, height: number) {
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any.
 export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWalls: HazardWalls, gameState : GameState) : boolean {  
-  if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // if hazard is 0 or undefined, return false
+  if (getHazardDamage(gameState) === 0) { // if hazard damage is 0, return false
     return false
   }
   let selfCell = board2d.getCell(coord)
@@ -864,7 +864,7 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWal
 
 // gets self and surrounding cells & checks them for hazards, returning true if it finds any. Returns false for spaces that are themselves hazard
 export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
-  if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // if hazard is 0 or undefined, return false
+  if (getHazardDamage(gameState) === 0) { // if hazard is 0 or undefined, return false
     return false
   } else if (gameState.game.ruleset.settings.hazardMap) { // hazard wall adjacency doesn't make sense with non-standard hazard maps
     return false
@@ -1564,7 +1564,7 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
     return false
   } else if (_snake === undefined) { // undefined snakes cannot be cut off
     return false
-  } else if (!gameState.game.ruleset.settings.hazardDamagePerTurn) { // cannot do hazard cutoff in a game without hazard
+  } else if (getHazardDamage(gameState) === 0) { // cannot do hazard cutoff in a game without hazard
     return false
   } else if (gameState.game.ruleset.settings.hazardMap) { // cannot do hazard cutoff in non-standard hazard maps
     return false
@@ -2265,7 +2265,7 @@ function calculateReachableCellsAtDepth(board2d: Board2d, depth: number): number
   return total
 }
 
-export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean, hazardValue: number) {
+export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean) {
   const evalVoronoiTailChaseDepthCoefficient: number = 1/10 // in mx+b, this is m
   const evalVoronoiTailChaseOffset: number = 1/10 // in mx+b, this is b
   const evalVoronoiTailChaseMinPenalty: number = 0.4 // tail chase Voronoi penalty at min depth
@@ -2275,8 +2275,8 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
 
   const evalVoronoiTailOffsetCoefficient: number = -0.025
   const evalVoronoiTailOffsetConstant: number = 0.3
-  const evalVoronoiTailOffsetMinPenalty: number = 0.7
-  const evalVoronoiTailOffsetMaxPenalty: number = 0.9
+  const evalVoronoiTailOffsetMinPenalty: number = 0.3
+  const evalVoronoiTailOffsetMaxPenalty: number = 0.1
   const evalVoronoiTailOffsetMinOffset: number = 0
   const evalVoronoiTailOffsetMaxOffset: number = 8
 
@@ -2299,23 +2299,22 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
             }
           }
 
-          if (hazardValue > 0) { // in hazard games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
-            let tailOffsetPenaltyPercentage: number
-            if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
-              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
-            } else if (offset.tailOffset >= evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
-              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
-            } else { // for the inbetween values, consult the formula
-              tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is -0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, 0.1 penalty at tailOffset 8
-            }
-            
-            if (newOffsetPenalty > 0) { // tailChase penalty already applied, need to add this on top of that
-              let currentVoronoiValue: number = offset.voronoiValue - newOffsetPenalty
-              currentVoronoiValue = currentVoronoiValue * tailOffsetPenaltyPercentage // apply tailOffsetPenalty as a percentage of currentVoronoiValue
-              newOffsetPenalty = offset.voronoiValue - currentVoronoiValue // recalq offset penalty by subtracting new currentVoronoiValue from original voronoiValue
-            } else {
-              newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
-            }
+          // in all games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
+          let tailOffsetPenaltyPercentage: number
+          if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
+            tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
+          } else if (offset.tailOffset >= evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
+            tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
+          } else { // for the inbetween values, consult the formula
+            tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is -0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, 0.1 penalty at tailOffset 8
+          }
+          
+          if (newOffsetPenalty > 0) { // tailChase penalty already applied, need to add this on top of that
+            let currentVoronoiValue: number = offset.voronoiValue - newOffsetPenalty
+            currentVoronoiValue = currentVoronoiValue * (1 - tailOffsetPenaltyPercentage) // apply tailOffsetPenalty as a percentage of currentVoronoiValue
+            newOffsetPenalty = offset.voronoiValue - currentVoronoiValue // recalq offset penalty by subtracting new currentVoronoiValue from original voronoiValue
+          } else {
+            newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
           }
 
           voronoiTailOffsetPenalty = voronoiTailOffsetPenalty + newOffsetPenalty
@@ -2337,7 +2336,7 @@ export function isFlip(coord: Coord) {
 }
 
 export function determineVoronoiHazardValue(gameState: GameState): number {
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   if (hazardDamage <= 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
   }
@@ -2376,7 +2375,7 @@ export function determineVoronoiHazardValue(gameState: GameState): number {
 }
 
 function determineVoronoiHazardFoodValue(gameState: GameState): number {
-  const hazardDamage: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  const hazardDamage: number = getHazardDamage(gameState)
   if (hazardDamage <= 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
   }
@@ -2426,5 +2425,31 @@ export function determineVoronoiBaseGood(gameState: GameState, voronoiResults: V
     return total / 6 // for a 11x11 game without hazard, this means 20. For an 11x11 game with 40% hazard, this means 15.125
   } else { // for any game with more than 2 snakes, we want a sane threshold. Too high means we'll be too paranoid, too low means we won't be paranoid enough. Used to be 9 for 3 & 4 snakes on an 11x11 board.
     return total / (6 + numSnakes) // for an 11x11 game with 40% hazard, this means 10.1 for 3 snakes, 9.1 for 4 snakes. For an 11x11 game with no hazard, this means 13.4 for 3 snakes, 12.1 for 4 snakes
+  }
+}
+
+// returns hazard damage based on game type, rather than merely checking settings hazardDamagePerTurn
+export function getHazardDamage(gameState: GameState): number {
+  const hazardDamagePerTurn: number = gameState.game.ruleset.settings.hazardDamagePerTurn || 0
+  if (hazardDamagePerTurn > 0) {
+    switch (gameState.game.ruleset.name) {
+      case "royale": // in a royale game, should always return hazardDamage
+        return hazardDamagePerTurn
+      case "constrictor": // constrictor games do not have hazards
+        return 0
+      case "wrapped":
+      case "standard":
+      default:
+        const hazardMap: string = gameState.game.ruleset.settings.hazardMap || ""
+        if (gameState.board.hazards.length > 0) { // if hazards exist, we need to respect the defined hazardDamage, regardless of ruleset name or hazard map
+          return hazardDamagePerTurn
+        } else if (hazardMap !== "") { // if hazards do not yet exist, but a hazard map is defined, should respect defined hazardDamage
+          return hazardDamagePerTurn
+        } else { // if no hazards exist, & no hazard map is defined, & it's not a royale game, return 0 to indicate hazards are not a thing in this game
+          return 0 // if a hazard map is not defined, hazards will not be a thing in this game
+        }
+    }
+  } else {
+    return hazardDamagePerTurn
   }
 }
