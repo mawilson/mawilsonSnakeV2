@@ -627,7 +627,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (!isSolo && !isConstrictor) {
     let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
 
-    if (lookaheadDepth > 0) { // the deeper we go into lookahead, the more the health evaluation is worth
+    if (lookaheadDepth > 0 && healthEval < 0) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
       healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less
     }
     evaluationResult.health = healthEval
