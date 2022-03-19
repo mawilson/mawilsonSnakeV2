@@ -77,7 +77,7 @@ export async function end(gameState: GameState): Promise<void> {
       } else {
         hazardMap = ""
       }
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, hazardMap)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, hazardMap, gameState.you.length)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
