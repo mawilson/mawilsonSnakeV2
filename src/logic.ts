@@ -89,9 +89,9 @@ export async function end(gameState: GameState): Promise<void> {
 
       if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
         let snakeScoresForMongo: SnakeScoreForMongo[] = []
-        thisGameData.evaluationsForLookaheads.forEach((snakeScore) => {
+        for (const snakeScore of thisGameData.evaluationsForLookaheads) {
           snakeScoresForMongo.push(new SnakeScoreForMongo(snakeScore.score, snakeScore.hashKey(), version, gameResult))
-        })
+        }
         await snakeScoresCollection.insertMany(snakeScoresForMongo)
       }
     }
@@ -246,13 +246,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               return b.length - a.length
             })
 
-            otherSnakes.forEach(snake => {
+            for (const snake of otherSnakes) {
               moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, move) // decide best move for other snakes according to current data, & tell them what move I am making
-            })
+            }
 
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
 
-            otherSnakes.forEach(function mvsnk(snake) { // move each of the snakes at the same time, without updating gameState until each has moved              
+            for (const snake of otherSnakes) { // move each of the snakes at the same time, without updating gameState until each has moved 
               if (moveSnakes[snake.id]) { // if I have already decided upon this snake's move, see if it dies doing said move
                 let newHead = getCoordAfterMove(gameState, snake.head, moveSnakes[snake.id].direction)
                 let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
@@ -316,13 +316,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 }
                 moveSnake(newGameState, snake, board2d, adjustedMove.direction)
               }
-            })
+            }
             updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
           } else { // for other snakes, still need to be able to move self to a new position to evaluate it
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
             
             // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
-            otherSnakes.forEach(function removeTail(snake) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
+            for (const snake of otherSnakes) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
               if (snake.id === newGameState.you.id && originalSnakeMove !== undefined) { // we know exactly what move snake is making if that snake is originalSnake
                 moveSnake(newGameState, snake, board2d, originalSnakeMove)              
               } else {
@@ -335,7 +335,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                   fakeMoveSnake(gameState, snake)
                 }
               }
-            })
+            }
 
             updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
           }
@@ -450,7 +450,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let myselfMove: MoveWithEval = _decideMove(gameState, myself, startLookahead)
 
     if (isDevelopment && amUsingMachineData) { // if I'm using machine learning data, log how many times I took advantage of the data
-      logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves forEach ${movesShortCircuited} times.`)
+      logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves iterator ${movesShortCircuited} times.`)
     }
 
     // primarily for debug purposes to track what's going on in the tree

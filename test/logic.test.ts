@@ -77,9 +77,9 @@ afterAll(() => {
 
 afterEach(() => {
   let gameDataKeys = Object.keys(gameData)
-  gameDataKeys.forEach(key => {
+  for (const key of gameDataKeys) {
     delete gameData[key] // clean up game-specific data
-  })
+  }
 })
 
 // tests whose use case may still be valid, but which can no longer be effectively tested when different lookaheads are in place
@@ -474,21 +474,21 @@ describe('Board2d accurately maps game state', () => {
       }
     })
 
-    gameBoard.food.forEach(function checkFood(coord) {
+    for (const coord of gameBoard.food) {
       let boardCell = board2d.getCell(coord)
       if (boardCell) {
         boardCell = boardCell as BoardCell
         expect(boardCell.food).toBe(true)
       }
-    })
+    }
 
-    gameBoard.hazards.forEach(function checkHazard(coord) {
+    for (const coord of gameBoard.hazards) {
       let boardCell = board2d.getCell(coord)
       if (boardCell) {
         boardCell = boardCell as BoardCell
         expect(boardCell.hazard).toBe(true)
       }
-    })
+    }
   })
 })
 

@@ -212,11 +212,12 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
   if (board.snakes.length === 1) { // what is a king without a kingdom?
     return false
   } else {
-    board.snakes.forEach(function isSnakeBigger(snake) {
+    for (const snake of board.snakes) {
       if ((me.id !== snake.id) && ((me.length - snake.length) < 2)) { // if any snake is within 2 lengths of me
         kingOfTheSnakes = false
+        break // no need to continue iterating if we already know we're not king of the snakes
       }
-    })
+    }
   }
   return kingOfTheSnakes
 }
@@ -232,7 +233,8 @@ export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Ba
   } else if (gameState.board.snakes.length === 1) {
     return undefined
   }
-  gameState.board.snakes.forEach(function findLongestSnake(snake, idx) {
+  for (let idx: number = 0, snakesLength: number = gameState.board.snakes.length; idx < snakesLength; idx++) {
+    let snake: Battlesnake = gameState.board.snakes[idx]
     if (snake.id !== me.id) { // don't check myself
       if (snake.length > len) {
         len = snake.length
@@ -246,7 +248,7 @@ export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Ba
         }
       }
     }
-  })
+  }
   return gameState.board.snakes[longestSnakeIndex]
 }
 
@@ -256,9 +258,9 @@ export function coordToString(coord: Coord) : string {
 
 export function snakeToString(snake: Battlesnake) : string {
   let bodyString : string = ""
-  snake.body.forEach(function concatBodyPart(coord: Coord) {
+  for (const coord of snake.body) {
     bodyString = bodyString ? `${bodyString},${coordToString(coord)}` : `${coordToString(coord)}` 
-  })
+  }
   return `snake id: ${snake.id}; name: ${snake.name}; health: ${snake.health}; body: ${bodyString}; length: ${snake.length}; latency: ${snake.latency}; shout: ${snake.shout}; squad: ${snake.squad}`
 }
 
@@ -299,23 +301,23 @@ export function cloneGameState(gameState: GameState) : GameState {
 
   // create new Food array
   let cloneFood : ICoord[] = []
-  gameState.board.food.forEach(function addFood(coord) {
+  for (const coord of gameState.board.food) {
     cloneFood.push({x: coord.x, y: coord.y})
-  })
+  }
 
   let cloneSnakes : Battlesnake[] = [] // note that this is of type Battlesnake, not IBattlesnake, meaning our clone diverges from the original here. But our class is better, so maybe that's okay.
-  gameState.board.snakes.forEach(function addSnake(snake) {
+  for (const snake of gameState.board.snakes) {
     let newBody : Coord[] = []
-    snake.body.forEach(function addPart(coord: Coord) {
+    for (const coord of snake.body) {
       newBody.push({x: coord.x, y: coord.y})
-    })
+    }
     cloneSnakes.push(new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad))
-  })
+  }
 
   let cloneHazards : ICoord[] = []
-  gameState.board.hazards.forEach(function addHazard(coord) {
+  for (const coord of gameState.board.hazards) {
     cloneHazards.push({x: coord.x, y: coord.y})
-  })
+  }
 
   // create new Board
   let cloneBoard : Board = {
@@ -332,9 +334,9 @@ export function cloneGameState(gameState: GameState) : GameState {
   let cloneYou: Battlesnake
   if (cloneYouProbably === undefined) { // if youSnake is no longer in the game, use the old gameState.you
     let newBody: Coord[] = []
-    gameState.you.body.forEach(function addPart(coord: Coord) {
+    for (const coord of gameState.you.body) {
       newBody.push(new Coord(coord.x, coord.y))
-    })
+    }
     cloneYou = new Battlesnake(gameState.you.id, gameState.you.name, gameState.you.health, newBody, gameState.you.latency, gameState.you.shout, gameState.you.squad)
   } else {
     cloneYou = cloneYouProbably
@@ -515,11 +517,11 @@ export function updateGameStateAfterMove(gameState: GameState) {
   })
   
   let liveSnakes : Battlesnake[] = [] // snakes that live past the health check
-  gameState.board.snakes.forEach(function checkSnake(snake) { // first check healths. Want to remove any snakes that have starved before checking for collisions
+  for (const snake of gameState.board.snakes) { // first check healths. Want to remove any snakes that have starved before checking for collisions
     if (snake.health > 0) {
       liveSnakes.push(snake)
     }
-  })
+  }
   gameState.board.snakes = liveSnakes // should be same snakes, but without the starved ones
 
   gameState.board.snakes = gameState.board.snakes.filter(function checkSnake(snake) { // after checking for snakes that have run out of health, check for collisions with other snakes
@@ -557,9 +559,9 @@ export function updateGameStateAfterMove(gameState: GameState) {
   gameState.turn = gameState.turn + 1
 
   let emptySquares: number = gameState.board.width * gameState.board.height
-  gameState.board.snakes.forEach(snake => {
+  for (const snake of gameState.board.snakes) {
     emptySquares = snakeHasEaten(snake)? emptySquares - snake.length + 1: emptySquares - snake.length // a square is not empty if it has a snake. Don't double-count snake tail for snakes that just ate
-  })
+  }
   emptySquares = emptySquares - gameState.board.food.length // a square is also not empty if it has food
   if (emptySquares === 1) { // sadly no more performant way to do this, but it should be a very isolated use case (& one with a small tree to search anyway)
     const board2d = new Board2d(gameState, false)
@@ -819,7 +821,7 @@ export function findFood(depth: number, food: Coord[], snakeHead : Coord, gameSt
   //   foundFood[i] = []
   // }
   //let foundFood: Coord[] = []
-  food.forEach(function addFood(foodUnit) {
+  for (const foodUnit of food) {
     let dist = getDistance(snakeHead, foodUnit, gameState)
   
     if (dist <= depth) {
@@ -828,7 +830,7 @@ export function findFood(depth: number, food: Coord[], snakeHead : Coord, gameSt
       }
       foundFood[dist].push(foodUnit)
     }
-  })
+  }
 
   return foundFood
 }
@@ -966,7 +968,7 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
   // first look through dangerous moves
   switch(deathMoves.length) {
     case 1: // if one move results in a kissOfDeath, penalize that move in evaluate
-    validMoves.forEach(function setMoveState(move: Direction) {
+    for (const move of validMoves) {
         if (move === deathMoves[0]) {
           let predator: Battlesnake | undefined = moveNeighbors.getPredator(move) // get the snake that is stalking me for this direction
           if (huntedDirections.includes(move)) {
@@ -989,10 +991,10 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
             setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeath2To1Avoidance)
           }
         }
-      })
+      }
       break
     case 2: // if two moves result in a kiss of death, penalize those moves in evaluate
-      validMoves.forEach(function setMoveState(move: Direction) {
+      for (const move of validMoves) {
         let predator: Battlesnake | undefined = moveNeighbors.getPredator(move) // get the snake that is stalking me for this direction
         if (move === deathMoves[0] || move === deathMoves[1]) {
           if (huntedDirections.includes(move)) { // this direction spells certain death
@@ -1011,10 +1013,10 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
         } else { // this direction does not have any kiss of death cells
           setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeath3To1Avoidance)
         }
-      })
+      }
       break
     case 3: // if all three moves may cause my demise, penalize those moves in evaluate
-      validMoves.forEach(function setMoveState(move: Direction) {
+      for (const move of validMoves) {
         let predator: Battlesnake | undefined = moveNeighbors.getPredator(move) // get the snake that is stalking me for this direction
         if (huntedDirections.includes(move)) { // this direction spells certain death
           if (predator !== undefined && predator.length === myself.length) { // if my predator is my same length
@@ -1029,13 +1031,13 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
             setKissOfDeathDirectionState(move, KissOfDeathState.kissOfDeathMaybe)
           }        
         }
-      })
+      }
       break
     default: // case 0
       break // all states are by default kissOfDeathNo
   }
 
-  killMoves.forEach(function determineKillMoveState(move) {
+  for (const move of killMoves) {
     let preyMoves : Moves = new Moves(true, true, true, true) // do a basic check of prey's surroundings & evaluate how likely this kill is from that
     switch(move) {
       case Direction.Up:
@@ -1159,7 +1161,7 @@ export function kissDecider(gameState: GameState, myself: Battlesnake, moveNeigh
         }
         break
     }
-  })
+  }
   return states
 }
 
@@ -1262,9 +1264,9 @@ export function lookaheadDeterminatorOld(gameState: GameState): number {
     }
     if (lookahead >= 5) { // may again need to decrement the lookahead if all snakes are very small. Boards with lots of open space take longer to process, as there are more valid moves to consider
       let totalSnakeLength: number = 0
-      gameState.board.snakes.forEach(function addSnakeLength(snake) {
+      for (const snake of gameState.board.snakes) {
         totalSnakeLength = totalSnakeLength + snake.length
-      })
+      }
       if (gameState.you.length < 15 && totalSnakeLength < 30) { // my own length matters most since I look the farthest ahead, but if all snakes are small that also matters
         lookahead = lookahead - 1
       }
@@ -2034,17 +2036,17 @@ export function calculateTimingData(numbers: number[], gameResult: string): Timi
   let average: number = 0
   let max: number = 0
 
-  numbers.forEach(function processTimes(num) {
+  for (const num of numbers) {
     average = average + num
     max = num > max? num : max
-  })
+  }
   average = average / numbers.length
   let deviations: number[] = []
-  numbers.forEach(function calculateDeviations(num) {
+  for (const num of numbers) {
     let deviation = average - num
     deviation = deviation * deviation
     deviations.push(deviation)
-  })
+  }
   let variance = deviations.reduce(function sumDeviations(previousValue: number, currentValue: number): number { return previousValue + currentValue }) / numbers.length
   let standardDeviation = Math.sqrt(variance)
 
@@ -2152,7 +2154,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         hazardSpiral = thisGameData.hazardSpiral
       }
     }
-  gameState.board.snakes.forEach(snake => { voronoiResults.snakeResults[snake.id] = new VoronoiResultsSnake() }) // instantiate each snake object
+  for (const snake of gameState.board.snakes) { voronoiResults.snakeResults[snake.id] = new VoronoiResultsSnake() } // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
@@ -2168,7 +2170,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         } else {
           isHazard = cell.hazard
         }
-        voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
+        for (const snakeId of voronoiKeys) { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           let voronoiValue: number
           if (voronoiSnake !== undefined) {
@@ -2201,7 +2203,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
             if (cell && cell.snakeCell && voronoiSnake.tailOffset !== undefined && depth !== undefined) { // if this cell had a snake, save that snake's info
               let newTailOffset: VoronoiResultsSnakeTailOffset = new VoronoiResultsSnakeTailOffset(voronoiSnake.tailOffset, voronoiValue)
               if(voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id] === undefined) { // create key & array for this snake ID if it did not exist yet
-                voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id] = []
+                voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id] = {}
                 if (voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth] === undefined) {
                   voronoiResults.snakeResults[snakeId].tailOffsets[cell.snakeCell.snake.id][depth] = [newTailOffset]
                 } else {
@@ -2225,7 +2227,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
 
             voronoiResults.snakeResults[snakeId].effectiveHealths.push(voronoiSnake.effectiveHealth)
           }
-        })
+        }
 
         if (isHazard) {
           if (cell.food) {
@@ -2251,14 +2253,14 @@ function calculateReachableCellsAtDepth(board2d: Board2d, depth: number): number
       let cell: BoardCell | undefined = board2d.getCell({x: i, y: j})
       if (cell !== undefined) {
         let voronoiKeys = Object.keys(cell.voronoi)
-        voronoiKeys.forEach(snakeId => { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
+        for (const snakeId of voronoiKeys) { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
           if (voronoiSnake !== undefined) {
             if (voronoiSnake.depth <= depth) {
               total = total + 1
             }
           }
-        })
+        }
       }
     }
   }
@@ -2283,9 +2285,13 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
   if (isOriginalSnake) {
     let voronoiTailOffsetPenalty: number = 0
     let tailOffsetKeys: string[] = Object.keys(voronoiResultsSnake.tailOffsets)
-    tailOffsetKeys.forEach(snakeId => {
-      voronoiResultsSnake.tailOffsets[snakeId].forEach((tailOffsetArray: VoronoiResultsSnakeTailOffset[], depth: number) => { // each entry in tailOffsets contains a tailOffsetArray for that index, where the index is the depth
-        tailOffsetArray.forEach((offset: VoronoiResultsSnakeTailOffset) => {
+    for (const snakeId of tailOffsetKeys) {
+      let depths: string[] = Object.keys(voronoiResultsSnake.tailOffsets[snakeId])
+
+      for (const _depth of depths) { // each entry in tailOffsets contains a tailOffsetArray for that index, where the index is the depth
+        let depth: number = parseInt(_depth, 10)
+        let tailOffsetArray: VoronoiResultsSnakeTailOffset[] = voronoiResultsSnake.tailOffsets[snakeId][depth]
+        for (const offset of tailOffsetArray) {
           let newOffsetPenalty: number = 0
           if (snakeId !== myself.id) { // other snakes penalize tail chasing in addition to tailOffset penalty
             if (offset.tailOffset === 0 && depth > 2) { // tailOffset 0 means we're directly on the tail. Only penalize chasing otherSnake tail past depth 2
@@ -2318,9 +2324,9 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
           }
 
           voronoiTailOffsetPenalty = voronoiTailOffsetPenalty + newOffsetPenalty
-        })
-      })
-    })
+        }
+      }
+    }
 
     return voronoiResultsSnake.reachableCells - voronoiBaseGood - voronoiTailOffsetPenalty
   } else { // otherSnakes don't consider tail chase or tail offset penalty
