@@ -77,9 +77,9 @@ afterAll(() => {
 
 afterEach(() => {
   let gameDataKeys = Object.keys(gameData)
-  gameDataKeys.forEach(key => {
+  for (const key of gameDataKeys) {
     delete gameData[key] // clean up game-specific data
-  })
+  }
 })
 
 // tests whose use case may still be valid, but which can no longer be effectively tested when different lookaheads are in place
@@ -474,21 +474,21 @@ describe('Board2d accurately maps game state', () => {
       }
     })
 
-    gameBoard.food.forEach(function checkFood(coord) {
+    for (const coord of gameBoard.food) {
       let boardCell = board2d.getCell(coord)
       if (boardCell) {
         boardCell = boardCell as BoardCell
         expect(boardCell.food).toBe(true)
       }
-    })
+    }
 
-    gameBoard.hazards.forEach(function checkHazard(coord) {
+    for (const coord of gameBoard.hazards) {
       let boardCell = board2d.getCell(coord)
       if (boardCell) {
         boardCell = boardCell as BoardCell
         expect(boardCell.hazard).toBe(true)
       }
-    })
+    }
   })
 })
 
@@ -1561,6 +1561,11 @@ describe('Hazard tests', () => {
     const gameState = {"game":{"id":"24ad7287-6849-4584-a110-cfb0d5aa8c02","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":141,"board":{"width":11,"height":11,"food":[{"x":9,"y":2},{"x":10,"y":7}],"hazards":[{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8},{"x":0,"y":9},{"x":0,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":1,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":10},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":10},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":6,"y":10},{"x":7,"y":0},{"x":7,"y":1},{"x":7,"y":10},{"x":8,"y":0},{"x":8,"y":1},{"x":8,"y":10},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2},{"x":10,"y":3},{"x":10,"y":4},{"x":10,"y":5},{"x":10,"y":6},{"x":10,"y":7},{"x":10,"y":8},{"x":10,"y":9},{"x":10,"y":10}],"snakes":[{"id":"gs_873xBxyGgFpDrfQQWKXvFchD","name":"Jaguar Meets Snake","body":[{"x":3,"y":6},{"x":3,"y":5},{"x":3,"y":4},{"x":2,"y":4},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":2,"y":7}],"health":41,"latency":255,"head":{"x":3,"y":6},"length":9,"shout":"","squad":""},{"id":"gs_bBYfdgt6RRBQR3Yhyqvcwxg7","name":"Jaguar Meets Snake","body":[{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":8},{"x":5,"y":7},{"x":5,"y":6},{"x":6,"y":6},{"x":6,"y":5},{"x":7,"y":5},{"x":7,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":10,"y":6},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7},{"x":7,"y":7},{"x":6,"y":7}],"health":88,"latency":207,"head":{"x":4,"y":7},"length":19,"shout":"","squad":""},{"id":"gs_6QxCpyPGcH3YSFqdpHmTCftP","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6}],"health":51,"latency":188,"head":{"x":0,"y":3},"length":14,"shout":"","squad":""}]},"you":{"id":"gs_6QxCpyPGcH3YSFqdpHmTCftP","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6}],"health":51,"latency":188,"head":{"x":0,"y":3},"length":14,"shout":"","squad":""}}
     const moveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // down is certain death, up gives us the possibility of survival if Jaguars don't try to murder us
+  })
+  it('hazardConstrain1: chooses to constrain duel opponent rather than seek food', () => {
+    const gameState: GameState = {"game":{"id":"41dadc8b-2850-480a-b971-44bd809b3683","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":205,"board":{"width":11,"height":11,"food":[{"x":0,"y":0},{"x":10,"y":6},{"x":9,"y":0},{"x":4,"y":2},{"x":2,"y":4}],"hazards":[{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8},{"x":0,"y":9},{"x":0,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":1,"y":9},{"x":1,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":10},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":10},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":10},{"x":7,"y":0},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":10},{"x":8,"y":0},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":10},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":2},{"x":9,"y":3},{"x":9,"y":4},{"x":9,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2},{"x":10,"y":3},{"x":10,"y":4},{"x":10,"y":10}],"snakes":[{"id":"gs_jwy7YGxPbPf8FD3Qm4SGwCm4","name":"🇺🇦 Jaguar Meets Snake 🇺🇦","body":[{"x":9,"y":8},{"x":10,"y":8},{"x":10,"y":9},{"x":9,"y":9},{"x":8,"y":9},{"x":7,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":5,"y":8},{"x":5,"y":7},{"x":4,"y":7}],"health":93,"latency":453,"head":{"x":9,"y":8},"length":11,"shout":"","squad":""},{"id":"gs_KxBCvvKGwtmgdfmFfYSpqQW7","name":"businesssssnake","body":[{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":3},{"x":4,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":7,"y":3},{"x":8,"y":3},{"x":9,"y":3},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7}],"health":39,"latency":145,"head":{"x":4,"y":5},"length":19,"shout":"","squad":""}]},"you":{"id":"gs_KxBCvvKGwtmgdfmFfYSpqQW7","name":"businesssssnake","body":[{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":3},{"x":4,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":7,"y":3},{"x":8,"y":3},{"x":9,"y":3},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7}],"health":39,"latency":145,"head":{"x":4,"y":5},"length":19,"shout":"","squad":""}}
+    const moveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("left") // we are larger, should move towards Jaguar to steal its board control
   })
 })
 

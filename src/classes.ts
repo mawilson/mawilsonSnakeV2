@@ -179,6 +179,7 @@ export class BoardCell {
   hazard: boolean;
   coord: Coord;
   voronoi: {[key: string]: VoronoiSnake} // will populate when calculating VoronoiCells. Most of the time this will be a single snake, but due to ties, can possibly hold multiple
+  voronoiDepth: number | undefined
 
   constructor(_coord: Coord, _food: boolean, _hazard: boolean, _snakeCell?: SnakeCell) {
     this.snakeCell = _snakeCell;
@@ -186,6 +187,7 @@ export class BoardCell {
     this.hazard = _hazard;
     this.coord = _coord;
     this.voronoi = {}
+    this.voronoiDepth = undefined
   }
 
   logSelf(str? : string) : string {
@@ -197,15 +199,6 @@ export class BoardCell {
     }
     logToFile(consoleWriteStream, ret);
     return ret
-  }
-
-  voronoiDepth(): number | undefined {
-    let voronoiKeys = Object.keys(this.voronoi)
-    if (voronoiKeys.length === 0) {
-      return undefined
-    } else {
-      return this.voronoi[voronoiKeys[0]].depth
-    }
   }
 }
 
@@ -222,8 +215,8 @@ export class VoronoiResultsSnakeTailOffset {
 export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
-  tailOffsets: {[key: string]: VoronoiResultsSnakeTailOffset[][] } // when occupying a space that used to be a snake, this represents the distance from that snake's tail. Keep track of snake ID whose body we are occupying too.
-  // each entry in the VoronoiResultsSnakeTailOffset array is indexed by the depth found, & that itself is an array as there can be multiple entries per depth, each with its own tailOffset & voronoiValue
+  tailOffsets: {[key: string]: {[key: number]: VoronoiResultsSnakeTailOffset[] }} // when occupying a space that used to be a snake, this represents the distance from that snake's tail. Keep track of snake ID whose body we are occupying too.
+  // the first key is by snake ID, for grouping by whose body this was. The second key is by depth, for grouping by the depth this body part was found. Finally within is an array, as there can be multiple body parts per depth
   tailChases: number[]
   effectiveHealths: number[]
 
@@ -275,38 +268,38 @@ export class Board2d {
     }
 
     let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
-    let snakePossibleEats: {[key: string]: boolean[]} = {} // for Voronoi points, keeps track of depths & whether it ate at that depth
+    let snakePossibleEats: {[key: string]: number} = {} // for Voronoi points, keeps track of times snake may have eaten up until this depth
 
     function processSnake(inputSnake : Battlesnake) : void {
-      inputSnake.body.forEach(function addSnakeCell(part: Coord, idx: number) : void {
+      for (let idx: number = 0, len: number = inputSnake.body.length; idx < len; idx++) {
+        let part: Coord = inputSnake.body[idx]   
         let isHead: boolean = coordsEqual(part, inputSnake.head)
         let newSnakeCell = new SnakeCell(inputSnake, idx)
         let board2dCell = self.getCell(part)
         if (board2dCell) {
           // wild edge case - when repicking a murdered otherSnake, myself has already moved once, possibly onto another snake tail. Need to not replace my head with otherSnake tail.
-          if (board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail) {
+          if (!(board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail)) {
             //logToFile(consoleWriteStream, `wild edge case not replacing snake ${board2dCell.snakeCell.snake.name} at (${part.x},${part.y})`)
-          } else {
             board2dCell.snakeCell = newSnakeCell
           }
           if (isHead && populateVoronoi) {
             board2dCell.voronoi[inputSnake.id] = new VoronoiSnake(inputSnake, 0, inputSnake.length, inputSnake.health, undefined) // as this is a snake head, this is a starting Voronoi point, populate it with inputSnake at depth 0
+            board2dCell.voronoiDepth = 0
             voronoiPoints.push(board2dCell)
-            snakePossibleEats[inputSnake.id] = [snakeHasEaten(inputSnake)] // initialize snakePossibleEats array - has eaten if inputSnake just ate
+            snakePossibleEats[inputSnake.id] = 0 // initialize snakePossibleEats. Even if snake has just eaten, that is not a 'possible' eat, it's already reflected in snake length, so this always starts at 0
           }
         }
-      })
+      }
     }
 
-    //processSnake(you) // not necessary as board.snakes contains self
     board.snakes.forEach(processSnake)
 
-    board.food.forEach(function addFood(coord : Coord) : void {
+    for (const coord of board.food) {
       let board2dCell = self.getCell(coord);
       if (board2dCell instanceof BoardCell) {
         board2dCell.food = true;
       }
-    })
+    }
 
     if (isHazardSpiral) {
       let gameDataId = createGameDataId(gameState)
@@ -329,12 +322,12 @@ export class Board2d {
         } // no need for else, if hazardSpiral is undefined in a hazardSpiral game, that just means there haven't been any hazards yet
       }
     } else {
-      gameState.board.hazards.forEach(function addHazard(coord: Coord) : void {
+      for (const coord of gameState.board.hazards) {
         let board2dCell = self.getCell(coord)
         if (board2dCell instanceof BoardCell) {
           board2dCell.hazard = true;
         }
-      })
+      }
     }
 
     // populate Voronoi properties of boardCells
@@ -344,7 +337,7 @@ export class Board2d {
       let eatDepths: {[key: string]: boolean} = {} // keeps track of whether snake with this ID has eaten at this depth
 
       let snakeDeathDepths: {[key: string]: number} = {} // keeps track of when snakes will die
-      gameState.board.snakes.forEach((snake) => {
+      for (const snake of gameState.board.snakes) {
         let availableMoves: Moves = getAvailableMoves(gameState, snake, self)
         if (availableMoves.validMoves().length === 0) { // no valid moves exist, but body may still persist for one more turn. Check for health/wall deaths exclusively
           availableMoves = getAvailableMovesHealth(gameState, snake, self)
@@ -354,7 +347,7 @@ export class Board2d {
             snakeDeathDepths[snake.id] = 2
           }
         } // not safe to assume snake death under any other circumstance
-      })
+      }
 
 
       while(voronoiPoints.length) { // so long as any voronoiPoints are left, must keep calculating them
@@ -363,12 +356,12 @@ export class Board2d {
 
         if (point !== undefined) {
           let neighbors = getSurroundingCells(point.coord, self)
-          neighbors.forEach(neighbor => { // for each neighbor, update its voronoi array if applicable
+          for (const neighbor of neighbors) { // for each neighbor, update its voronoi array if applicable
             let isNewVoronoiBoardCell: boolean = false // if any VoronoiSnakes are added to this neighbor, set this to true so we can add it to voronoiPoints array
             if (point !== undefined) {
               let voronoiKeys = Object.keys(point.voronoi)
 
-              voronoiKeys.forEach(snakeId => { // propagate Voronoi out for each snake at this point. TieSnakes will end up sharing a lot of spaces.
+              for (const snakeId of voronoiKeys) { // propagate Voronoi out for each snake at this point. TieSnakes will end up sharing a lot of spaces. 
                 let voronoiSnake: VoronoiSnake | undefined = point?.voronoi[snakeId]
                 if (voronoiSnake !== undefined) {
                   // in order to allow for tails, cells with snakeCells whose length would have removed the tail by this depth will be allowed
@@ -392,13 +385,7 @@ export class Board2d {
                         tailOffset = voronoiSnake.effectiveLength - effectiveIndex - depth
                         isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                       } else {
-                        let totalPossibleEats: number = 0
-                        snakePossibleEats[neighbor.snakeCell.snake.id].forEach((gotFood, idx) => {
-                          if (idx !== 0) { // food eaten at depth 0 is not 'possible', it's already eaten, we can see it reflected in snakeCell.snake.length
-                            totalPossibleEats = gotFood? totalPossibleEats + 1 : totalPossibleEats
-                          }
-                        })
-                        let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + totalPossibleEats
+                        let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + snakePossibleEats[neighbor.snakeCell.snake.id]
                         tailOffset = neighborSnakeEffectiveLength - effectiveIndex - depth
                         isBodyCell = tailOffset > 0
                       }
@@ -423,14 +410,17 @@ export class Board2d {
                       if (neighborVoronoiKeys.length === 0) { // if I am the first one to this boardCell, add myself to its voronoi array
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
+                          neighbor.voronoiDepth = depth
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           }
                         }
@@ -438,16 +428,19 @@ export class Board2d {
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi = {} // clear out old, dead voronoiSnake
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
+                          neighbor.voronoiDepth = depth
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi = {} // clear out old, dead voronoiSnake
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi = {} // clear out old, dead voronoiSnake
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } // do not clear out old, smaller voronoiSnakes if snake would starve by stealing this cell away
                         }
@@ -455,30 +448,36 @@ export class Board2d {
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
+                          neighbor.voronoiDepth = depth
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } // do not clear out old, smaller voronoiSnakes if snake would starve by stealing this cell away
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && voronoiSnakeNewEffectiveLength === neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength) { // else if I am at the same depth as, & equal to the existing snakes in this board cell, add myself
                         if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
+                          neighbor.voronoiDepth = depth
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (self.hazardDamage + 1)) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - self.hazardDamage), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
                             neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1), tailOffset)
+                            neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           }
                         }
@@ -500,24 +499,24 @@ export class Board2d {
                     }
                   }
                 }
-              })
+              }
             }
             if (isNewVoronoiBoardCell) {
               voronoiPoints.push(neighbor)
             }
-          })
+          }
 
           // once we've processed all VoronoiPoints at this depth, can move on to the next depth
-          if (voronoiPoints[0] !== undefined && voronoiPoints[0].voronoiDepth() !== point.voronoiDepth()) {
+          if (voronoiPoints[0] !== undefined && voronoiPoints[0].voronoiDepth !== point.voronoiDepth) {
             depth = depth + 1
 
             // once we're moving on to a new depth, can update snakePossibleEats with the eats that each snake may have done at this depth
             let snakeIds = Object.keys(eatDepths)
-            snakeIds.forEach(id => {
-              if (snakePossibleEats[id] !== undefined || this.isConstrictor) {
-                snakePossibleEats[id].push(eatDepths[id])
+            for (const id of snakeIds) {
+              if (this.isConstrictor || eatDepths[id]) { // constrictor snakes always effectively eat, otherwise, check eatDepths to see if snake at at this depth
+                snakePossibleEats[id] = snakePossibleEats[id] + 1
               }
-            })
+            }
 
             eatDepths = {} // reset eatDepths for new depth
           }
@@ -1105,11 +1104,11 @@ export class MoveNeighbors {
   // returns true if some upNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
   private _huntedAtUp() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
-    let biggerSnake : boolean = false;
-    this.upNeighbors.forEach(function checkNeighbors(cell) {
+    let _this = this;
+    let biggerSnake : boolean = false
+    for (const cell of this.upNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
-        biggerSnake = true;
+        biggerSnake = true
         _this.upPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].up = true;
@@ -1117,37 +1116,37 @@ export class MoveNeighbors {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(true, false, false, false);
         }
       }
-    });
+    }
     return biggerSnake;
   }
   
 
   // returns true if upNeighbors exist, but no upNeighbor snake exists of equal or longer length than me
   private _huntingAtUp() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
+    let _this = this;
     let upNeighborSnakes : number = 0
-    let biggerSnake : boolean = true;
-    this.upNeighbors.forEach(function checkNeighbors(cell) {
+    let biggerSnake : boolean = true
+    for (const cell of this.upNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
-        upNeighborSnakes = upNeighborSnakes + 1;
+        upNeighborSnakes = upNeighborSnakes + 1
         if (_this.isSnakeCellLargerOrTied(cell)) {
           biggerSnake = false;
         } else {
           _this.upPrey = cell.snakeCell.snake;
         }
       }
-    });
+    }
     return upNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
   // returns true if some downNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
   private _huntedAtDown() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
-    let biggerSnake : boolean = false;
-    this.downNeighbors.forEach(function checkNeighbors(cell) {
+    let _this = this
+    let biggerSnake : boolean = false
+    for (const cell of this.downNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
-        biggerSnake = true;
+        biggerSnake = true
         _this.downPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].down = true;
@@ -1155,16 +1154,17 @@ export class MoveNeighbors {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(false, true, false, false);
         }
       }
-    });
+    }
     return biggerSnake;
   }
   
   // returns true if downNeighbors exist, but no downNeighbor snake exists of equal or longer length than me
   private _huntingAtDown() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
+    let _this = this
     let downNeighborSnakes : number = 0
-    let biggerSnake : boolean = true;
-    this.downNeighbors.forEach(function checkNeighbors(cell) {
+    let biggerSnake : boolean = true
+
+    for (const cell of this.downNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         downNeighborSnakes = downNeighborSnakes + 1;
         if (_this.isSnakeCellLargerOrTied(cell)) {
@@ -1173,18 +1173,18 @@ export class MoveNeighbors {
           _this.downPrey = cell.snakeCell.snake;
         }
       }
-    });
+    }
     return downNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
   // returns true if some leftNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
   private _huntedAtLeft() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
-    let biggerSnake : boolean = false;
-    this.leftNeighbors.forEach(function checkNeighbors(cell) {
+    let _this = this
+    let biggerSnake : boolean = false
+    for (const cell of this.leftNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
-        biggerSnake = true;
+        biggerSnake = true
         _this.leftPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].left = true;
@@ -1192,36 +1192,36 @@ export class MoveNeighbors {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(false, false, false, true);
         }
       }
-    });
+    }
     return biggerSnake;
   }
   
   // returns true if leftNeighbors exist, but no leftNeighbor snake exists of equal or longer length than me
   private _huntingAtLeft() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
+    let _this = this
     let leftNeighborSnakes : number = 0
-    let biggerSnake : boolean = true;
-    this.leftNeighbors.forEach(function checkNeighbors(cell) {
+    let biggerSnake : boolean = true
+    for (const cell of this.leftNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
-        leftNeighborSnakes = leftNeighborSnakes + 1;
+        leftNeighborSnakes = leftNeighborSnakes + 1
         if (_this.isSnakeCellLargerOrTied(cell)) {
           biggerSnake = false;
         } else {
           _this.leftPrey = cell.snakeCell.snake;
         }
       }
-    });
+    }
     return leftNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
   // returns true if some rightNeighbor snake exists of equal or longer length than me
   // also populates huntingSnakes with info about its potential killers & what directions they can come from
   private _huntedAtRight() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
-    let biggerSnake : boolean = false;
-    this.rightNeighbors.forEach(function checkNeighbors(cell) {
+    let _this = this
+    let biggerSnake : boolean = false
+    for (const cell of this.rightNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && _this.isSnakeCellLargerOrTied(cell)) {
-        biggerSnake = true;
+        biggerSnake = true
         _this.rightPredator = cell.snakeCell.snake
         if (_this.huntingSnakes[cell.snakeCell.snake.id]) {
           _this.huntingSnakes[cell.snakeCell.snake.id].right = true;
@@ -1229,16 +1229,16 @@ export class MoveNeighbors {
           _this.huntingSnakes[cell.snakeCell.snake.id] = new Moves(false, false, true, false);
         }
       }
-    });
+    }
     return biggerSnake;
   }
   
   // returns true if rightNeighbors exist, but no rightNeighbor snake exists of equal or longer length than me
   private _huntingAtRight() : boolean {
-    let _this = this; // forEach function will have its own this, don't muddle them
+    let _this = this
     let rightNeighborSnakes : number = 0
-    let biggerSnake : boolean = true;
-    this.rightNeighbors.forEach(function checkNeighbors(cell) {
+    let biggerSnake : boolean = true
+    for (const cell of this.rightNeighbors) {
       if (cell.snakeCell instanceof SnakeCell && cell.snakeCell.isHead) {
         rightNeighborSnakes = rightNeighborSnakes + 1;
         if (_this.isSnakeCellLargerOrTied(cell)) {
@@ -1247,7 +1247,7 @@ export class MoveNeighbors {
           _this.rightPrey = cell.snakeCell.snake;
         }
       }
-    });
+    }
     return rightNeighborSnakes === 0 ? false : biggerSnake; // don't go hunting if there aren't any snake heads nearby
   }
 
@@ -1629,8 +1629,9 @@ export class TimingData {
   source: string
   hazardDamage: number
   hazardMap: string
+  snakeLength: number
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, hazardMap: string | undefined) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, hazardMap: string | undefined, snakeLength: number) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1644,6 +1645,7 @@ export class TimingData {
     this.source = source
     this.hazardDamage = hazardDamage
     this.hazardMap = hazardMap !== undefined? hazardMap : ""
+    this.snakeLength = snakeLength
   }
 }
 
@@ -1771,12 +1773,12 @@ export class EvaluationResult {
     let thisObj = this
     let props = Object.keys(thisObj) as Array<keyof typeof thisObj>
     props.sort() // order doesn't particularly matter, so long as it's consistent for comparison's sake
-    props.forEach(prop => {
+    for (const prop of props) {
       let val = thisObj[prop]
       if (typeof val === "number") {
         buildString(`${prop.toString()} score: ${val}`)
       }
-    })
+    }
     buildString(`total: ${this.sum()}`)
 
     return str
