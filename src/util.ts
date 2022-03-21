@@ -2275,12 +2275,12 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
   const evalVoronoiTailChaseMinDepth: number = 3
   const evalVoronoiTailChaseMaxDepth: number = 8
 
-  const evalVoronoiTailOffsetCoefficient: number = 0.0625
+  const evalVoronoiTailOffsetCoefficient: number = 0.025
   const evalVoronoiTailOffsetConstant: number = 0.5
   const evalVoronoiTailOffsetMinPenalty: number = 0.5
-  const evalVoronoiTailOffsetMaxPenalty: number = 0.0
+  const evalVoronoiTailOffsetMaxPenalty: number = 0
   const evalVoronoiTailOffsetMinOffset: number = 0
-  const evalVoronoiTailOffsetMaxOffset: number = -8
+  const evalVoronoiTailOffsetMaxOffset: number = -20
 
   if (isOriginalSnake) {
     let voronoiTailOffsetPenalty: number = 0
