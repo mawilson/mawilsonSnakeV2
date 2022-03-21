@@ -2276,9 +2276,9 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
   const evalVoronoiTailChaseMaxDepth: number = 8
 
   const evalVoronoiTailOffsetCoefficient: number = 0.025
-  const evalVoronoiTailOffsetConstant: number = 0.3
-  const evalVoronoiTailOffsetMinPenalty: number = 0.3
-  const evalVoronoiTailOffsetMaxPenalty: number = 0.1
+  const evalVoronoiTailOffsetConstant: number = 0.5
+  const evalVoronoiTailOffsetMinPenalty: number = 0.5
+  const evalVoronoiTailOffsetMaxPenalty: number = 0.3
   const evalVoronoiTailOffsetMinOffset: number = 0
   const evalVoronoiTailOffsetMaxOffset: number = -8
 
