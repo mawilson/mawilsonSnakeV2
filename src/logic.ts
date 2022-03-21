@@ -13,7 +13,7 @@ let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
@@ -249,7 +249,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
             let otherSnakeMoves: {[key: string]: Direction} = {[myself.id]: move}
             for (const snake of otherSnakes) {
-              moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, otherSnakeMoves) // decide best move for other snakes according to current data, & tell them what move I am making
+              const snakeMove: MoveWithEval = _decideMove(gameState, snake, 0, undefined, otherSnakeMoves) // decide best move for other snakes according to current data, & tell them what move I am making
+              moveSnakes[snake.id] = snakeMove
+              if (snakeMove.direction !== undefined) {
+                otherSnakeMoves[snake.id] = snakeMove.direction // tell subsequent snakes about where this snake is moving
+              }
             }
 
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
