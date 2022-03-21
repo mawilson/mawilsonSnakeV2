@@ -107,7 +107,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
       const totalReachableCells: number = (boardSize - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
       const myReachableCells: number = totalReachableCells / 2
       const hazardRatio = gameState.board.hazards.length / boardSize
-      // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.7 & 0.8.
+      // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.5 & 0.
       // penalty is applied based on the Voronoi value of the cell, so apply self.length * 2 * hazardValue * hazardRatio penalties for hazard squares, &
       // self.length * 2 * 1 * (1 - hazardRatio) for non-hazard squares, where the first 1 is just a full, non-hazard Voronoi reward
       let tailOffsetPenalty: number = (myself.length * 2 * hazardRatio * 0.2 * hazardValue) + (myself.length * 2 * (1 - hazardRatio) * 0.2)
