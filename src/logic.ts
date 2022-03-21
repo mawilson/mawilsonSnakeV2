@@ -1,4 +1,4 @@
-export const version: string = "1.3.21" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.22" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -120,7 +120,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   const noMe: number = gameStateIsConstrictor(gameState)? evalNoMeConstrictor : evalNoMeStandard
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, originalSnakeMove?: Direction, parentLeaf?: Leaf): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, otherSnakeMoves?: {[key: string]: Direction}, parentLeaf?: Leaf): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
@@ -154,11 +154,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let moves: Moves = getAvailableMoves(gameState, myself, board2d)
     let availableMoves = moves.validMoves()
-    let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
-    let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
-    let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
-  
-    let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let finishEvaluatingNow: boolean = false
     if (!isTesting && !stillHaveTime) { // if we need to leave early due to time
@@ -196,7 +191,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
       return new MoveWithEval(defaultDir, evalThisState)
-    } 
+    }
+
+    let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
+    let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
+    let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
+  
+    let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
     let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)    
@@ -246,49 +247,53 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               return b.length - a.length
             })
 
+            let otherSnakeMoves: {[key: string]: Direction} = {[myself.id]: move}
             for (const snake of otherSnakes) {
-              moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, move) // decide best move for other snakes according to current data, & tell them what move I am making
+              moveSnakes[snake.id] = _decideMove(gameState, snake, 0, undefined, otherSnakeMoves) // decide best move for other snakes according to current data, & tell them what move I am making
             }
 
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
+            otherSnakeMoves[myself.id] = Direction.AlreadyMoved // myself has now moved
 
             for (const snake of otherSnakes) { // move each of the snakes at the same time, without updating gameState until each has moved 
               if (moveSnakes[snake.id]) { // if I have already decided upon this snake's move, see if it dies doing said move
                 let newHead = getCoordAfterMove(gameState, snake.head, moveSnakes[snake.id].direction)
                 let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
 
+                let murderSnakeBeforeMove: Battlesnake | undefined
                 let murderSnake: Battlesnake | undefined = newGameState.board.snakes.find(murderSnake => { // check if any snake has murdered this snake, including originalSnake
-                  let murderSnakeBeforeMove: Battlesnake | undefined = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
+                  if (murderSnake.id === snake.id) { return false } // return false for self
+                  murderSnakeBeforeMove = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
                     return murderSnake !== undefined && priorSnake.id === murderSnake.id
                   })
                   
-                  if (murderSnakeBeforeMove !== undefined && murderSnakeBeforeMove.id !== snake.id) { // don't compare self to self
+                  if (murderSnakeBeforeMove !== undefined) {
                     // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
                     return (coordsEqual(newHead, murderSnake.head) && murderSnakeBeforeMove.length >= snake.length) // snake hasn't moved yet since we're in the process of moving it, can use its length
-                  } else { // return false for self
+                  } else { // return false for nonexistant snakes
                     return false
                   }
                 })
                 // allow snakes that died to reroll their move
                 if (murderSnake !== undefined) {
-                  let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(newGameState, snake, new Board2d(newGameState)).validMoves()
-                  let murderSnakeBeforeMove: Battlesnake | undefined = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
-                    return murderSnake !== undefined && priorSnake.id === murderSnake.id
-                  })
+                  let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(gameState, snake, board2d).validMoves()
                   let newMove: MoveWithEval
-                  switch (otherSnakeAvailableMoves.length) { // allow otherSnake to choose again if that may make a difference
+                  const otherSnakeAvailableMovesAfterDeath: number = otherSnakeAvailableMoves.length - 1
+                  switch (otherSnakeAvailableMovesAfterDeath) { // allow otherSnake to choose again if that may make a difference. Available moves length will be one less than before, as we already know the first one resulted in death
                     case 0: // otherSnake has no other options, don't change its move
                       break
                     case 1: // otherSnake has only one other option left. Evaluate it, choose it if it's better than a tie
                     case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie
-                      if (otherSnakeAvailableMoves.length === 1) {
+                      if (otherSnakeAvailableMovesAfterDeath === 1) {
                         if (isDuel && murderSnakeBeforeMove !== undefined && murderSnakeBeforeMove.length === snake.length) {
-                          newMove = _decideMove(newGameState, snake, 0, undefined, Direction.AlreadyMoved) // let snake decide again, no lookahead this time, & tell it that myself already moved
+                          newMove = _decideMove(newGameState, snake, 0, undefined, otherSnakeMoves) // let snake decide again, no lookahead this time, & tell it that myself already moved
                         } else {
-                          newMove = new MoveWithEval(otherSnakeAvailableMoves[0], undefined) // with only one other move available, score only matters in a duel tie
+                          let newMoveDir: Direction = otherSnakeAvailableMoves[0]
+                          if (newMoveDir === adjustedMove.direction) { newMoveDir = otherSnakeAvailableMoves[1] } // hack to avoid looping - there are two elements in this array, & we want the one that isn't what adjustedMove already is
+                          newMove = new MoveWithEval(newMoveDir, undefined) // with only one other move available, score only matters in a duel tie
                         }
                       } else {
-                        newMove = _decideMove(newGameState, snake, 0, undefined, Direction.AlreadyMoved) // let snake decide again, no lookahead this time, & tell it that myself already moved
+                        newMove = _decideMove(newGameState, snake, 0, undefined, otherSnakeMoves) // let snake decide again, no lookahead this time, & tell it that myself already moved
                       }
                       if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
                         adjustedMove = newMove
@@ -315,6 +320,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                   
                 }
                 moveSnake(newGameState, snake, board2d, adjustedMove.direction)
+                otherSnakeMoves[snake.id] = Direction.AlreadyMoved
               }
             }
             updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
@@ -323,8 +329,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             
             // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
             for (const snake of otherSnakes) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
-              if (snake.id === newGameState.you.id && originalSnakeMove !== undefined) { // we know exactly what move snake is making if that snake is originalSnake
-                moveSnake(newGameState, snake, board2d, originalSnakeMove)              
+              if (otherSnakeMoves !== undefined && otherSnakeMoves[snake.id] !== undefined) { // we know exactly what move this snake is making
+                moveSnake(newGameState, snake, board2d, otherSnakeMoves[snake.id])              
               } else {
                 let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
                 if (otherSnakeAvailableMoves.length === 0) {
