@@ -3,7 +3,14 @@ import { version } from './logic'
 
 export async function connectToDatabase(): Promise<MongoClient> {
     // Connection url
-    const url = "mongodb://45.79.100.226:27017";
+    let linodeDedi: boolean = false
+    let url: string
+    if (linodeDedi) {
+      url = "mongodb://45.79.102.27:27017"
+    } else {
+      url = "mongodb://45.79.100.226:27017";
+    }
+
 
     // Connect using a MongoClient instance
     const mongoClient: MongoClient = new MongoClient(url)
