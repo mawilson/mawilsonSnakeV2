@@ -1,11 +1,10 @@
 import { Collection, Db, MongoClient } from 'mongodb'
-import { version } from './logic'
+import { version, isLinodeDedi } from './logic'
 
 export async function connectToDatabase(): Promise<MongoClient> {
     // Connection url
-    let linodeDedi: boolean = false
     let url: string
-    if (linodeDedi) {
+    if (isLinodeDedi) {
       url = "mongodb://45.79.102.27:27017"
     } else {
       url = "mongodb://45.79.100.226:27017";
