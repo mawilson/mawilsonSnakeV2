@@ -2312,7 +2312,7 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
           } else if (offset.tailOffset <= evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
             tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
           } else if (offset.tailOffset > evalVoronoiTailOffsetMaxOffset) { // for the inbetween values, consult the formula
-            tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is 0.0625 * tailOffset + 0.5. Works out to 0.5 penalty at tailOffset 0, 0 penalty at tailOffset -8
+            tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is 0.025 * tailOffset + 0.5. Works out to 0.5 penalty at tailOffset 0, 0 penalty at tailOffset -20
           } // tailOffset should never be greater than 0, as this would have been a body cell
           
           if (tailOffsetPenaltyPercentage > 0) { // if we're applying a tail offset penalty

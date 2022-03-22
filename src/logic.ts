@@ -1,4 +1,4 @@
-export const version: string = "1.3.23" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.24" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -14,6 +14,7 @@ import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
 export const isDevelopment: boolean = false
+export const isLinodeDedi: boolean = false
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
@@ -24,8 +25,16 @@ export let gameData: {[key: string]: GameData} = {}
 export function info(): InfoResponse {
     console.log("INFO")
     let response: InfoResponse
-    if (isDevelopment) {
-      // Test Snake
+    if (isLinodeDedi) { // shovel
+      response = {
+        apiversion: "1",
+        author: "waryferryman",
+        color: "#ff99e6", // #ff9900
+        head: "earmuffs", //"tiger-king",
+        tail: "coffee", //"mystic-moon",
+        version: version
+      }
+    } else if (isDevelopment) { // businesssssnake
       response = {
         apiversion: "1",
         author: "waryferryman",
@@ -34,8 +43,7 @@ export function info(): InfoResponse {
         tail: "rbc-necktie", // "fat-rattle",
         version: version
       }
-    } else {
-      // Jaguar
+    } else { // Jaguar
       response = {
         apiversion: "1",
         author: "waryferryman",
