@@ -1,4 +1,4 @@
-export const version: string = "1.3.22" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.23" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -539,6 +539,10 @@ export function move(gameState: GameState): MoveResponse {
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, 0, board2d, true)
     if (gameState.turn === 0) {
       futureSight = 0
+    } else if (gameState.turn < 10) {
+      futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
+    } else if (gameState.turn < 20) {
+      futureSight = 5 // as above, but ramping up
     } else {
       futureSight = 7
     }

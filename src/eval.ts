@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeLengthDelta, snakeHasEaten, kissDecider, isCutoff, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isCorner, isOnHorizontalWall, isOnVerticalWall, cloneGameState, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, isFlip, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -107,7 +107,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
       const totalReachableCells: number = (boardSize - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
       const myReachableCells: number = totalReachableCells / 2
       const hazardRatio = gameState.board.hazards.length / boardSize
-      // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.7 & 0.8.
+      // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.5 & 0.
       // penalty is applied based on the Voronoi value of the cell, so apply self.length * 2 * hazardValue * hazardRatio penalties for hazard squares, &
       // self.length * 2 * 1 * (1 - hazardRatio) for non-hazard squares, where the first 1 is just a full, non-hazard Voronoi reward
       let tailOffsetPenalty: number = (myself.length * 2 * hazardRatio * 0.2 * hazardValue) + (myself.length * 2 * (1 - hazardRatio) * 0.2)
@@ -175,7 +175,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const isConstrictor = gameStateIsConstrictor(gameState)
   const evalNoMe: number = isConstrictor? evalNoMeConstrictor : evalNoMeStandard // evalNoMe can vary based on game mode
 
-  const snakeDelta = myself !== undefined ? snakeLengthDelta(myself, gameState) : -1
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
   const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
@@ -351,15 +350,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const evalCutoffHazardPenalty = -60
 
   let evalFoodVal = 3
-  if (gameState.turn < 3) {
-    evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
-    evalFoodVal = 4
-  } else if (isDuel && snakeDelta < -4) { // care a bit less about food due to already being substantially smaller
-    evalFoodVal = 2
-  } else if (snakeDelta < 1) { // care a bit more about food to try to regain the length advantage
-    evalFoodVal = 4
-  }
   const evalFoodStep = 1
   let evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
@@ -371,9 +361,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const evalSoloTailChase = 50 // reward for being exactly one away from tail when in solo
   const evalSoloCenter = -1
-
-  const evalWrappedFlipFlopStep = 30
-  const evalWrappedTailFlipFlopPenalty = -15
 
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
@@ -423,14 +410,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   let wantToEat: boolean = true // condition for whether we currently want food
   let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
-
-  // hazard walling
-  if (isDuel && hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap) { // hazard wall penalty only applies in standard hazard maps
-    let opponentCell = board2d.getCell(otherSnakes[0].head)
-    if (opponentCell?.hazard && myself.health > 20 && !(myCell?.hazard)) {
-      evalFoodVal = 2 // seek food less while building hazard walls, but don't stop
-    }
-  }
 
   if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
     evaluationResult.hazardWall = evalHazardWallPenalty
@@ -570,20 +549,44 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
-  } else if (snakeDelta > 6) { // If I am more than 6 bigger, want food less
-    evalFoodVal = 2
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
-  } else if (voronoiMyself < 3) { // eating this food puts me into a box I likely can't get out of, that's not safe
+  } else if (voronoiMyself <= 5) { // eating this food puts me into a box I likely can't get out of, that's not safe
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   }
 
-  let delta = snakeDelta
+  let selfPossibleLength: number = myself.length // not sure if I want to do this, or just consider myself.length
+  let longestSnakePossibleLength: number = 0
+  for (const snake of gameState.board.snakes) { // for each snake, find its possible length based on the food it can reach now
+    const totalPossibleEatsKeys: string[] = Object.keys(voronoiResults.snakeResults[snake.id].food)
+    if (snake.id === myself.id) {
+      selfPossibleLength = selfPossibleLength + totalPossibleEatsKeys.length
+    } else {
+      const possibleLength: number = snake.length + totalPossibleEatsKeys.length
+      if (longestSnakePossibleLength < possibleLength) { // if possibleLength is larger than the largest we've found so far, make it the new longest possible length
+        longestSnakePossibleLength = possibleLength
+      }
+    }
+  }
+  let delta: number = selfPossibleLength - longestSnakePossibleLength // snake delta is based on possible lengths, not current lengths
+
   // general snake length metric. More long more good
   if (snakeHasEaten(myself) && !safeToEat) { // if it just ate & it's not safe to eat, don't reward it for the new extra length
-    delta = snakeDelta - 1
+    delta = delta - 1
+  }
+
+  if (gameState.turn < 3) {
+    evalFoodVal = 50 // simply, should always want to get the starting food
+  } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
+    evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
+  } else if (isDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
+    evalFoodVal = 2
+  } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
+    evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
+  } else if (delta > 6) { // If I am more than 6 bigger, want food less
+    evalFoodVal = 2
   }
 
   if (!isConstrictor) { // constrictor snake length is irrelevant
@@ -784,48 +787,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     const yDiff = Math.abs(myself.head.y - centers.centerY)
 
     evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
-  }
-
-  if (isWrapped) { 
-    if (gameState.turn > 1) { // ignore this on early turns, just get starting food
-      let myselfIsFlip: boolean = isFlip(myself.head)
-      let flipOtherSnakes: number = 0
-      let flopOtherSnakes: number = 0
-      if (delta > 0) { // if I am the largest snake, I want to position myself in the same cell type as the other snakes so that I can kiss them to death
-        otherSnakes.forEach(snake => {
-          if (isFlip(snake.head)) {
-            flipOtherSnakes = flipOtherSnakes + 1
-          } else {
-            flopOtherSnakes = flopOtherSnakes + 1
-          }
-        })
-        if (myselfIsFlip) { // am flip, reward snake for number of smaller flipOtherSnakes in game
-          evaluationResult.flipFlop = flipOtherSnakes * evalWrappedFlipFlopStep
-        } else { // am flop, reward snake for number of smaller flopOtherSnakes in game
-          evaluationResult.flipFlop = flopOtherSnakes * evalWrappedFlipFlopStep
-        }
-      } else { // if I am not the largest snake, I want to position myself in a different cell type as the other larger/equivalent snakes
-        otherSnakes.forEach(snake => {
-          if (myself && snake.length >= myself.length) {
-            if (isFlip(snake.head)) {
-              flipOtherSnakes = flipOtherSnakes + 1
-            } else {
-              flopOtherSnakes = flopOtherSnakes + 1
-            }
-          }
-        })
-        if (myselfIsFlip) { // am flip, penalize snake for number of larger flipOtherSnakes in game
-          evaluationResult.flipFlop = -flipOtherSnakes * evalWrappedFlipFlopStep
-        } else { // am flop, penalize snake for number of larger flopOtherSnakes in game
-          evaluationResult.flipFlop = -flopOtherSnakes * evalWrappedFlipFlopStep
-        }
-      }
-
-      let tailIsFlip: boolean = isFlip(myself.body[myself.length - 1])
-      if (tailIsFlip === myselfIsFlip) { // if head & tail are both flip or both flop, we cannot safely chase our tail without risk of another snake cutting us off
-        evaluationResult.flipFlopTail = evalWrappedTailFlipFlopPenalty
-      }
-    }
   }
 
   if (isConstrictor) {
