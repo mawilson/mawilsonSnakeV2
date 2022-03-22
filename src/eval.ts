@@ -552,7 +552,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
-  } else if (voronoiMyself < 3) { // eating this food puts me into a box I likely can't get out of, that's not safe
+  } else if (voronoiMyself <= 5) { // eating this food puts me into a box I likely can't get out of, that's not safe
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   }
