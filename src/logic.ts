@@ -1,4 +1,4 @@
-export const version: string = "1.3.25" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.26" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -30,8 +30,8 @@ export function info(): InfoResponse {
         apiversion: "1",
         author: "waryferryman",
         color: "#ff99e6", // #ff9900
-        head: "earmuffs", //"tiger-king",
-        tail: "coffee", //"mystic-moon",
+        head: "evil", //"tiger-king",
+        tail: "replit-notmark", //"mystic-moon",
         version: version
       }
     } else if (isDevelopment) { // businesssssnake
