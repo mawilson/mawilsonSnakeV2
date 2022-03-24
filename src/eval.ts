@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -170,6 +170,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const hazardDamage: number = getHazardDamage(gameState)
   const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
+  const isRoyale = gameStateIsRoyale(gameState)
   const isWrapped = gameStateIsWrapped(gameState)
   const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const isConstrictor = gameStateIsConstrictor(gameState)
@@ -337,8 +338,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evalKissOfDeathMaybeMutual = -150
   }
 
-  const evalKissOfDeathAvoidance = 0
-
   const evalKissOfDeathNo = 0
   const evalKissOfMurderCertainty = 50 // we can kill a snake, this is probably a good thing
   const evalKissOfMurderMaybe = 25 // we can kill a snake, but it's a 50/50
@@ -431,9 +430,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   let kissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
-  if (kissStates.canTauntDeath(moves)) { // baitsnake time!
-    evaluationResult.kissOfDeath = evalKissOfDeathAvoidance
-  } else if (kissStates.canAvoidPossibleDeath(moves)) { // death is avoidable for at least one possible move
+  if (kissStates.canAvoidPossibleDeath(moves)) { // death is avoidable for at least one possible move
     evaluationResult.kissOfDeath = evalKissOfDeathNo
   } else if (kissStates.canAvoidCertainDeath(moves)) { // death has a chance of being avoidable for at least one possible move
     // this is a bit of a mess. Basically: get the predator who has a chance of cells to kill me at (huntingChanceDirections call) rather than the ones who can only do so in one cell
@@ -488,7 +485,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   } // no kisses of murder nearby, not bothering to set value
 
-  if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap) { // hazard cutoffs only make sense in standard hazard maps
+  if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap && isRoyale) { // hazard cutoffs only make sense in standard hazard maps
     let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
       return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
     })

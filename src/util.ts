@@ -100,6 +100,10 @@ export function getDistance(c1: Coord, c2: Coord, gameState: GameState) : number
   }
 }
 
+export function gameStateIsRoyale(gameState: GameState): boolean {
+  return gameState.game.ruleset.name === "royale"
+}
+
 // gameMode functions
 export function gameStateIsWrapped(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "wrapped"
@@ -108,7 +112,8 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
   const hazardDamage: number = getHazardDamage(gameState)
-  return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
+  //return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
+  return gameStateIsWrapped(gameState) && gameState.board.hazards.length > 0 && hazardDamage > 0 // hack for now while hazardMap is not available
 }
 
 export function gameStateIsHazardScatter(gameState: GameState): boolean {
@@ -1566,9 +1571,9 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
     return false
   } else if (_snake === undefined) { // undefined snakes cannot be cut off
     return false
-  } else if (getHazardDamage(gameState) === 0) { // cannot do hazard cutoff in a game without hazard
+  } else if (getHazardDamage(gameState) === 0 || gameState.board.hazards.length === 0) { // cannot do hazard cutoff in a game without hazard
     return false
-  } else if (gameState.game.ruleset.settings.hazardMap) { // cannot do hazard cutoff in non-standard hazard maps
+  } else if (!gameStateIsRoyale(gameState)) { // hazard cutoff is exclusive to royale games
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
