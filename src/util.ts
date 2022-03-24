@@ -100,6 +100,10 @@ export function getDistance(c1: Coord, c2: Coord, gameState: GameState) : number
   }
 }
 
+export function gameStateIsRoyale(gameState: GameState): boolean {
+  return gameState.game.ruleset.name === "royale"
+}
+
 // gameMode functions
 export function gameStateIsWrapped(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "wrapped"
@@ -108,7 +112,8 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
   const hazardDamage: number = getHazardDamage(gameState)
-  return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
+  //return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
+  return gameStateIsWrapped(gameState) && gameState.board.hazards.length > 0 && hazardDamage > 0 // hack for now while hazardMap is not available
 }
 
 export function gameStateIsHazardScatter(gameState: GameState): boolean {
@@ -1566,9 +1571,9 @@ export function isHazardCutoff(gameState: GameState, _myself: Battlesnake | unde
     return false
   } else if (_snake === undefined) { // undefined snakes cannot be cut off
     return false
-  } else if (getHazardDamage(gameState) === 0) { // cannot do hazard cutoff in a game without hazard
+  } else if (getHazardDamage(gameState) === 0 || gameState.board.hazards.length === 0) { // cannot do hazard cutoff in a game without hazard
     return false
-  } else if (gameState.game.ruleset.settings.hazardMap) { // cannot do hazard cutoff in non-standard hazard maps
+  } else if (!gameStateIsRoyale(gameState)) { // hazard cutoff is exclusive to royale games
     return false
   } else if (_myself.id === _snake.id) {
     return false // cannot cut myself off
@@ -2306,23 +2311,16 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
           }
 
           // in all games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
-          let tailOffsetPenaltyPercentage: number = 0
-          if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
-            tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
-          } else if (offset.tailOffset === evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
-            tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
-          } else if (offset.tailOffset > evalVoronoiTailOffsetMaxOffset) { // for the inbetween values, consult the formula
-            tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is 0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, .1 penalty at tailOffset -8, 0 after that
-          } // tailOffset should never be greater than 0, as this would have been a body cell. If tailOffset is less than evalVoronoiTailOffsetMaxOffset, no penalty
-          
-          if (tailOffsetPenaltyPercentage > 0) { // if we're applying a tail offset penalty
-            if (newOffsetPenalty > 0) { // tailChase penalty already applied, need to add this on top of that
-              let currentVoronoiValue: number = offset.voronoiValue - newOffsetPenalty
-              currentVoronoiValue = currentVoronoiValue * (1 - tailOffsetPenaltyPercentage) // apply tailOffsetPenalty as a percentage of currentVoronoiValue
-              newOffsetPenalty = offset.voronoiValue - currentVoronoiValue // recalq offset penalty by subtracting new currentVoronoiValue from original voronoiValue
-            } else {
-              newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
-            }
+          if (newOffsetPenalty === 0) { // If newOffsetPenalty is already > 0, tailChase penalty already applied, don't double penalize
+            let tailOffsetPenaltyPercentage: number = 0
+            if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
+              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
+            } else if (offset.tailOffset === evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
+              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
+            } else if (offset.tailOffset > evalVoronoiTailOffsetMaxOffset) { // for the inbetween values, consult the formula
+              tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is 0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, .1 penalty at tailOffset -8, 0 after that
+            } // tailOffset should never be greater than 0, as this would have been a body cell. If tailOffset is less than evalVoronoiTailOffsetMaxOffset, no penalty
+            newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
           }
 
           voronoiTailOffsetPenalty = voronoiTailOffsetPenalty + newOffsetPenalty
