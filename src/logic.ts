@@ -1,4 +1,4 @@
-export const version: string = "1.3.26" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.27" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -15,6 +15,7 @@ import { Collection, MongoClient } from 'mongodb'
 const lookaheadWeight = 0.1
 export const isDevelopment: boolean = false
 export const isLinodeDedi: boolean = false
+const isShovel: boolean = false
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
@@ -25,7 +26,7 @@ export let gameData: {[key: string]: GameData} = {}
 export function info(): InfoResponse {
     console.log("INFO")
     let response: InfoResponse
-    if (isLinodeDedi) { // shovel
+    if (isShovel) { // shovel
       response = {
         apiversion: "1",
         author: "waryferryman",
@@ -116,10 +117,11 @@ export async function end(gameState: GameState): Promise<void> {
 // TODO
 // change tsconfig to noImplicitAny: true
 
-export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, startLookahead: number, startingBoard2d: Board2d, iterativeDeepening: boolean): MoveWithEval {
+export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, _startLookahead: number, startingBoard2d: Board2d, iterativeDeepening: boolean): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
   let thisGameData: GameData | undefined = gameData[gameDataString]
   const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
+  const startLookahead: number = gameState.you.id === myself.id ? _startLookahead : 0 // otherSnakes always use lookahead of 0
 
   let root: Leaf | undefined = undefined
   let tree: Tree = new Tree(myself)
@@ -131,6 +133,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, otherSnakeMoves?: {[key: string]: Direction}, parentLeaf?: Leaf): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
+    const originalSnake: boolean = myself.id === gameState.you.id
 
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
       return snake.id === myself.id
@@ -139,21 +142,28 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let isDuel: boolean = stateContainsMe && (gameState.board.snakes.length === 2)
     
     let board2d: Board2d
-    if (lookahead === startLookahead) {
+    if (originalSnake && thisGameData && gameState.turn === thisGameData.turn) { // only originalSnake can use startingBoard2d, as otherSnakes may be rechoosing moves here after dying
       board2d = startingBoard2d
     } else {
       board2d = new Board2d(gameState, false)
     }
 
-    let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
-    let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
-    let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
+    let _evalThisState: EvaluationResult | undefined = undefined
+    let evalThisState: number | undefined = undefined
 
-    let _evalThisState = evaluate(gameState, myself, evaluateKisses)
-    let evalThisState: number = _evalThisState.sum(noMe)
+    // non-originalSnakes never need evalThisState (they only care about availableMoves scores, since they can't look ahead)
+    if (originalSnake && thisGameData && gameState.turn !== thisGameData.turn) { // originalSnake does not need evalThisState for the initial turn, since that won't be returned to another _decideMove
+      let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
+      let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
+      let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
+      
+      _evalThisState = evaluate(gameState, myself, evaluateKisses)
+      evalThisState = _evalThisState.sum(noMe)
+    }
+    
 
     if (isDevelopment) {
-      if (myself.id === gameState.you.id && parentLeaf === undefined) { // if tree/root does not yet exist, create it
+      if (originalSnake && parentLeaf === undefined) { // if tree/root does not yet exist, create it
         root = new Leaf(new MoveWithEval(undefined, evalThisState), _evalThisState, [], 0, undefined)
         tree = new Tree(myself, root)
         parentLeaf = root
@@ -170,14 +180,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       finishEvaluatingNow = true
     } else if (availableMoves.length < 1) { // if there's nowhere left to decide to move
       finishEvaluatingNow = true
-    } else if (availableMoves.length === 1 && lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score
-      finishEvaluatingNow = true
+    } else if (availableMoves.length === 1) { 
+      if (!originalSnake) { // non-original snakes don't look ahead
+        finishEvaluatingNow = true
+      } else if (lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score 
+        finishEvaluatingNow = true
+      }
     } else if (gameState.game.ruleset.name !== "solo" && gameState.board.snakes.length === 1) { // it's not a solo game, & we're the only one left - we've won
       finishEvaluatingNow = true
     }
 
     if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
-      if (lookahead !== undefined) {
+      if (lookahead !== undefined && evalThisState !== undefined) {
         let newScore: number = 0 // should always at least account for this turn
         if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
           for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
@@ -222,7 +236,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
       if (iterativeDeepening && !checkTime(startTime, gameState)) { return new MoveWithEval(undefined, undefined) }
-      if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && myself.id === gameState.you.id) { // machine learning check! Only do for self
+      if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && originalSnake) { // machine learning check! Only do for self
         if (averageMoveScore !== undefined) { // if an average move score exists for this game state
           if (averageMoveScore > 0 && bestMove.score >= (averageMoveScore * 1.1)) { // if the average move score isn't objectively bad, & bestMove is appreciably better than it
             doneEvaluating = true
@@ -249,7 +263,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
           let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
 
-          if (newSelf.id === newGameState.you.id) { // only move snakes for self snake, otherwise we recurse all over the place        
+          if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place        
 
             otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
               return b.length - a.length
@@ -319,7 +333,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                             }
                           } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
                             adjustedMove = newMove
-                          } else if (newMove.score !== undefined && newMove.score > (2 * determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum(noMe))) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose. Multiply by 2, since 0 lookahead still means this state, + the state of the chosen bestMove
+                          } else if (newMove.score !== undefined && newMove.score > determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove).sum(noMe)) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose
                             adjustedMove = newMove
                           } // if it fails all three of those, we won't rechoose
                         }
@@ -369,7 +383,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           
           let thisLeaf: Leaf | undefined = undefined
           if (isDevelopment) {
-            if (myself.id === gameState.you.id && lookahead !== undefined) {
+            if (originalSnake && lookahead !== undefined) {
               thisLeaf = new Leaf(new MoveWithEval(move, undefined), _evalThisState, [], lookahead, parentLeaf)
             }
           }
@@ -429,7 +443,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
     let canLearn: boolean = averageMoveScore === undefined || averageMoveScore < 0 // can still learn if we didn't have data for this move, or the only data we had was worthless
-    if ((amMachineLearning || canLearn) && (myself.id === gameState.you.id) && (bestMove.score !== undefined) && !finishEvaluatingNow) { // only add machine learning data for my own moves, & only consider moves that weren't defaults
+    if ((amMachineLearning || canLearn) && originalSnake && (bestMove.score !== undefined) && !finishEvaluatingNow) { // only add machine learning data for my own moves, & only consider moves that weren't defaults
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
         let foodCountTier = getFoodCountTier(gameState.board.food.length)
@@ -440,7 +454,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     }
 
     // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
-    if (lookahead !== undefined) {
+    if (lookahead !== undefined && evalThisState !== undefined) {
       let evalWeight : number = 1
       evalWeight = evalWeight + lookaheadWeight * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
       evalThisState = evalThisState * evalWeight
@@ -448,7 +462,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     if (bestMove.score !== undefined) {
       //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
-      bestMove.score = bestMove.score + evalThisState
+      if (evalThisState !== undefined) { // don't need to add evalThisState if it doesn't exist, which will happen for first move in lookahead or for otherSnakes
+        bestMove.score = bestMove.score + evalThisState
+      }
     } else {
       //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
       bestMove.score = evalThisState

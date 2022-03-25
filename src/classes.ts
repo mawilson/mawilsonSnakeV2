@@ -1652,12 +1652,12 @@ export class TimingData {
 // at this point just for debugging, useful in visualizing the path snake took to making a decision
 export class Leaf {
   value: MoveWithEval // the evalState score a state resolved upon
-  evaluationResult: EvaluationResult // the evaluationResult of evalThisState
+  evaluationResult: EvaluationResult | undefined // the evaluationResult of evalThisState
   children: Leaf[]
   parent: Leaf | undefined
   depth: number
 
-  constructor(value: MoveWithEval, evaluationResult: EvaluationResult, children: Leaf[], depth: number, parent?: Leaf) {
+  constructor(value: MoveWithEval, evaluationResult: EvaluationResult | undefined, children: Leaf[], depth: number, parent?: Leaf) {
     this.value = value
     this.evaluationResult = evaluationResult
     this.children = children
