@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -64,13 +64,14 @@ function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[]): number {
     let otherSnakesSortedByHealth: Battlesnake[] = otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sorts by health in descending order
       return b.health - a.health
     })
-    otherSnakesSortedByHealth.forEach((snake, idx) => {
+    for (let idx: number = 0; idx < otherSnakesSortedByHealth.length; idx++) {
+      let snake: Battlesnake = otherSnakesSortedByHealth[idx]
       if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
         otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep // largest remaining snake gets
       } else { // give remaining snakes a smaller penalty for health
         otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
       }
-    })
+    }
 
     return otherSnakeHealthPenalty
 }
@@ -152,7 +153,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     priorKissStates = new KissStatesForEvaluate(KissOfDeathState.kissOfDeathNo, KissOfMurderState.kissOfMurderNo, undefined, undefined)
   }
 
-  gameState.board.snakes.forEach(function processSnakes(snake) { // process all snakes in one go rather than multiple separate filters/finds
+  let otherSnakeHealth: number = 0
+  for (const snake of gameState.board.snakes) { // process all snakes in one go rather than multiple separate filters/finds
     if (snake.id === gameState.you.id) { // if snake ID matches gameState.you.id, this is the original snake
       originalSnake = snake
     }
@@ -160,19 +162,16 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       myself = snake
     } else { // if meSnake was undefined or this snake's ID doesn't match meSnake, this is an otherSnake
       otherSnakes.push(snake)
+      otherSnakeHealth = otherSnakeHealth + snake.health
     }
-  })
+  }
   let isOriginalSnake: boolean = _myself !== undefined && _myself.id === gameState.you.id // true if _myself's id matches the original you of the game
-  let otherSnakeHealth: number = 0
-  otherSnakes.forEach(snake => {
-    otherSnakeHealth = otherSnakeHealth + snake.health
-  })
 
   const hazardDamage: number = getHazardDamage(gameState)
   const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
   const isRoyale = gameStateIsRoyale(gameState)
   const isWrapped = gameStateIsWrapped(gameState)
-  const isHazardSpiral = gameStateIsHazardSpiral(gameState)
+  //const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const isConstrictor = gameStateIsConstrictor(gameState)
   const evalNoMe: number = isConstrictor? evalNoMeConstrictor : evalNoMeStandard // evalNoMe can vary based on game mode
 
@@ -666,12 +665,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         if (!isSolo && i === 0) {
           foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
         }
-        foodToHunt.forEach(function adjustFoodValues(fud) {
+        for(const fud of foodToHunt) {
           let foodCell = board2d.getCell(fud)
           if (foodCell && foodCell.hazard && hazardDamage > 0) {
             foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
-        })
+        }
         let foodCalcStep = 0
         foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
         //buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
@@ -698,12 +697,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       let voronoiDelta: number = 0
       let voronoiLargest: number = 0
       if (isOriginalSnake) { // originalSnake wants to maximize its Voronoi coverage
-        otherSnakes.forEach(snake => { // find largest voronoi value amongst otherSnakes
+        for (const snake of otherSnakes) { // find largest voronoi value amongst otherSnakes
           let voronoiOtherSnake: number | undefined = voronoiResults.snakeResults[snake.id]?.reachableCells
           if (voronoiOtherSnake !== undefined && voronoiOtherSnake > voronoiLargest) {
             voronoiLargest = voronoiOtherSnake
           }
-        })
+        }
       } else { // otherSnakes want to minimize originalSnakes' Voronoi coverage, paranoid style
         let voronoiOriginalSnake: number | undefined = voronoiResults.snakeResults[gameState.you.id]?.reachableCells
         if (voronoiOriginalSnake !== undefined) {
@@ -739,6 +738,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     if (haveWon) { // add max Voronoi reward for winning snake so as not to encourage it to keep opponent alive for that sweet reward
       let lastVoronoiReward: number = evalVoronoiNegativeMax
       voronoiPredatorBonus = lastVoronoiReward
+      evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
     } else if (preySnake !== undefined) {
       let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
       if (preySnakeResults !== undefined) {
