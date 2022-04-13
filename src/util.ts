@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, SurroundingCells } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral } from "./classes"
 import { evaluate } from "./eval"
 import { gameData, isDevelopment, version } from "./logic"
 
@@ -168,65 +168,38 @@ export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Dire
   return newPosition
 }
 
-export function getSurroundingCellsWithDirections(coord : Coord, board2d: Board2d, directionFrom?: Direction) : SurroundingCells {
+export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFrom?: Direction) : BoardCell[] {
   let selfCell = board2d.getCell(coord)
-  let surroundingCells: SurroundingCells = new SurroundingCells()
+  let surroundingCells : BoardCell[] = []
   if (!(selfCell instanceof BoardCell)) { // a cell that doesn't exist shouldn't return neighbors
     return surroundingCells
   }
   if (directionFrom !== Direction.Left) {
     let newCell = board2d.getCell(new Coord(coord.x - 1, coord.y))
     if (newCell instanceof BoardCell) {
-      surroundingCells.left = newCell
-      surroundingCells.numCells = surroundingCells.numCells + 1
+      surroundingCells.push(newCell)
     }
   }
   if (directionFrom !== Direction.Right) {
     let newCell = board2d.getCell(new Coord(coord.x + 1, coord.y))
     if (newCell instanceof BoardCell) {
-      surroundingCells.right = newCell
-      surroundingCells.numCells = surroundingCells.numCells + 1
+      surroundingCells.push(newCell)
     }
   }
   if (directionFrom !== Direction.Down) {
     let newCell = board2d.getCell(new Coord(coord.x, coord.y - 1))
     if (newCell instanceof BoardCell) {
-      surroundingCells.down = newCell
-      surroundingCells.numCells = surroundingCells.numCells + 1
+      surroundingCells.push(newCell)
     }
   }
   if (directionFrom !== Direction.Up) {
     let newCell = board2d.getCell(new Coord(coord.x, coord.y + 1))
     if (newCell instanceof BoardCell) {
-      surroundingCells.up = newCell
-      surroundingCells.numCells = surroundingCells.numCells + 1
+      surroundingCells.push(newCell)
     }
   }
 
   return surroundingCells
-}
-
-export function getSurroundingCells(coord: Coord, board2d: Board2d, directionFrom?: Direction): BoardCell[] {
-  const surroundingCells = getSurroundingCellsWithDirections(coord, board2d, directionFrom)
-  const surroundingCellsArr = new Array(surroundingCells.numCells)
-  let idx: number = 0
-  if (surroundingCells.up) {
-    surroundingCellsArr[idx] = surroundingCells.up
-    idx = idx + 1
-  }
-  if (surroundingCells.down) {
-    surroundingCellsArr[idx] = surroundingCells.down
-    idx = idx + 1
-  }
-  if (surroundingCells.left) {
-    surroundingCellsArr[idx] = surroundingCells.left
-    idx = idx + 1
-  }
-  if (surroundingCells.right) {
-    surroundingCellsArr[idx] = surroundingCells.right
-    idx = idx + 1
-  }
-  return surroundingCellsArr
 }
 
 // returns difference between my length & the length of the largest other snake on the board - can be positive (I am bigger) or negative (I am smaller). Returns self length if alone
@@ -419,7 +392,7 @@ export function getNeckDirection(gameState: GameState, snake: Battlesnake) : Dir
   }
 }
 
-export function getOppositeDirection(dir: Direction | undefined) : Direction | undefined {
+function getOppositeDirection(dir: Direction | undefined) : Direction | undefined {
   switch (dir) {
     case Direction.Left:
       return Direction.Right
