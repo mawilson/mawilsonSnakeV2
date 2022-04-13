@@ -396,10 +396,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
   let board2d: Board2d
-  if (haveWon) {
+  let calculateVoronoi: boolean
+  if (haveWon || gameState.turn <= 1) {
     board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
+    calculateVoronoi = false
   } else {
     board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
+    calculateVoronoi = true
   } 
 
   // penalize spaces that ARE hazard
@@ -521,7 +524,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
   let voronoiResults: VoronoiResults
-  if (haveWon) { // don't want to build Voronoi graph here, so fudge the VoronoiResults object
+  if (!calculateVoronoi) { // don't want to build Voronoi graph here, so fudge the VoronoiResults object
     voronoiResults = new VoronoiResults()
     voronoiResults.snakeResults[myself.id] = new VoronoiResultsSnake()
     if (hazardDamage > 0) {
@@ -558,13 +561,21 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   let selfPossibleLength: number = myself.length // not sure if I want to do this, or just consider myself.length
   let longestSnakePossibleLength: number = 0
   for (const snake of gameState.board.snakes) { // for each snake, find its possible length based on the food it can reach now
-    const totalPossibleEatsKeys: string[] = Object.keys(voronoiResults.snakeResults[snake.id].food)
-    if (snake.id === myself.id) {
-      selfPossibleLength = selfPossibleLength + totalPossibleEatsKeys.length
+    if (!calculateVoronoi) {
+      if (snake.id !== myself.id) {
+        if (longestSnakePossibleLength < snake.length) {
+          longestSnakePossibleLength = snake.length
+        }
+      }
     } else {
-      const possibleLength: number = snake.length + totalPossibleEatsKeys.length
-      if (longestSnakePossibleLength < possibleLength) { // if possibleLength is larger than the largest we've found so far, make it the new longest possible length
-        longestSnakePossibleLength = possibleLength
+      const totalPossibleEatsKeys: string[] = Object.keys(voronoiResults.snakeResults[snake.id].food)
+      if (snake.id === myself.id) {
+        selfPossibleLength = selfPossibleLength + totalPossibleEatsKeys.length
+      } else {
+        const possibleLength: number = snake.length + totalPossibleEatsKeys.length
+        if (longestSnakePossibleLength < possibleLength) { // if possibleLength is larger than the largest we've found so far, make it the new longest possible length
+          longestSnakePossibleLength = possibleLength
+        }
       }
     }
   }
