@@ -254,8 +254,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       evalHazardWallPenalty = -10
     } else {
       if (gameState.turn > originalTurn) { // if this is a lookahead turn, try to account for possibility that hazard has now spawned
-        let turnAfterHazardSpawn: number = gameState.turn % hazardFrequency // so for turn 28, this means 28 % 25 = 3 - need to account for hazard on 26, 27, 28
-        if (turnAfterHazardSpawn < (lookahead + 1)) { // if turnAfterHazardSpawn is within lookahead, need to penalize this space for potentially being hazard at this point
+        let turnsLookingAhead: number = gameState.turn - originalTurn // we are looking ahead this many turns
+        let lastHazardSpawnTurn: number = gameState.turn % hazardFrequency // last hazard spawned this many turns ago
+        if (turnsLookingAhead > lastHazardSpawnTurn) { // if I am looking ahead farther than lastHazardSpawnTurn, hazard has spawned that I do not know about, want to heavily penalize plans involving unknown hazard
           evalHazardWallPenalty = -50
         }
       }
@@ -344,7 +345,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
   const evalKissOfMurderSelfBonus = 30 // bonus given to otherSnakes for attempting to get close enough to kill me
 
-  const evalCutoffHazardReward = isDuel? 75 : 25
+  const evalCutoffHazardReward = isDuel || haveWon? 75 : 25
   const evalCutoffHazardPenalty = -60
 
   let evalFoodVal = 3
@@ -488,20 +489,24 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   } // no kisses of murder nearby, not bothering to set value
 
   if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap && isRoyale) { // hazard cutoffs only make sense in standard hazard maps
-    let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
-      return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
-    })
-    if (canCutoffHazardSnake) {
-      evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
+    if (haveWon) {
       evaluationResult.cutoffHazard = evalCutoffHazardReward
-    }
-
-    if (!canCutoffHazardSnake) {
-      let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
-        return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+    } else {
+      let canCutoffHazardSnake: boolean = otherSnakes.some(function findSnakeToCutOff(snake) { // returns true if myself can cut off any otherSnake with hazard
+        return isHazardCutoff(gameState, myself, snake, board2d, hazardWalls) // returns true if myself can cut snake off with hazard
       })
-      if (canBeCutoffHazardBySnake) {
-        evaluationResult.cutoffHazard = evalCutoffHazardPenalty
+      if (canCutoffHazardSnake) {
+        evalPriorKissOfMurderAvoidance = evalPriorKissOfMurderAvoidance < 35? 35 : evalPriorKissOfMurderAvoidance // if the kiss of murder that the other snake avoided led it into a hazard cutoff, this is not a murder we want to avoid
+        evaluationResult.cutoffHazard = evalCutoffHazardReward
+      }
+
+      if (!canCutoffHazardSnake) {
+        let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
+          return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
+        })
+        if (canBeCutoffHazardBySnake) {
+          evaluationResult.cutoffHazard = evalCutoffHazardPenalty
+        }
       }
     }
   }
@@ -586,7 +591,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     delta = delta - 1
   }
 
-  if (gameState.turn < 3) {
+  if (haveWon) { // set food val to max so as not to penalize winning states
+    evalFoodVal = 4
+  } else if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
   } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
@@ -734,7 +741,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
 
       // outcome only improved in wrapped games, went from 54% to 40% in standard royale after implementing this
-      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && isWrapped && voronoiResultsSelf.effectiveHealths.length > 0) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
+      if (hazardDamage > 0 && voronoiSelfAdjusted > 0 && isWrapped && voronoiResultsSelf.effectiveHealths.length > 0 && !haveWon) { // health not a major concern in non-royale games. Don't make negative penalties lesser for worse health outcomes
         const healthSum: number = voronoiResultsSelf.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
         const healthAverage: number = healthSum / voronoiResultsSelf.effectiveHealths.length // is average health of snake in reachable cells
         const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
@@ -800,7 +807,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   if (isWrapped) { 
-    if (gameState.turn > 1) { // ignore this on early turns, just get starting food
+    if (haveWon) { // don't penalize snake for winning
+      evaluationResult.flipFlop = evalWrappedFlipFlopStep
+    } else if (gameState.turn > 1) { // ignore this on early turns, just get starting food
       let myselfIsFlip: boolean = isFlip(myself.head)
       let flipOtherSnakes: number = 0
       let flopOtherSnakes: number = 0
