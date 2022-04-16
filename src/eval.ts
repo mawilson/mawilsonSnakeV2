@@ -488,6 +488,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   } // no kisses of murder nearby, not bothering to set value
 
+  let canBeCutoffHazardBySnake: boolean = false
   if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap && isRoyale) { // hazard cutoffs only make sense in standard hazard maps
     if (haveWon) {
       evaluationResult.cutoffHazard = evalCutoffHazardReward
@@ -501,7 +502,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
 
       if (!canCutoffHazardSnake) {
-        let canBeCutoffHazardBySnake: boolean = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
+        canBeCutoffHazardBySnake = otherSnakes.some(function findSnakeToBeCutOffBy(snake) { // returns true if any otherSnake can hazard cut myself off
           return isHazardCutoff(gameState, snake, myself, board2d, hazardWalls) // returns true if snake can hazard cut myself off
         })
         if (canBeCutoffHazardBySnake) {
@@ -558,7 +559,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
-  } else if (voronoiMyself <= 5) { // eating this food puts me into a box I likely can't get out of, that's not safe
+    wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
+  } else if (voronoiMyself <= 5 || canBeCutoffHazardBySnake) { // eating this food puts me into a box I likely can't get out of, that's not safe
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   }
@@ -705,7 +707,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     let isParanoid: boolean = false // used to determine if Voronoi calq is Paranoid or MaxN
     if (isConstrictor) {
       isParanoid = true
-    } else if (!isOriginalSnake && isDuel) {
+    } else if (isDuel || haveWon) {
       isParanoid = true
     }
 
@@ -754,7 +756,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     let voronoiPredatorBonus: number = 0
     // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
     if (haveWon) { // add max Voronoi reward for winning snake so as not to encourage it to keep opponent alive for that sweet reward
-      let lastVoronoiReward: number = evalVoronoiNegativeMax
+      let lastVoronoiReward: number = evalVoronoiNegativeMax - evalAvailableMoves0Moves
       voronoiPredatorBonus = lastVoronoiReward
       evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
     } else if (preySnake !== undefined) {
