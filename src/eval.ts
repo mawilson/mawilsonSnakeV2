@@ -755,8 +755,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
     let voronoiPredatorBonus: number = 0
     // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
-    if (haveWon) { // add max Voronoi reward for winning snake so as not to encourage it to keep opponent alive for that sweet reward
+    if (haveWon || (!isOriginalSnake && originalSnake === undefined)) { // add max Voronoi reward for winning snake or otherSnake that has outlasted me so as not to encourage it to keep opponent alive for that sweet reward
       let lastVoronoiReward: number = evalVoronoiNegativeMax - evalAvailableMoves0Moves
+      if (!haveWon) { // for otherSnakes that beat me but still need to be another snake, minimize this reward to account for their need to still beat another snake
+        lastVoronoiReward = lastVoronoiReward / 2
+      }
       voronoiPredatorBonus = lastVoronoiReward
       evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
     } else if (preySnake !== undefined) {
