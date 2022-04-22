@@ -323,6 +323,63 @@ describe('Tests deprecated by lookahead', () => {
       expect(moveResponse.move).toBe("right") // right will likely put us in a faceoff with otherSnek, who wants the food & will go left
     }
   })
+  // no longer valid, as this puts us in a bad spot against the remaining snake
+  it.skip('turns towards the smaller snake and goes for the kill', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      // add another larger snake so snek doesn't think it's king snake & navigate towards otherSnek for that reason
+      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 30, [{x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 6}, {x: 10, y: 7}], "30", "", "")
+      gameState.board.snakes.push(otherSnek2)
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // Left will send us towards the smaller snake, going for the kill.
+    }
+  })
+  // while valid, Voronoi coverage has this as worse
+  it.skip('acquires food even in corners', () => {
+    for (let i: number = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}], "30", "", "")
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 0, y: 0}]
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("left") // food is straight left, should seek it out even in a corner
+    }
+  })
+  // totally valid test, but we're too pessimistic to think that otherSnakes won't just murder us even sooner than the certain death by going down
+  it.skip('chooses an escape through tail over a doomed fate in a corner', () => {
+    const gameState = {"game":{"id":"24ad7287-6849-4584-a110-cfb0d5aa8c02","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":141,"board":{"width":11,"height":11,"food":[{"x":9,"y":2},{"x":10,"y":7}],"hazards":[{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8},{"x":0,"y":9},{"x":0,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":1,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":10},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":10},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":6,"y":10},{"x":7,"y":0},{"x":7,"y":1},{"x":7,"y":10},{"x":8,"y":0},{"x":8,"y":1},{"x":8,"y":10},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2},{"x":10,"y":3},{"x":10,"y":4},{"x":10,"y":5},{"x":10,"y":6},{"x":10,"y":7},{"x":10,"y":8},{"x":10,"y":9},{"x":10,"y":10}],"snakes":[{"id":"gs_873xBxyGgFpDrfQQWKXvFchD","name":"Jaguar Meets Snake","body":[{"x":3,"y":6},{"x":3,"y":5},{"x":3,"y":4},{"x":2,"y":4},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":2,"y":7}],"health":41,"latency":255,"head":{"x":3,"y":6},"length":9,"shout":"","squad":""},{"id":"gs_bBYfdgt6RRBQR3Yhyqvcwxg7","name":"Jaguar Meets Snake","body":[{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":8},{"x":5,"y":7},{"x":5,"y":6},{"x":6,"y":6},{"x":6,"y":5},{"x":7,"y":5},{"x":7,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":10,"y":6},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7},{"x":7,"y":7},{"x":6,"y":7}],"health":88,"latency":207,"head":{"x":4,"y":7},"length":19,"shout":"","squad":""},{"id":"gs_6QxCpyPGcH3YSFqdpHmTCftP","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6}],"health":51,"latency":188,"head":{"x":0,"y":3},"length":14,"shout":"","squad":""}]},"you":{"id":"gs_6QxCpyPGcH3YSFqdpHmTCftP","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6}],"health":51,"latency":188,"head":{"x":0,"y":3},"length":14,"shout":"","squad":""}}
+    const moveResponse = move(gameState)
+    expect(moveResponse.move).toBe("up") // down is certain death, up gives us the possibility of survival if Jaguars don't try to murder us
+  })
+  // deprecated, Voronoi cares too much now to risk this.
+  it.skip('seeks food on the edge of hazard if it is easy to acquire', () => {
+    for (let i = 0; i < 3; i++) {
+      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 2, y: 6}, {x: 2, y: 5}, {x: 2, y: 4}], "30", "", "")
+    
+      const gameState = createGameState(snek)
+
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 1}, {x: 8, y: 2}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 8, y: 0}, {x: 7, y: 0}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
+
+      gameState.board.food = [{x: 3, y: 9}]
+
+      createHazardRow(gameState.board, 10)
+      createHazardRow(gameState.board, 9)
+
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up") // I am smaller & almost full health. The lone food on the board is in hazard, we can retrieve it & get out without health loss by going up, then left
+    }
+  })
 })
 
 describe('Battlesnake API Version', () => {
@@ -966,6 +1023,11 @@ describe('Kiss of death tests', () => {
       expect(moveResponse.move).toBe("down") // up is certain death against larger snake, down is a tie death if smaller Jaguar decides he wants it
     }
   })
+  it('KoD1: avoids a kiss of death even if its alternative is poor Voronoi coverage', () => {
+    const gameState: GameState = {"game":{"id":"da913299-1a20-42de-ba0b-7ab9c4901f10","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":20,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":2500,"source":"testing"},"turn":75,"board":{"width":11,"height":11,"food":[{"x":3,"y":3}],"hazards":[{"x":0,"y":0},{"x":1,"y":0},{"x":2,"y":0},{"x":3,"y":0},{"x":4,"y":0},{"x":5,"y":0},{"x":6,"y":0},{"x":7,"y":0},{"x":8,"y":0},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":2},{"x":9,"y":3},{"x":9,"y":4},{"x":9,"y":5},{"x":9,"y":6},{"x":9,"y":7},{"x":9,"y":8},{"x":9,"y":9},{"x":9,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2},{"x":10,"y":3},{"x":10,"y":4},{"x":10,"y":5},{"x":10,"y":6},{"x":10,"y":7},{"x":10,"y":8},{"x":10,"y":9},{"x":10,"y":10}],"snakes":[{"id":"gs_Fx74j46tcMPvdQShyb4FH4rc","name":"Jaguar Meets Snake","body":[{"x":7,"y":8},{"x":7,"y":7},{"x":7,"y":6},{"x":8,"y":6},{"x":9,"y":6},{"x":9,"y":5}],"health":54,"latency":86,"head":{"x":7,"y":8},"length":6,"shout":"","squad":""},{"id":"gs_HS9kF8pr9dgcd6MKBPYSdKK9","name":"lavafish","body":[{"x":6,"y":7},{"x":6,"y":6},{"x":5,"y":6},{"x":4,"y":6},{"x":4,"y":5},{"x":3,"y":5},{"x":2,"y":5},{"x":2,"y":6}],"health":87,"latency":174,"head":{"x":6,"y":7},"length":8,"shout":"","squad":""},{"id":"gs_9JyJg4bx8DbvHtVkX4m8yDj9","name":"Smarty2","body":[{"x":10,"y":5},{"x":10,"y":4},{"x":10,"y":3},{"x":10,"y":2},{"x":10,"y":1},{"x":10,"y":0},{"x":9,"y":0},{"x":8,"y":0},{"x":7,"y":0},{"x":6,"y":0},{"x":5,"y":0},{"x":5,"y":0}],"health":100,"latency":9,"head":{"x":10,"y":5},"length":12,"shout":"","squad":""}]},"you":{"id":"gs_Fx74j46tcMPvdQShyb4FH4rc","name":"Jaguar Meets Snake","body":[{"x":7,"y":8},{"x":7,"y":7},{"x":7,"y":6},{"x":8,"y":6},{"x":9,"y":6},{"x":9,"y":5}],"health":54,"latency":86,"head":{"x":7,"y":8},"length":6,"shout":"","squad":""}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("left") // left is likely death to lavafish, up or right has poor Voronoi coverage but isn't death
+  })
 })
 
 describe('Kiss of murder tests', () => {
@@ -1487,24 +1549,6 @@ describe('Hazard tests', () => {
       expect(moveResponse.move).toBe("down") // I should try to kill directly below me as there's no hazard there, rather than right
     }
   })
-  it('seeks food on the edge of hazard if it is easy to acquire', () => {
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 4, y: 8}, {x: 4, y: 7}, {x: 4, y: 6}, {x: 3, y: 6}, {x: 2, y: 6}, {x: 2, y: 5}, {x: 2, y: 4}], "30", "", "")
-    
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 92, [{x: 8, y: 1}, {x: 8, y: 2}, {x: 8, y: 3}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 8, y: 6}, {x: 8, y: 7}, {x: 8, y: 8}, {x: 8, y: 0}, {x: 7, y: 0}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 3, y: 9}]
-
-      createHazardRow(gameState.board, 10)
-      createHazardRow(gameState.board, 9)
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("up") // I am smaller & almost full health. The lone food on the board is in hazard, we can retrieve it & get out without health loss by going up, then left
-    }
-  })
   it('does not travel through hazard when another viable option exists', () => {
       for (let i = 0; i < 3; i++) {
         const snek = new Battlesnake("snek", "snek", 20, [{x: 2, y: 1}, {x: 1, y: 1}, {x: 0, y: 1}, {x: 0, y: 2}, {x: 0, y: 3}, {x: 0, y: 4}], "30", "", "")
@@ -1569,11 +1613,6 @@ describe('Hazard tests', () => {
     createHazardSpiralGameData(gameState, 3, {x: 5, y: 5})
     const moveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // now that we've dove, we've really gotta go all the way for the food
-  })
-  it('chooses an escape through tail over a doomed fate in a corner', () => {
-    const gameState = {"game":{"id":"24ad7287-6849-4584-a110-cfb0d5aa8c02","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":141,"board":{"width":11,"height":11,"food":[{"x":9,"y":2},{"x":10,"y":7}],"hazards":[{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8},{"x":0,"y":9},{"x":0,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":1,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":10},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":10},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":6,"y":10},{"x":7,"y":0},{"x":7,"y":1},{"x":7,"y":10},{"x":8,"y":0},{"x":8,"y":1},{"x":8,"y":10},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2},{"x":10,"y":3},{"x":10,"y":4},{"x":10,"y":5},{"x":10,"y":6},{"x":10,"y":7},{"x":10,"y":8},{"x":10,"y":9},{"x":10,"y":10}],"snakes":[{"id":"gs_873xBxyGgFpDrfQQWKXvFchD","name":"Jaguar Meets Snake","body":[{"x":3,"y":6},{"x":3,"y":5},{"x":3,"y":4},{"x":2,"y":4},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":2,"y":7}],"health":41,"latency":255,"head":{"x":3,"y":6},"length":9,"shout":"","squad":""},{"id":"gs_bBYfdgt6RRBQR3Yhyqvcwxg7","name":"Jaguar Meets Snake","body":[{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":8},{"x":5,"y":7},{"x":5,"y":6},{"x":6,"y":6},{"x":6,"y":5},{"x":7,"y":5},{"x":7,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":10,"y":6},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7},{"x":7,"y":7},{"x":6,"y":7}],"health":88,"latency":207,"head":{"x":4,"y":7},"length":19,"shout":"","squad":""},{"id":"gs_6QxCpyPGcH3YSFqdpHmTCftP","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6}],"health":51,"latency":188,"head":{"x":0,"y":3},"length":14,"shout":"","squad":""}]},"you":{"id":"gs_6QxCpyPGcH3YSFqdpHmTCftP","name":"businesssssnake","body":[{"x":0,"y":3},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6}],"health":51,"latency":188,"head":{"x":0,"y":3},"length":14,"shout":"","squad":""}}
-    const moveResponse = move(gameState)
-    expect(moveResponse.move).toBe("up") // down is certain death, up gives us the possibility of survival if Jaguars don't try to murder us
   })
   it('hazardConstrain1: chooses to constrain duel opponent rather than seek food', () => {
     const gameState: GameState = {"game":{"id":"41dadc8b-2850-480a-b971-44bd809b3683","ruleset":{"name":"royale","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{"shrinkEveryNTurns":25},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":205,"board":{"width":11,"height":11,"food":[{"x":0,"y":0},{"x":10,"y":6},{"x":9,"y":0},{"x":4,"y":2},{"x":2,"y":4}],"hazards":[{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":0,"y":3},{"x":0,"y":4},{"x":0,"y":5},{"x":0,"y":6},{"x":0,"y":7},{"x":0,"y":8},{"x":0,"y":9},{"x":0,"y":10},{"x":1,"y":0},{"x":1,"y":1},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":1,"y":9},{"x":1,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":10},{"x":3,"y":0},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":10},{"x":4,"y":0},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":10},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":10},{"x":6,"y":0},{"x":6,"y":1},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":10},{"x":7,"y":0},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":10},{"x":8,"y":0},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":10},{"x":9,"y":0},{"x":9,"y":1},{"x":9,"y":2},{"x":9,"y":3},{"x":9,"y":4},{"x":9,"y":10},{"x":10,"y":0},{"x":10,"y":1},{"x":10,"y":2},{"x":10,"y":3},{"x":10,"y":4},{"x":10,"y":10}],"snakes":[{"id":"gs_jwy7YGxPbPf8FD3Qm4SGwCm4","name":"🇺🇦 Jaguar Meets Snake 🇺🇦","body":[{"x":9,"y":8},{"x":10,"y":8},{"x":10,"y":9},{"x":9,"y":9},{"x":8,"y":9},{"x":7,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":5,"y":8},{"x":5,"y":7},{"x":4,"y":7}],"health":93,"latency":453,"head":{"x":9,"y":8},"length":11,"shout":"","squad":""},{"id":"gs_KxBCvvKGwtmgdfmFfYSpqQW7","name":"businesssssnake","body":[{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":3},{"x":4,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":7,"y":3},{"x":8,"y":3},{"x":9,"y":3},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7}],"health":39,"latency":145,"head":{"x":4,"y":5},"length":19,"shout":"","squad":""}]},"you":{"id":"gs_KxBCvvKGwtmgdfmFfYSpqQW7","name":"businesssssnake","body":[{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":3},{"x":4,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":7,"y":3},{"x":8,"y":3},{"x":9,"y":3},{"x":9,"y":4},{"x":8,"y":4},{"x":8,"y":5},{"x":9,"y":5},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":7}],"health":39,"latency":145,"head":{"x":4,"y":5},"length":19,"shout":"","squad":""}}
@@ -1689,22 +1728,6 @@ describe('Snake cutoff tests', () => {
       gameState.board.snakes.push(otherSnek)
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("right") // Up or left will cut otherSnek off, effectively killing it. Tail should keep otherSnek in line since it won't shrink this turn.
-    }
-  })
-  it('turns towards the smaller snake and goes for the kill', () => {
-    for (let i = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 50, [{x: 1, y: 9}, {x: 1, y: 8}, {x: 1, y: 7}, {x: 1, y: 6}, {x: 1, y: 5}, {x: 1, y: 4}], "30", "", "")
-    
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 30, [{x: 0, y: 6}, {x: 0, y: 5}, {x: 0, y: 4}, {x: 0, y: 3}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      // add another larger snake so snek doesn't think it's king snake & navigate towards otherSnek for that reason
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 30, [{x: 10, y: 0}, {x: 10, y: 1}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 6}, {x: 10, y: 7}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("left") // Left will send us towards the smaller snake, going for the kill.
     }
   })
   it('having cut a snake off, let it die if it will grow to my size rather than go after it', () => {
@@ -2331,20 +2354,6 @@ describe('Food tests', () => {
 
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("left") // food is straight left, should seek it out
-    }
-  })
-  it('acquires food even in corners', () => {
-    for (let i: number = 0; i < 3; i++) {
-      const snek = new Battlesnake("snek", "snek", 90, [{x: 1, y: 0}, {x: 2, y: 0}, {x: 3, y: 0}, {x: 4, y: 0}], "30", "", "")
-      const gameState = createGameState(snek)
-
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 90, [{x: 2, y: 10}, {x: 3, y: 10}, {x: 4, y: 10}, {x: 5, y: 10}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
-
-      gameState.board.food = [{x: 0, y: 0}]
-
-      let moveResponse: MoveResponse = move(gameState)
-      expect(moveResponse.move).toBe("left") // food is straight left, should seek it out even in a corner
     }
   })
   it('acquires food when dueling as soon as it can', () => {
