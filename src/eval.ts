@@ -606,6 +606,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   } else if (delta > 6) { // If I am more than 6 bigger, want food less
     evalFoodVal = 2
   }
+  if (delta > 3) {
+    evalEatingMultiplier = 2.5 // if already larger, prioritize eating immediately less
+  }
 
   if (!isConstrictor) { // constrictor snake length is irrelevant
     if (isSolo) { // Penalize solo snake for being larger
