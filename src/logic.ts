@@ -1,8 +1,8 @@
-export const version: string = "1.3.34" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.35" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, Tree, Leaf, HazardSpiral, EvaluationResult } from "./classes"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, getSuicidalMove, lookaheadDeterminator, getHazardDamage } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
@@ -112,14 +112,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
   const startLookahead: number = gameState.you.id === myself.id ? _startLookahead : 0 // otherSnakes always use lookahead of 0
 
-  let root: Leaf | undefined = undefined
-  let tree: Tree = new Tree(myself)
-
   let movesShortCircuited: number = 0
 
   const noMe: number = gameStateIsConstrictor(gameState)? evalNoMeConstrictor : evalNoMeStandard
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, otherSnakeMoves?: {[key: string]: Direction}, parentLeaf?: Leaf): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, otherSnakeMoves?: {[key: string]: Direction}): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
     const originalSnake: boolean = myself.id === gameState.you.id
@@ -148,15 +145,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       
       _evalThisState = evaluate(gameState, myself, evaluateKisses)
       evalThisState = _evalThisState.sum(noMe)
-    }
-    
-
-    if (isDevelopment) {
-      if (originalSnake && parentLeaf === undefined) { // if tree/root does not yet exist, create it
-        root = new Leaf(new MoveWithEval(undefined, evalThisState), _evalThisState, [], 0, undefined)
-        tree = new Tree(myself, root)
-        parentLeaf = root
-      }
     }
 
     let moves: Moves = getAvailableMoves(gameState, myself, board2d)
@@ -370,16 +358,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           }
           
-          let thisLeaf: Leaf | undefined = undefined
-          if (isDevelopment) {
-            if (originalSnake && lookahead !== undefined) {
-              thisLeaf = new Leaf(new MoveWithEval(move, undefined), _evalThisState, [], lookahead, parentLeaf)
-            }
-          }
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
             if (isDevelopment) {
               if (kissArgs) {
-                evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, thisLeaf) // This is the recursive case!!!
+                evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined) // This is the recursive case!!!
               } else {
                 evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
               }
@@ -397,16 +379,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             } else {
               evaluationResult = evaluate(newGameState, newSelf)
               evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
-            }
-          }
-          if (isDevelopment) {
-            if (thisLeaf !== undefined) {
-              thisLeaf.value = new MoveWithEval(move, evalState.score)
-              if (evaluationResult !== undefined) {
-                thisLeaf.evaluationResult = evaluationResult
-              } else {
-                thisLeaf.evaluationResult = _evalThisState
-              }
             }
           }
 
@@ -476,10 +448,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves iterator ${movesShortCircuited} times.`)
     }
 
-    // primarily for debug purposes to track what's going on in the tree
-    // if (isDevelopment) {
-    //   logToFile(consoleWriteStream, tree.toString())
-    // }
     return myselfMove
   }
 }
