@@ -2201,6 +2201,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
               } else {
                 voronoiResults.snakeResults[snakeId].food[depth] = [cell.coord]
               }
+              voronoiResults.snakeResults[snakeId].totalReachableFood = voronoiResults.snakeResults[snakeId].totalReachableFood + 1
             }
 
             // tailOffsets of 0 indicate the tail (after receding), & numbers lower than that indicate further distance from tail.

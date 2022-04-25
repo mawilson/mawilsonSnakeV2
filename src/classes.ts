@@ -215,6 +215,7 @@ export class VoronoiResultsSnakeTailOffset {
 export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
+  totalReachableFood: number
   tailOffsets: {[key: string]: {[key: number]: VoronoiResultsSnakeTailOffset[] }} // when occupying a space that used to be a snake, this represents the distance from that snake's tail. Keep track of snake ID whose body we are occupying too.
   // the first key is by snake ID, for grouping by whose body this was. The second key is by depth, for grouping by the depth this body part was found. Finally within is an array, as there can be multiple body parts per depth
   tailChases: number[]
@@ -223,6 +224,7 @@ export class VoronoiResultsSnake {
   constructor() {
     this.reachableCells = 0
     this.food = {}
+    this.totalReachableFood = 0 // exists separate from food object so we don't have to iterate over the food object later to count it up
     this.tailChases = []
     this.effectiveHealths = []
     this.tailOffsets = {}
@@ -265,6 +267,12 @@ export class Board2d {
       if (thisGameData) {
         hazardSpiral = thisGameData.hazardSpiral
       }
+    }
+
+    for (let i: number = 0; i < this.cells.length; i++) {
+      let x: number = i % this.width
+      let y: number = Math.floor(i / this.width)
+      this.cells[i] = new BoardCell(new Coord(x, y), false, false) 
     }
 
     let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
@@ -508,9 +516,6 @@ export class Board2d {
 
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
       return undefined;
-    }
-    if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
-      this.cells[idx] = new BoardCell(new Coord(x, y), false, false);
     }
     return this.cells[idx];
   }
@@ -1024,16 +1029,16 @@ export class MoveNeighbors {
 
   constructor(me: Battlesnake, isDuel: boolean, upNeighbors: BoardCell[] | undefined, downNeighbors: BoardCell[] | undefined, leftNeighbors: BoardCell[] | undefined, rightNeighbors: BoardCell[] | undefined) {
     this.me = me;
-    if (typeof upNeighbors !== "undefined") {
+    if (upNeighbors) {
       this.upNeighbors = upNeighbors;
     }
-    if (typeof downNeighbors !== "undefined") {
+    if (downNeighbors) {
       this.downNeighbors = downNeighbors;
     }
-    if (typeof leftNeighbors !== "undefined") {
+    if (leftNeighbors) {
       this.leftNeighbors = leftNeighbors;
     }
-    if (typeof rightNeighbors !== "undefined") {
+    if (rightNeighbors) {
       this.rightNeighbors = rightNeighbors;
     }
     this.upPredator = undefined
@@ -1549,6 +1554,7 @@ export class GameData {
   source: string
   prey: Battlesnake | undefined
   turn: number
+  timeouts: number
 
   constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
@@ -1559,6 +1565,7 @@ export class GameData {
     this.source = source
     this.prey = undefined
     this.turn = 0
+    this.timeouts = 0
   }
 }
 

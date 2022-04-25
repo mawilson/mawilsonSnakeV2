@@ -575,11 +575,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
       }
     } else {
-      const totalPossibleEatsKeys: string[] = Object.keys(voronoiResults.snakeResults[snake.id].food)
       if (snake.id === myself.id) {
-        selfPossibleLength = selfPossibleLength + totalPossibleEatsKeys.length
+        selfPossibleLength = selfPossibleLength + voronoiResults.snakeResults[snake.id].totalReachableFood
       } else {
-        const possibleLength: number = snake.length + totalPossibleEatsKeys.length
+        let possibleLength: number = snake.length + voronoiResults.snakeResults[snake.id].totalReachableFood
         if (longestSnakePossibleLength < possibleLength) { // if possibleLength is larger than the largest we've found so far, make it the new longest possible length
           longestSnakePossibleLength = possibleLength
         }
@@ -606,8 +605,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   } else if (delta > 6) { // If I am more than 6 bigger, want food less
     evalFoodVal = 2
   }
-  if (delta > 3) {
-    evalEatingMultiplier = 2.5 // if already larger, prioritize eating immediately less
+  if (delta > 8) { // if already larger, prioritize eating immediately less
+    evalEatingMultiplier = 1
+  } else if (delta > 5) {
+    evalEatingMultiplier = 1.75
+  } else if (delta > 3) {
+    evalEatingMultiplier = 2.5
   }
 
   if (!isConstrictor) { // constrictor snake length is irrelevant
@@ -760,9 +763,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
     if (haveWon || (!isOriginalSnake && originalSnake === undefined)) { // add max Voronoi reward for winning snake or otherSnake that has outlasted me so as not to encourage it to keep opponent alive for that sweet reward
       let lastVoronoiReward: number = evalVoronoiNegativeMax - evalAvailableMoves0Moves
-      if (!haveWon) { // for otherSnakes that beat me but still need to be another snake, minimize this reward to account for their need to still beat another snake
-        lastVoronoiReward = lastVoronoiReward / 2
-      }
       voronoiPredatorBonus = lastVoronoiReward
       evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
     } else if (preySnake !== undefined) {
