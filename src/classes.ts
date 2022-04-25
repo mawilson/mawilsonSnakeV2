@@ -1552,6 +1552,7 @@ export class GameData {
   source: string
   prey: Battlesnake | undefined
   turn: number
+  timeouts: number
 
   constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
@@ -1562,6 +1563,7 @@ export class GameData {
     this.source = source
     this.prey = undefined
     this.turn = 0
+    this.timeouts = 0
   }
 }
 

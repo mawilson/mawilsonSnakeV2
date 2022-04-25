@@ -551,6 +551,9 @@ export function move(gameState: GameState): MoveResponse {
     let timeTaken: number = Date.now() - timeBeginning
     let timesTaken = thisGameData.timesTaken
     timesTaken.push(timeTaken)
+    if (timeTaken > gameState.game.timeout) {
+      thisGameData.timeouts = thisGameData.timeouts + 1
+    }
   }
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
