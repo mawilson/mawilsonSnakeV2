@@ -575,18 +575,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
       }
     } else {
-      const totalPossibleEatsKeys: string[] = Object.keys(voronoiResults.snakeResults[snake.id].food)
       if (snake.id === myself.id) {
-        for (const foodDepth of totalPossibleEatsKeys) {
-          const foodDepthNum: number = parseInt(foodDepth, 10) // foodDepth must be an int, but Object.keys has converted it to a string, convert it back
-          selfPossibleLength = selfPossibleLength + voronoiResults.snakeResults[snake.id].food[foodDepthNum].length // length of this array is # of food I can reach at this depth
-        }
+        selfPossibleLength = selfPossibleLength + voronoiResults.snakeResults[snake.id].totalReachableFood
       } else {
-        let possibleLength: number = snake.length
-        for (const foodDepth of totalPossibleEatsKeys) {
-          const foodDepthNum: number = parseInt(foodDepth, 10) // foodDepth must be an int, but Object.keys has converted it to a string, convert it back
-          possibleLength = possibleLength + voronoiResults.snakeResults[snake.id].food[foodDepthNum].length // length of this array is # of food I can reach at this depth
-        }
+        let possibleLength: number = snake.length + voronoiResults.snakeResults[snake.id].totalReachableFood
         if (longestSnakePossibleLength < possibleLength) { // if possibleLength is larger than the largest we've found so far, make it the new longest possible length
           longestSnakePossibleLength = possibleLength
         }
