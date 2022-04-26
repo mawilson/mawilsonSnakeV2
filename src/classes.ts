@@ -1600,8 +1600,9 @@ export class TimingData {
   hazardDamage: number
   hazardMap: string
   snakeLength: number
+  numTimeouts: number
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, hazardMap: string | undefined, snakeLength: number) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, hazardMap: string | undefined, snakeLength: number, numTimeouts: number) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1616,6 +1617,7 @@ export class TimingData {
     this.hazardDamage = hazardDamage
     this.hazardMap = hazardMap !== undefined? hazardMap : ""
     this.snakeLength = snakeLength
+    this.numTimeouts = numTimeouts
   }
 }
 
