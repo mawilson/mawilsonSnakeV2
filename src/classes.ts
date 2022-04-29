@@ -215,7 +215,6 @@ export class VoronoiResultsSnakeTailOffset {
 export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
-  totalReachableFood: number
   tailOffsets: {[key: string]: {[key: number]: VoronoiResultsSnakeTailOffset[] }} // when occupying a space that used to be a snake, this represents the distance from that snake's tail. Keep track of snake ID whose body we are occupying too.
   // the first key is by snake ID, for grouping by whose body this was. The second key is by depth, for grouping by the depth this body part was found. Finally within is an array, as there can be multiple body parts per depth
   tailChases: number[]
@@ -224,7 +223,6 @@ export class VoronoiResultsSnake {
   constructor() {
     this.reachableCells = 0
     this.food = {}
-    this.totalReachableFood = 0 // exists separate from food object so we don't have to iterate over the food object later to count it up
     this.tailChases = []
     this.effectiveHealths = []
     this.tailOffsets = {}
