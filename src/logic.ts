@@ -1,4 +1,4 @@
-export const version: string = "1.3.35" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.36" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -75,7 +75,7 @@ export async function end(gameState: GameState): Promise<void> {
       } else {
         hazardMap = ""
       }
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, hazardMap, gameState.you.length)
+      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, hazardMap, gameState.you.length, thisGameData.timeouts)
 
       const timingCollection: Collection = await getCollection(mongoClient, "timing")
 

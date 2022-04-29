@@ -575,10 +575,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
       }
     } else {
+      const totalPossibleEatsKeys: string[] = Object.keys(voronoiResults.snakeResults[snake.id].food)
       if (snake.id === myself.id) {
-        selfPossibleLength = selfPossibleLength + voronoiResults.snakeResults[snake.id].totalReachableFood
+        selfPossibleLength = selfPossibleLength + totalPossibleEatsKeys.length
       } else {
-        let possibleLength: number = snake.length + voronoiResults.snakeResults[snake.id].totalReachableFood
+        const possibleLength: number = snake.length + totalPossibleEatsKeys.length
         if (longestSnakePossibleLength < possibleLength) { // if possibleLength is larger than the largest we've found so far, make it the new longest possible length
           longestSnakePossibleLength = possibleLength
         }
