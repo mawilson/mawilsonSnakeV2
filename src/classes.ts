@@ -267,12 +267,6 @@ export class Board2d {
       }
     }
 
-    for (let i: number = 0; i < this.cells.length; i++) {
-      let x: number = i % this.width
-      let y: number = Math.floor(i / this.width)
-      this.cells[i] = new BoardCell(new Coord(x, y), false, false) 
-    }
-
     let voronoiPoints: BoardCell[] = [] // for Voronoi points, the starting points are each of the snake heads
     let snakePossibleEats: {[key: string]: number} = {} // for Voronoi points, keeps track of times snake may have eaten up until this depth
 
@@ -514,6 +508,9 @@ export class Board2d {
 
     if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
       return undefined;
+    }
+    if (!this.cells[idx]) { // if this BoardCell has not yet been instantiated, do so
+      this.cells[idx] = new BoardCell(new Coord(x, y), false, false);
     }
     return this.cells[idx];
   }
