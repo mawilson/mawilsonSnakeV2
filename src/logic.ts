@@ -1,4 +1,4 @@
-export const version: string = "1.3.37" // need to declare this before imports since several imports utilize it
+export const version: string = "1.3.38" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -116,7 +116,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
   const noMe: number = gameStateIsConstrictor(gameState)? evalNoMeConstrictor : evalNoMeStandard
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, otherSnakeMoves?: {[key: string]: Direction}): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
     const originalSnake: boolean = myself.id === gameState.you.id
@@ -199,7 +199,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
-    let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)    
+    let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)
 
     // shuffle availableMoves array so machineLearning/timeout snake doesn't prefer one direction
     shuffle(availableMoves)
@@ -332,8 +332,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             
             // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
             for (const snake of otherSnakes) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
-              if (otherSnakeMoves !== undefined && otherSnakeMoves[snake.id] !== undefined) { // we know exactly what move this snake is making
-                moveSnake(newGameState, snake, board2d, otherSnakeMoves[snake.id])              
+              if (_otherSnakeMoves !== undefined && _otherSnakeMoves[snake.id] !== undefined) { // we know exactly what move this snake is making
+                moveSnake(newGameState, snake, board2d, _otherSnakeMoves[snake.id])              
               } else {
                 let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
                 if (otherSnakeAvailableMoves.length === 0) {
@@ -359,18 +359,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
           
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
-            if (isDevelopment) {
-              if (kissArgs) {
-                evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined) // This is the recursive case!!!
-              } else {
-                evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
-              }
+            if (kissArgs) {
+              evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined) // This is the recursive case!!!
             } else {
-              if (kissArgs) {
-                evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs) // This is the recursive case!!!
-              } else {
-                evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
-              }
+              evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
             }
           } else { // base case, just run the eval
             if (kissArgs) {
