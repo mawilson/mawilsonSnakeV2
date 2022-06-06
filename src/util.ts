@@ -112,13 +112,12 @@ export function gameStateIsWrapped(gameState: GameState): boolean {
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
 export function gameStateIsHazardSpiral(gameState: GameState): boolean {
   const hazardDamage: number = getHazardDamage(gameState)
-  //return gameState.game.ruleset.settings.hazardMap === "hz_spiral" && hazardDamage > 0
-  return gameStateIsWrapped(gameState) && gameState.board.hazards.length > 0 && hazardDamage > 0 // hack for now while hazardMap is not available
+  return gameState.game.map === "hz_spiral" && hazardDamage > 0
 }
 
 export function gameStateIsHazardScatter(gameState: GameState): boolean {
   const hazardDamage: number = getHazardDamage(gameState)
-  return gameState.game.ruleset.settings.hazardMap === "hz_scatter" && hazardDamage > 0
+  return gameState.game.map === "hz_scatter" && hazardDamage > 0
 }
 
 export function gameStateIsSolo(gameState: GameState): boolean {
@@ -127,6 +126,10 @@ export function gameStateIsSolo(gameState: GameState): boolean {
 
 export function gameStateIsConstrictor(gameState: GameState): boolean {
   return gameState.game.ruleset.name === "constrictor"
+}
+
+export function gameStateIsArcadeMaze(gameState: GameState): boolean {
+  return gameState.game.map === "arcade_maze"
 }
 
 // returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.

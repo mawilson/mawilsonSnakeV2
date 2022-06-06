@@ -8,3 +8,5 @@ build
 *.txt
 
 *.cpuprofile
+
+.angular

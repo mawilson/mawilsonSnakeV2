@@ -43,6 +43,7 @@ export interface Ruleset {
 
 export interface Game {
   id: string;
+  map?: string;
   ruleset: Ruleset;
   timeout: number;
   source: string;
