@@ -1,4 +1,4 @@
-export const version: string = "1.4.0" // need to declare this before imports since several imports utilize it
+export const version: string = "1.4.1" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -471,6 +471,9 @@ export function move(gameState: GameState): MoveResponse {
     let suicidalMove: Direction = getSuicidalMove(gameState, gameState.you)
     let suicidalMoveStr: string = directionToString(suicidalMove) || "up"
     console.log(`another league game already running, moving towards neck with ${suicidalMoveStr}`)
+    if (thisGameData !== undefined) { // clean up game-specific data, helps the league game know that it does in fact have time to think
+      delete gameData[thisGameDataId]
+    }
     return {move: suicidalMoveStr}
   }
 
