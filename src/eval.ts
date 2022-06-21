@@ -10,7 +10,8 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 
 // constants used in other files
 export const evalNoMeStandard: number = -3400 // no me is the worst possible state, give a very bad score
-export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq 
+export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq
+export const evalNoMeArcadeMaze: number = -4900 // arcadeMaze's standard 19x21 map, after accounting for hazards, is slightly larger & has lower potential Voronoi score
 
 const evalBase: number = 500
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
@@ -208,7 +209,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   //const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const isConstrictor = gameStateIsConstrictor(gameState)
   const isArcadeMaze = gameStateIsArcadeMaze(gameState)
-  const evalNoMe: number = isConstrictor? evalNoMeConstrictor : evalNoMeStandard // evalNoMe can vary based on game mode
+  let evalNoMe: number
+  if (isConstrictor) {
+    evalNoMe = evalNoMeConstrictor
+  } else if (isArcadeMaze) { 
+    evalNoMe = evalNoMeArcadeMaze
+  } else {
+    evalNoMe = evalNoMeStandard
+  }
 
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
