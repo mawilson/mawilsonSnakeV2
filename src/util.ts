@@ -304,6 +304,7 @@ export function cloneGameState(gameState: GameState) : GameState {
     id: gameState.game.id,
     ruleset: cloneRuleset,
     timeout: gameState.game.timeout,
+    map: gameState.game.map,
     source: gameState.game.source
   }
 

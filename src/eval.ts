@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -10,7 +10,8 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 
 // constants used in other files
 export const evalNoMeStandard: number = -3400 // no me is the worst possible state, give a very bad score
-export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq 
+export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq
+export const evalNoMeArcadeMaze: number = -4900 // arcadeMaze's standard 19x21 map, after accounting for hazards, is slightly larger & has lower potential Voronoi score
 
 const evalBase: number = 500
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
@@ -56,6 +57,39 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
   } else if (validHazardTurns > 0) {
     evaluation = evalHealth1
   } // validHazardTurns will never be <= 0, as that is starvation & would match the top if
+
+  return evaluation
+}
+
+// for use in games with max hazard damage, aka walls
+function determineHealthEvalArcadeMaze(snake: Battlesnake, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
+  const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
+  const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
+  const evalHealth6 = evalHealth7 - healthTierDifference // 75 - 10 = 65
+  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 65 - 10 - (6 * 1) = 49
+  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // 54 - 10 - (6 * 2) = 27
+  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // 42 - 10 - (6 * 3) = -1
+  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // 29 - 10 - (6 * 4) = -35
+  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) - 50 // 15 - 10 - (6 * 5) - 50 = -125
+  let evaluation: number = 0
+
+  if (snake.health <= 0) {
+    evaluation = evalHealthStarved
+  } else if (snake.health > 90) {
+    evaluation = evalHealth7
+  } else if (snake.health > 75) {
+    evaluation = evalHealth6
+  } else if (snake.health > 60) {
+    evaluation = evalHealth5
+  } else if (snake.health > 45) {
+    evaluation = evalHealth4
+  } else if (snake.health > 30) {
+    evaluation = evalHealth3     
+  } else if (snake.health > 15) {
+    evaluation = evalHealth2 
+  } else {
+    evaluation = evalHealth1
+  }
 
   return evaluation
 }
@@ -174,7 +208,15 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const isWrapped = gameStateIsWrapped(gameState)
   //const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const isConstrictor = gameStateIsConstrictor(gameState)
-  const evalNoMe: number = isConstrictor? evalNoMeConstrictor : evalNoMeStandard // evalNoMe can vary based on game mode
+  const isArcadeMaze = gameStateIsArcadeMaze(gameState)
+  let evalNoMe: number
+  if (isConstrictor) {
+    evalNoMe = evalNoMeConstrictor
+  } else if (isArcadeMaze) { 
+    evalNoMe = evalNoMeArcadeMaze
+  } else {
+    evalNoMe = evalNoMeStandard
+  }
 
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
@@ -654,7 +696,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
-    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+    let healthEval: number = isArcadeMaze? determineHealthEvalArcadeMaze(myself, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe) : determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
 
     if (lookaheadDepth > 0 && healthEval < 0 && lookaheadDepth === lookahead) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
       healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less
