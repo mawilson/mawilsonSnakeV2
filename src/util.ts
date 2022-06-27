@@ -171,7 +171,7 @@ export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Dire
   return newPosition
 }
 
-export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFrom?: Direction) : BoardCell[] {
+export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFrom?: Direction, hazardsAreWalls?: boolean) : BoardCell[] {
   let selfCell = board2d.getCell(coord)
   let surroundingCells : BoardCell[] = []
   if (!(selfCell instanceof BoardCell)) { // a cell that doesn't exist shouldn't return neighbors
@@ -180,25 +180,33 @@ export function getSurroundingCells(coord : Coord, board2d: Board2d, directionFr
   if (directionFrom !== Direction.Left) {
     let newCell = board2d.getCell(new Coord(coord.x - 1, coord.y))
     if (newCell instanceof BoardCell) {
-      surroundingCells.push(newCell)
+      if (!hazardsAreWalls || !newCell.hazard) { // if hazards are not walls, or the cell is not hazard
+        surroundingCells.push(newCell)
+      }
     }
   }
   if (directionFrom !== Direction.Right) {
     let newCell = board2d.getCell(new Coord(coord.x + 1, coord.y))
     if (newCell instanceof BoardCell) {
-      surroundingCells.push(newCell)
+      if (!hazardsAreWalls || !newCell.hazard) { // if hazards are not walls, or the cell is not hazard
+        surroundingCells.push(newCell)
+      }
     }
   }
   if (directionFrom !== Direction.Down) {
     let newCell = board2d.getCell(new Coord(coord.x, coord.y - 1))
     if (newCell instanceof BoardCell) {
-      surroundingCells.push(newCell)
+      if (!hazardsAreWalls || !newCell.hazard) { // if hazards are not walls, or the cell is not hazard
+        surroundingCells.push(newCell)
+      }
     }
   }
   if (directionFrom !== Direction.Up) {
     let newCell = board2d.getCell(new Coord(coord.x, coord.y + 1))
     if (newCell instanceof BoardCell) {
-      surroundingCells.push(newCell)
+      if (!hazardsAreWalls || !newCell.hazard) { // if hazards are not walls, or the cell is not hazard
+        surroundingCells.push(newCell)
+      }
     }
   }
 
