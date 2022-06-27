@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage} from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage} from "./util"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -246,6 +246,7 @@ export class Board2d {
   hazardDamage: number
   isWrapped: boolean
   isConstrictor: boolean
+  isArcadeMaze: boolean
 
   constructor(gameState: GameState, populateVoronoi?: boolean) {
     let board: Board = gameState.board
@@ -254,6 +255,7 @@ export class Board2d {
     this.hazardDamage = getHazardDamage(gameState)
     this.isWrapped = gameStateIsWrapped(gameState)
     this.isConstrictor = gameStateIsConstrictor(gameState)
+    this.isArcadeMaze = gameStateIsArcadeMaze(gameState)
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
@@ -341,7 +343,7 @@ export class Board2d {
         let point = voronoiPoints.shift() // get the top point off the list
 
         if (point !== undefined) {
-          let neighbors = getSurroundingCells(point.coord, self)
+          let neighbors = getSurroundingCells(point.coord, self, undefined, this.isArcadeMaze)
           for (const neighbor of neighbors) { // for each neighbor, update its voronoi array if applicable
             let isNewVoronoiBoardCell: boolean = false // if any VoronoiSnakes are added to this neighbor, set this to true so we can add it to voronoiPoints array
             if (point !== undefined) {
