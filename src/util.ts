@@ -885,7 +885,7 @@ export function isInOrAdjacentToHazard(coord: Coord, board2d: Board2d, hazardWal
 export function isAdjacentToHazard(coord: Coord, hazardWalls: HazardWalls, gameState: GameState) : boolean {  
   if (getHazardDamage(gameState) === 0) { // if hazard is 0 or undefined, return false
     return false
-  } else if (gameState.game.ruleset.settings.hazardMap) { // hazard wall adjacency doesn't make sense with non-standard hazard maps
+  } else if (gameState.game.map) { // hazard wall adjacency doesn't make sense with non-standard hazard maps
     return false
   } else if (hazardWalls.left === undefined && coord.x === 0) { // if hazardWalls.left is undefined & coord.x is on the left wall, it's adjacent to hazard
     return true
@@ -2458,10 +2458,9 @@ export function getHazardDamage(gameState: GameState): number {
       case "wrapped":
       case "standard":
       default:
-        const hazardMap: string = gameState.game.ruleset.settings.hazardMap || ""
         if (gameState.board.hazards.length > 0) { // if hazards exist, we need to respect the defined hazardDamage, regardless of ruleset name or hazard map
           return hazardDamagePerTurn
-        } else if (hazardMap !== "") { // if hazards do not yet exist, but a hazard map is defined, should respect defined hazardDamage
+        } else if (gameState.game.map !== "") { // if hazards do not yet exist, but a hazard map is defined, should respect defined hazardDamage
           return hazardDamagePerTurn
         } else { // if no hazards exist, & no hazard map is defined, & it's not a royale game, return 0 to indicate hazards are not a thing in this game
           return 14 // this is a hack - win rates surprisingly dropped in standard games when treating them as such

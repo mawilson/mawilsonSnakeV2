@@ -625,7 +625,7 @@ export class HazardWalls {
   constructor(gameState?: GameState) {
     let _this = this
 
-    if (gameState === undefined || gameState.game.ruleset.settings.hazardMap) { // hazard walls don't make sense if a unique hazard map is specified (spiral, scatter)
+    if (gameState === undefined || gameState.game.map) { // hazard walls don't make sense if a unique hazard map is specified (spiral, scatter)
       this.up = undefined
       this.down = undefined
       this.left = undefined
@@ -1595,11 +1595,11 @@ export class TimingData {
   isDevelopment: boolean
   source: string
   hazardDamage: number
-  hazardMap: string
+  map: string
   snakeLength: number
   numTimeouts: number
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, hazardMap: string | undefined, snakeLength: number, numTimeouts: number) {
+  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number) {
     this.average = timingStats.average
     this.max = timingStats.max
     this.populationStandardDeviaton = timingStats.populationStandardDeviation
@@ -1612,7 +1612,7 @@ export class TimingData {
     this.isDevelopment = isDevelopment
     this.source = source
     this.hazardDamage = hazardDamage
-    this.hazardMap = hazardMap !== undefined? hazardMap : ""
+    this.map = map !== undefined? map : ""
     this.snakeLength = snakeLength
     this.numTimeouts = numTimeouts
   }
