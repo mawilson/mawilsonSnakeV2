@@ -532,7 +532,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   } // no kisses of murder nearby, not bothering to set value
 
   let canBeCutoffHazardBySnake: boolean = false
-  if (hazardDamage > 0 && !gameState.game.ruleset.settings.hazardMap && isRoyale) { // hazard cutoffs only make sense in standard hazard maps
+  if (hazardDamage > 0 && !gameState.game.map && isRoyale) { // hazard cutoffs only make sense in standard hazard maps
     if (haveWon) {
       evaluationResult.cutoffHazard = evalCutoffHazardReward
     } else {
