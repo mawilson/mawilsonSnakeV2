@@ -70,8 +70,8 @@ export async function end(gameState: GameState): Promise<void> {
       let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
       let hazardDamage: number = getHazardDamage(gameState)
       let hazardMap: string
-      if (gameState.game.ruleset.settings.hazardMap !== undefined) {
-        hazardMap = gameState.game.ruleset.settings.hazardMap
+      if (gameState.game.map !== undefined) {
+        hazardMap = gameState.game.map
       } else {
         hazardMap = ""
       }
