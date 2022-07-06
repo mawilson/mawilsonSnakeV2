@@ -1,4 +1,4 @@
-export const version: string = "1.4.4" // need to declare this before imports since several imports utilize it
+export const version: string = "1.4.5" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -13,7 +13,7 @@ let consoleWriteStream: WriteStream = createLogAndCycle("consoleLogs_logic")
 import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
-export const isDevelopment: boolean = false
+export const isDevelopment: boolean = true
 
 // machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
 const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
@@ -427,6 +427,128 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return bestMove
   }
 
+  // for duels, will only work properly with exactly two snakes
+  function _decideMoveMinMax(gameState: GameState, myself: Battlesnake, lookahead: number): MoveWithEval {
+    let board2d: Board2d = new Board2d(gameState)
+    let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
+    let validMoves: Direction[] = availableMoves.validMoves()
+    let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== myself.id)
+    let otherSnakeAvailableMoves: Moves = getAvailableMoves(gameState, otherSnake, board2d)
+    let otherSnakeValidMoves: Direction[] = otherSnakeAvailableMoves.validMoves()
+
+    let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
+
+    let _evalThisState: EvaluationResult | undefined = undefined
+    let evalThisState: number | undefined = undefined
+
+    if (lookahead !== startLookahead) { // with minmax, we'll need this on every step except for the first
+      _evalThisState = evaluate(gameState, myself)
+      evalThisState = _evalThisState.sum(noMe)
+    }
+
+    // first, move my snake in each direction it can move
+    for (let i: number = 0; i < validMoves.length; i++) {
+      let move: Direction = validMoves[i]
+      let newGameState: GameState = cloneGameState(gameState)
+      let newSelf: Battlesnake | undefined,
+          newOtherSnake: Battlesnake | undefined
+      for (const snake of newGameState.board.snakes) {
+        if (snake.id === myself.id) {
+          newSelf = snake
+        } else {
+          newOtherSnake = snake
+        }
+      }
+
+      let worstOriginalSnakeScore: MoveWithEval = new MoveWithEval(undefined, undefined)
+      if (newSelf !== undefined && newOtherSnake !== undefined) {
+        moveSnake(newGameState, newSelf, board2d, move)
+
+        let evaluationResult: EvaluationResult
+        let evalState: MoveWithEval
+        // then, move otherSnake in each possible direction
+        for (let j: number = 0; j < otherSnakeValidMoves.length; j++) {
+          let otherMove: Direction = otherSnakeValidMoves[j]
+          let otherNewGameState: GameState = cloneGameState(newGameState)
+          let newOtherself: Battlesnake | undefined,
+              newOriginalSnake: Battlesnake | undefined
+
+          for (const snake of otherNewGameState.board.snakes) {
+            if (snake.id === myself.id) {
+              newOriginalSnake = snake
+            } else {
+              newOtherself = snake
+            }
+          }
+
+
+          // then, base case & recursive case: if we've hit our lookahead, we want to evaluate each move for newOriginalSnke's score, then choose the worst one for them
+          // else, we want to call decideMove again, & move again, & assign that return value to this state's value
+          if (newOtherself !== undefined && newOriginalSnake !== undefined) {
+            moveSnake(otherNewGameState, newOtherself, board2d, otherMove)
+            if (lookahead <= 0) { // base case, start returning
+              evaluationResult = evaluate(otherNewGameState, newOriginalSnake)
+              evalState = new MoveWithEval(move, evaluationResult.sum())
+            } else {
+              evalState = _decideMoveMinMax(otherNewGameState, newOriginalSnake, lookahead - 1)
+            }
+
+            // then, determine whether this move is worse than the existing worst move, & if so, replace it
+            if (worstOriginalSnakeScore.score === undefined) { // no score yet, just assign it this one
+              worstOriginalSnakeScore.direction = otherMove // this represents the move otherSnake takes to minimize originalSnake's score
+              worstOriginalSnakeScore.score = evalState.score // while this represents the score of originalSnake in this config
+            } else {
+              if (evalState.score !== undefined) {
+                if (evalState.score < worstOriginalSnakeScore.score) {
+                  worstOriginalSnakeScore.direction = otherMove
+                  worstOriginalSnakeScore.score = evalState.score
+                } else if (evalState.score === worstOriginalSnakeScore.score && getRandomInt(0, 2)) {
+                  worstOriginalSnakeScore.direction = otherMove
+                  worstOriginalSnakeScore.score = evalState.score
+                }
+              }
+            }
+          }
+        }
+
+
+        // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
+        if (lookahead !== undefined && evalThisState !== undefined) {
+          let evalWeight : number = 1
+          evalWeight = evalWeight + lookaheadWeight * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
+          evalThisState = evalThisState * evalWeight
+        }
+
+        if (worstOriginalSnakeScore.score !== undefined) {
+          //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
+          if (evalThisState !== undefined) { // don't need to add evalThisState if it doesn't exist, which will happen for first move in lookahead or for otherSnakes
+            worstOriginalSnakeScore.score = worstOriginalSnakeScore.score + evalThisState
+          }
+        } else {
+          //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
+          worstOriginalSnakeScore.score = evalThisState
+        }
+      }
+
+      if (bestMove.score === undefined) {
+        bestMove.direction = move
+        bestMove.score = worstOriginalSnakeScore.score
+      } else {
+        if (worstOriginalSnakeScore.score !== undefined) {
+          if (worstOriginalSnakeScore.score > bestMove.score) {
+            bestMove.direction = move
+            bestMove.score = worstOriginalSnakeScore.score
+          } else if (worstOriginalSnakeScore.score === bestMove.score && getRandomInt(0, 2)) {
+            bestMove.direction = move
+            bestMove.score = worstOriginalSnakeScore.score
+          }
+        }
+      }
+    }
+
+    return bestMove
+  }
+
   let availableMoves: Moves = getAvailableMoves(gameState, myself, startingBoard2d)
   let validMoves = availableMoves.validMoves()
   // before jumping into recursion, first check to see if I have any choices to make
@@ -434,8 +556,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     return new MoveWithEval(validMoves[0], undefined)
   } else if (validMoves.length === 0) { // if I have no valid moves, return the default move
     return new MoveWithEval(getDefaultMove(gameState, myself, startingBoard2d), undefined)
-  } else { // otherwise, start deciding  
-    let myselfMove: MoveWithEval = _decideMove(gameState, myself, startLookahead)
+  } else { // otherwise, start deciding
+    let myselfMove: MoveWithEval
+    if (gameState.board.snakes.length === 2) {
+      myselfMove = _decideMoveMinMax(gameState, myself, startLookahead)
+    } else {
+      myselfMove = _decideMove(gameState, myself, startLookahead)
+    }
 
     if (isDevelopment && amUsingMachineData) { // if I'm using machine learning data, log how many times I took advantage of the data
       logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves iterator ${movesShortCircuited} times.`)
