@@ -1360,6 +1360,9 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
   }
   lookahead = gameState.turn > 0 && lookahead < 1? 1 : lookahead // lookahead should always be at least 1, except on turn 0
   //logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} found branching factor of ${branchingFactor}. Returned lookahead of ${lookahead}`)
+  if (gameState.board.snakes.length === 2 && lookahead > 3) { // necessary before alpha-beta pruning is implemented
+    lookahead = 3
+  }
   return lookahead
 }
 

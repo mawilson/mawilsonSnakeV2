@@ -428,23 +428,83 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   }
 
   // for duels, will only work properly with exactly two snakes
-  function _decideMoveMinMax(gameState: GameState, myself: Battlesnake, lookahead: number): MoveWithEval {
-    let board2d: Board2d = new Board2d(gameState)
-    let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
-    let validMoves: Direction[] = availableMoves.validMoves()
-    let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== myself.id)
-    let otherSnakeAvailableMoves: Moves = getAvailableMoves(gameState, otherSnake, board2d)
-    let otherSnakeValidMoves: Direction[] = otherSnakeAvailableMoves.validMoves()
+  function _decideMoveMinMax(gameState: GameState, myself: Battlesnake, lookahead: number, kisses?: KissStatesForEvaluate): MoveWithEval {
+    let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
+    if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
-    let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
+    let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
+      return snake.id === myself.id
+    })
+
+    let finishEvaluatingNow: boolean = false
+    let moves: Moves
+    let availableMoves: Direction[] = []
+    
+    let board2d: Board2d
+    if (thisGameData && gameState.turn === thisGameData.turn) {
+      board2d = startingBoard2d
+    } else {
+      board2d = new Board2d(gameState, false)
+    }
 
     let _evalThisState: EvaluationResult | undefined = undefined
     let evalThisState: number | undefined = undefined
 
     if (lookahead !== startLookahead) { // with minmax, we'll need this on every step except for the first
-      _evalThisState = evaluate(gameState, myself)
+      let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
+      let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
+      let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
+
+      _evalThisState = evaluate(gameState, myself, evaluateKisses)
       evalThisState = _evalThisState.sum(noMe)
     }
+
+    if (!isTesting && !stillHaveTime) { // if we need to leave early due to time
+      finishEvaluatingNow = true
+    } else if (!stateContainsMe) { // if we're dead
+      finishEvaluatingNow = true
+    } else {
+      moves = getAvailableMoves(gameState, myself, board2d)
+      availableMoves = moves.validMoves()
+      if (availableMoves.length < 1) { // if there's nowhere left to decide to move
+      finishEvaluatingNow = true
+      } else if (availableMoves.length === 1 && lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score 
+        finishEvaluatingNow = true
+      } else if (gameState.game.ruleset.name !== "solo" && gameState.board.snakes.length === 1) { // it's not a solo game, & we're the only one left - we've won
+        finishEvaluatingNow = true
+      }
+    }
+
+    if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
+      if (lookahead !== undefined && evalThisState !== undefined) {
+        let newScore: number = 0 // should always at least account for this turn
+        if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
+          for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
+            if (i !== lookahead) {
+              newScore = newScore + (noMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
+            } else {
+              newScore = newScore + (evalThisState * (1 + lookaheadWeight * i)) // can use evalThisState for first turn - will be bad but not as bad
+            }
+          }
+          newScore = newScore + noMe // add the final bestMove after the lookaheads, with no lookaheadWeight - which is necessarily death in this case
+          evalThisState = newScore
+        } else {
+          for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
+            newScore = newScore + (evalThisState * (1 + lookaheadWeight * i))
+          }
+          newScore = newScore + evalThisState // add the final bestMove after the lookaheads, with no lookaheadWeight
+        }
+        evalThisState = newScore // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
+      }
+      let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
+      return new MoveWithEval(defaultDir, evalThisState)
+    }
+    
+    let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== myself.id)
+    let otherSnakeAvailableMoves: Moves = getAvailableMoves(gameState, otherSnake, board2d)
+    let otherSnakeValidMoves: Direction[] = otherSnakeAvailableMoves.validMoves()
+
+    let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < validMoves.length; i++) {
@@ -486,6 +546,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           // else, we want to call decideMove again, & move again, & assign that return value to this state's value
           if (newOtherself !== undefined && newOriginalSnake !== undefined) {
             moveSnake(otherNewGameState, newOtherself, board2d, otherMove)
+            updateGameStateAfterMove(otherNewGameState)
             if (lookahead <= 0) { // base case, start returning
               evaluationResult = evaluate(otherNewGameState, newOriginalSnake)
               evalState = new MoveWithEval(move, evaluationResult.sum())
