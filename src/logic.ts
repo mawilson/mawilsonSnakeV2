@@ -509,6 +509,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let otherSnakeAvailableMoves: Moves = getAvailableMoves(gameState, otherSnake, board2d)
     let otherSnakeValidMoves: Direction[] = otherSnakeAvailableMoves.validMoves()
 
+    if (otherSnakeValidMoves.length === 0) { // otherSnake must move somewhere, so give it a default move
+      otherSnakeValidMoves.push(getDefaultMove(gameState, otherSnake, board2d))
+    }
+
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
     // first, move my snake in each direction it can move
