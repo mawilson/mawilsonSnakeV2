@@ -615,6 +615,7 @@ export function checkForWalls(me: Battlesnake, board: Board2d, moves: Moves) {
     }
   }
   
+  if (!me) { return }
   let myCoords : Coord = me.head
 
   if (!checkCell(myCoords.x - 1, myCoords.y)) {
@@ -651,6 +652,7 @@ export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
     }
   }
   
+  if (!me) { return } 
   let myCoords : Coord = me.head
 
   if (!checkCell(myCoords.x - 1, myCoords.y)) {
@@ -686,6 +688,7 @@ export function checkForHealth(me: Battlesnake, gameState: GameState, board: Boa
     }
   }
   
+  if (!me) { return }
   let myCoords : Coord = me.head
 
   if (!checkCell(myCoords.x - 1, myCoords.y)) {

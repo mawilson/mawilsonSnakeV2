@@ -437,15 +437,22 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
 
     let finishEvaluatingNow: boolean = false
-    let moves: Moves
-    let availableMoves: Direction[] = []
-    
+
     let board2d: Board2d
     if (thisGameData && gameState.turn === thisGameData.turn) {
       board2d = startingBoard2d
     } else {
       board2d = new Board2d(gameState, false)
     }
+
+    let moves: Moves = getAvailableMoves(gameState, myself, board2d)
+    let availableMoves: Direction[] = moves.validMoves()
+  
+    let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
+    let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
+    let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
+  
+    let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let _evalThisState: EvaluationResult | undefined = undefined
     let evalThisState: number | undefined = undefined
@@ -464,8 +471,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
     } else {
-      moves = getAvailableMoves(gameState, myself, board2d)
-      availableMoves = moves.validMoves()
       if (availableMoves.length < 1) { // if there's nowhere left to decide to move
       finishEvaluatingNow = true
       } else if (availableMoves.length === 1 && lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score 
@@ -520,6 +525,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         }
       }
 
+      let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
+      let kissArgs: KissStatesForEvaluate | undefined
+      if (kissStates.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStates.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+        kissArgs = undefined
+      } else {
+        kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
+      }
+
       let worstOriginalSnakeScore: MoveWithEval = new MoveWithEval(undefined, undefined)
       if (newSelf !== undefined && newOtherSnake !== undefined) {
         moveSnake(newGameState, newSelf, board2d, move)
@@ -548,10 +561,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             moveSnake(otherNewGameState, newOtherself, board2d, otherMove)
             updateGameStateAfterMove(otherNewGameState)
             if (lookahead <= 0) { // base case, start returning
-              evaluationResult = evaluate(otherNewGameState, newOriginalSnake)
+              evaluationResult = evaluate(otherNewGameState, newOriginalSnake, kissArgs)
               evalState = new MoveWithEval(move, evaluationResult.sum())
             } else {
-              evalState = _decideMoveMinMax(otherNewGameState, newOriginalSnake, lookahead - 1)
+              evalState = _decideMoveMinMax(otherNewGameState, newOriginalSnake, lookahead - 1, kissArgs)
             }
 
             // then, determine whether this move is worse than the existing worst move, & if so, replace it
