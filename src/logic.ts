@@ -507,8 +507,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
     // first, move my snake in each direction it can move
-    for (let i: number = 0; i < validMoves.length; i++) {
-      let move: Direction = validMoves[i]
+    for (let i: number = 0; i < availableMoves.length; i++) {
+      let move: Direction = availableMoves[i]
       let newGameState: GameState = cloneGameState(gameState)
       let newSelf: Battlesnake | undefined,
           newOtherSnake: Battlesnake | undefined
