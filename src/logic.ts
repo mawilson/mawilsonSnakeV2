@@ -514,6 +514,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
+      if (iterativeDeepening && !checkTime(startTime, gameState)) { return new MoveWithEval(undefined, undefined) }
       let newGameState: GameState = cloneGameState(gameState)
       let newSelf: Battlesnake | undefined,
           newOtherSnake: Battlesnake | undefined
