@@ -428,7 +428,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   }
 
   // for duels, will only work properly with exactly two snakes
-  function _decideMoveMinMax(gameState: GameState, myself: Battlesnake, lookahead: number, kisses?: KissStatesForEvaluate): MoveWithEval {
+  function _decideMoveMinMax(gameState: GameState, myself: Battlesnake, lookahead: number, kisses?: KissStatesForEvaluate, _alpha?: number, _beta?: number): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
@@ -437,6 +437,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     })
 
     let finishEvaluatingNow: boolean = false
+
+    let numMaxPrunes: number = 0
+    let numMinPrunes: number = 0
 
     let board2d: Board2d
     if (thisGameData && gameState.turn === thisGameData.turn) {
@@ -454,17 +457,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
-    let _evalThisState: EvaluationResult | undefined = undefined
-    let evalThisState: number | undefined = undefined
 
-    if (lookahead !== startLookahead) { // with minmax, we'll need this on every step except for the first
-      let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
-      let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
-      let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
-
-      _evalThisState = evaluate(gameState, myself, evaluateKisses)
-      evalThisState = _evalThisState.sum(noMe)
-    }
+    let alpha: number | undefined = _alpha || undefined
+    let beta: number | undefined = _beta || undefined
 
     if (!isTesting && !stillHaveTime) { // if we need to leave early due to time
       finishEvaluatingNow = true
@@ -481,26 +476,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     }
 
     if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
-      if (lookahead !== undefined && evalThisState !== undefined) {
-        let newScore: number = 0 // should always at least account for this turn
-        if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
-          for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
-            if (i !== lookahead) {
-              newScore = newScore + (noMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
-            } else {
-              newScore = newScore + (evalThisState * (1 + lookaheadWeight * i)) // can use evalThisState for first turn - will be bad but not as bad
-            }
-          }
-          newScore = newScore + noMe // add the final bestMove after the lookaheads, with no lookaheadWeight - which is necessarily death in this case
-          evalThisState = newScore
-        } else {
-          for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
-            newScore = newScore + (evalThisState * (1 + lookaheadWeight * i))
-          }
-          newScore = newScore + evalThisState // add the final bestMove after the lookaheads, with no lookaheadWeight
-        }
-        evalThisState = newScore // if we were still looking ahead any, want to multiply this return by the # of moves we're skipping.
-      }
+      let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
+      let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
+      let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
+      let _evalThisState: EvaluationResult = evaluate(gameState, myself, evaluateKisses)
+      let evalThisState: number = _evalThisState.sum(noMe)
+      
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
       return new MoveWithEval(defaultDir, evalThisState)
     }
@@ -544,6 +525,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
         let evaluationResult: EvaluationResult
         let evalState: MoveWithEval
+
+        let minAlpha: number | undefined = alpha // minAlpha & minBeta are passed along by calling max function, but can't overwrite max's alpha & beta
+        let minBeta: number | undefined = beta
         // then, move otherSnake in each possible direction
         for (let j: number = 0; j < otherSnakeValidMoves.length; j++) {
           let otherMove: Direction = otherSnakeValidMoves[j]
@@ -569,7 +553,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               evaluationResult = evaluate(otherNewGameState, newOriginalSnake, kissArgs)
               evalState = new MoveWithEval(move, evaluationResult.sum())
             } else {
-              evalState = _decideMoveMinMax(otherNewGameState, newOriginalSnake, lookahead - 1, kissArgs)
+              evalState = _decideMoveMinMax(otherNewGameState, newOriginalSnake, lookahead - 1, kissArgs, minAlpha, minBeta)
             }
 
             // then, determine whether this move is worse than the existing worst move, & if so, replace it
@@ -587,25 +571,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 }
               }
             }
+            if (minBeta === undefined || (evalState.score !== undefined && evalState.score < minBeta)) { // if min player found a lower beta, assign it
+              minBeta = evalState.score
+            }
+            if (minAlpha !== undefined && minBeta !== undefined && minAlpha >= minBeta) { // if alpha & beta both exist & alpha is better than beta, can prune the rest of this tree
+              numMinPrunes = numMinPrunes + 1
+              break
+            }
           }
-        }
-
-
-        // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
-        if (lookahead !== undefined && evalThisState !== undefined) {
-          let evalWeight : number = 1
-          evalWeight = evalWeight + lookaheadWeight * lookahead // so 1 for 0 lookahead, 1.1 for 1, 1.2 for two, etc
-          evalThisState = evalThisState * evalWeight
-        }
-
-        if (worstOriginalSnakeScore.score !== undefined) {
-          //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), chose best move ${bestMove.direction} with score ${bestMove.score}. Adding evalThisState score ${evalThisState} to return ${bestMove.score + evalThisState}`)
-          if (evalThisState !== undefined) { // don't need to add evalThisState if it doesn't exist, which will happen for first move in lookahead or for otherSnakes
-            worstOriginalSnakeScore.score = worstOriginalSnakeScore.score + evalThisState
-          }
-        } else {
-          //logToFile(consoleWriteStream, `For snake ${myself.name} at (${myself.head.x},${myself.head.y}), no best move, all options are death. Adding & returning evalThisState score ${evalThisState}`)
-          worstOriginalSnakeScore.score = evalThisState
         }
       }
 
@@ -623,8 +596,19 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
         }
       }
+
+      if (alpha === undefined || (worstOriginalSnakeScore.score !== undefined && worstOriginalSnakeScore.score > alpha)) { // if max player found a higher alpha, assign it
+        alpha = worstOriginalSnakeScore.score
+      }
+      if (alpha !== undefined && beta !== undefined && alpha >= beta) { // if alpha & beta both exist & alpha is better than beta, can prune the rest of this tree
+        numMaxPrunes = numMaxPrunes + 1
+        break
+      }
     }
 
+    // if (lookahead === startLookahead) {
+    //   logToFile(consoleWriteStream, `on turn ${gameState.turn}, max prunes: ${numMaxPrunes}, min prunes: ${numMinPrunes}`)
+    // }
     return bestMove
   }
 
