@@ -565,9 +565,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 if (evalState.score < worstOriginalSnakeScore.score) {
                   worstOriginalSnakeScore.direction = otherMove
                   worstOriginalSnakeScore.score = evalState.score
-                } else if (evalState.score === worstOriginalSnakeScore.score && getRandomInt(0, 2)) {
-                  worstOriginalSnakeScore.direction = otherMove
-                  worstOriginalSnakeScore.score = evalState.score
                 }
               }
             }
@@ -588,9 +585,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       } else {
         if (worstOriginalSnakeScore.score !== undefined) {
           if (worstOriginalSnakeScore.score > bestMove.score) {
-            bestMove.direction = move
-            bestMove.score = worstOriginalSnakeScore.score
-          } else if (worstOriginalSnakeScore.score === bestMove.score && getRandomInt(0, 2)) {
             bestMove.direction = move
             bestMove.score = worstOriginalSnakeScore.score
           }
