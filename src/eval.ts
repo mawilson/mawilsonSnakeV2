@@ -11,7 +11,7 @@ let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
 // constants used in other files
 export const evalNoMeStandard: number = -3400 // no me is the worst possible state, give a very bad score
 export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq
-export const evalNoMeArcadeMaze: number = -4900 // arcadeMaze's standard 19x21 map, after accounting for hazards, is slightly larger & has lower potential Voronoi score
+export const evalNoMeArcadeMaze: number = -5850 // arcadeMaze's standard 19x21 map, after accounting for hazards, is slightly larger & has lower potential Voronoi score
 
 const evalBase: number = 500
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
@@ -221,6 +221,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
   const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
+  const evalHaveWonTurnStep: number = 50
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
@@ -917,6 +918,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     const yDiff = Math.abs(myself.head.y - centers.centerY)
 
     evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
+  }
+
+  if (haveWon) {
+    let turnsOfLookaheadLeft: number = lookahead - lookaheadDepth // if lookahead is 3, & lookaheadDepth is 2, we had one lookahead left - give bonus for winning earlier 
+    evaluationResult.winValue = turnsOfLookaheadLeft * evalHaveWonTurnStep
   }
 
   return evaluationResult

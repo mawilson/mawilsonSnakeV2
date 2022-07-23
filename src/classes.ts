@@ -1707,6 +1707,7 @@ export class EvaluationResult {
   // scores related to death & ties
   tieValue: number = 0
   noMe: number = 0
+  winValue: number = 0
 
   constructor(myself: Battlesnake) {
     this.myself = myself

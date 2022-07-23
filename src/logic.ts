@@ -457,7 +457,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
-
     let alpha: number | undefined = _alpha || undefined
     let beta: number | undefined = _beta || undefined
 
@@ -481,7 +480,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
       let _evalThisState: EvaluationResult = evaluate(gameState, myself, evaluateKisses)
       let evalThisState: number = _evalThisState.sum(noMe)
-      
+    
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
       return new MoveWithEval(defaultDir, evalThisState)
     }
@@ -706,7 +705,11 @@ export function move(gameState: GameState): MoveResponse {
       futureSight = 5 // as above, but ramping up
     } else {
       if (gameStateIsArcadeMaze(gameState)) {
-        futureSight = 12
+        if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
+          futureSight = 15
+        } else {
+          futureSight = 12
+        }
       } else {
         futureSight = 7
       }
