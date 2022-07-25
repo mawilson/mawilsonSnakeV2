@@ -23,6 +23,10 @@ export function getRandomInt(min: number, max: number) : number {
   return res
 }
 
+export function floatsEqual(a: number, b: number) : boolean {
+  return Math.abs(a - b) < 0.0001
+}
+
 export function getRandomMove(moves: Direction[]) : Direction {
   let randomMove : Direction = moves[getRandomInt(0, moves.length)]
   return randomMove
@@ -33,8 +37,10 @@ export function coordsEqual(c1: Coord, c2: Coord): boolean {
 }
 
 // returns true if snake health is max, indicating it ate this turn
-export function snakeHasEaten(snake: Battlesnake, lookahead?: number) : boolean {
-  if (lookahead !== undefined) {
+export function snakeHasEaten(snake: Battlesnake, lookahead?: number, firstEatTurn?: number) : boolean {
+  if (firstEatTurn !== undefined) { // if firstEatTurn is defined, the snake has eaten within the lookahead (on that turn)
+    return true
+  } else if (lookahead !== undefined) {
     return ((snake.health + lookahead) >= 100) && snake.length > 3
   } else {
     return (snake.health === 100 && snake.length > 3)
@@ -615,6 +621,7 @@ export function checkForWalls(me: Battlesnake, board: Board2d, moves: Moves) {
     }
   }
   
+  if (!me) { return }
   let myCoords : Coord = me.head
 
   if (!checkCell(myCoords.x - 1, myCoords.y)) {
@@ -651,6 +658,7 @@ export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
     }
   }
   
+  if (!me) { return } 
   let myCoords : Coord = me.head
 
   if (!checkCell(myCoords.x - 1, myCoords.y)) {
@@ -686,6 +694,7 @@ export function checkForHealth(me: Battlesnake, gameState: GameState, board: Boa
     }
   }
   
+  if (!me) { return }
   let myCoords : Coord = me.head
 
   if (!checkCell(myCoords.x - 1, myCoords.y)) {

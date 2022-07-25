@@ -100,10 +100,12 @@ export class Coord implements ICoord {
 export class MoveWithEval {
   direction: Direction | undefined
   score: number | undefined
+  evaluationResult: EvaluationResult | undefined
 
-  constructor(direction: Direction | undefined, score: number | undefined) {
+  constructor(direction: Direction | undefined, score: number | undefined, evaluationResult?: EvaluationResult) {
     this.direction = direction
     this.score = score
+    this.evaluationResult = evaluationResult
   }
 
   toString() : string {
@@ -1551,6 +1553,7 @@ export class GameData {
   source: string
   prey: Battlesnake | undefined
   turn: number
+  isDuel: boolean
   timeouts: number
 
   constructor(source: string) {
@@ -1562,6 +1565,7 @@ export class GameData {
     this.source = source
     this.prey = undefined
     this.turn = 0
+    this.isDuel = false
     this.timeouts = 0
   }
 }
@@ -1694,6 +1698,7 @@ export class EvaluationResult {
   health: number = 0
   otherSnakeHealth: number = 0
   food: number = 0
+  foodEaten: number = 0 // used in duels to reward snake based on how recently it's eaten
   voronoiSelf: number = 0
   voronoiPredator: number = 0
   selfMoves: number = 0
@@ -1707,6 +1712,7 @@ export class EvaluationResult {
   // scores related to death & ties
   tieValue: number = 0
   noMe: number = 0
+  winValue: number = 0
 
   constructor(myself: Battlesnake) {
     this.myself = myself
