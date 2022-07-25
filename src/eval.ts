@@ -24,6 +24,8 @@ const evalVoronoiNegativeStep = 100
 const evalVoronoiPositiveStep = 4.5
 const evalVoronoiPreyStep = 100
 
+let evalInitialEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
+
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
 function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
   const validHazardTurns = snake.health / (hazardDamage + 1)
@@ -121,7 +123,7 @@ function determineEvalNoSnakesConstrictor(myself: Battlesnake): EvaluationResult
 }
 
 // normal evalNoSnakes must distinguish between self & otherSnakes due to difference in how Voronoi is awarded
-export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake, tieSnake: Battlesnake | undefined): EvaluationResult {
+export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake, tieSnake: Battlesnake | undefined, firstEatTurn?: number): EvaluationResult {
   if (gameStateIsConstrictor(gameState)) {
     return determineEvalNoSnakesConstrictor(myself)
   }
@@ -172,12 +174,15 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
       evaluationResult.voronoiSelf = voronoiSelf
     }
   } // otherSnakes in duel use Voronoi delta, & Voronoi scores here should be identical, so can skip that entirely
+  if (firstEatTurn) {
+      evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalInitialEatingMultiplier * 3
+  }
   evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluationResult
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, firstEatTurn?: number) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -218,22 +223,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evalNoMe = evalNoMeStandard
   }
 
-  const isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
   const isSolo: boolean = gameStateIsSolo(gameState)
   const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
   const evalHaveWonTurnStep: number = 50
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
+  let isMinimaxDuel: boolean = thisGameData? thisGameData.isDuel : false
+  let isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
+  let isTypeOfDuel: boolean = isMinimaxDuel || isDuel // if either is true, it's at least a type of duel
+
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
   const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
   const lookaheadDepth: number = gameState.turn - 1 - originalTurn // lookahead begins 2 turns after originalTurn - first turn is 0 lookahead. Note this will be negative for originalTurn
+  const turnsOfLookaheadLeft: number = lookahead - lookaheadDepth // how many turns into lookahead we are. Used by minimax to reward winning earlier
 
   let preySnake: Battlesnake | undefined = undefined
   if (!isOriginalSnake && originalSnake) {
     preySnake = originalSnake // due to paranoia, assume all otherSnakes are out to get originalSnake
   } else { // it's originalSnake. If duel, prey is duel opponent, if not duel, look for prey in gameData
-    if (isDuel) {
+    if (isTypeOfDuel) {
       preySnake = otherSnakes[0]
     } else {
       // if (gameState.game.source !== "testing") {
@@ -321,7 +330,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const evalPriorKissOfDeathCertainty = isOriginalSnake? -800 : 0 // otherSnakes can pick again, let them evaluate this without fear of death
 
   let evalPriorKissOfDeathCertaintyMutual: number
-  if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
+  if (isTypeOfDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathCertaintyMutual = 0
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
@@ -332,7 +341,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const evalPriorKissOfDeathMaybe = isOriginalSnake? -400 : 0 // this cell is a 50/50. otherSnakes can pick again, let them evaluate this without fear of death
   
   let evalPriorKissOfDeathMaybeMutual: number
-  if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
+  if (isTypeOfDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathMaybeMutual = 0
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalPriorKissOfDeathMaybeMutual = 75 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
@@ -352,7 +361,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     let preyHead = priorKissStates.prey.head
     let preyIsOnWall: boolean = isOnHorizontalWall(gameState.board, preyHead) || isOnVerticalWall(gameState.board, preyHead)
     if (preyIsOnWall) {
-      if (isDuel) {
+      if (isTypeOfDuel) {
         evalPriorKissOfMurderFaceoff = evalPriorKissOfMurderFaceoff + 75 // this is actually a cutoff!
       } else {
         evalPriorKissOfMurderFaceoff = evalPriorKissOfMurderFaceoff + 45 // this is actually a cutoff!
@@ -365,7 +374,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const evalKissOfDeathCertainty = -400 // everywhere seems like certain death
   let evalKissOfDeathCertaintyMutual: number
-  if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
+  if (isTypeOfDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalKissOfDeathCertaintyMutual = 0
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalKissOfDeathCertaintyMutual = 25 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
@@ -374,7 +383,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
   const evalKissOfDeathMaybe: number = -200 // a 50/50 on whether we will be kissed to death next turn
   let evalKissOfDeathMaybeMutual: number
-  if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
+  if (isTypeOfDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalKissOfDeathMaybeMutual = 0
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
     evalKissOfDeathMaybeMutual = 15 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
@@ -389,12 +398,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
   const evalKissOfMurderSelfBonus = 30 // bonus given to otherSnakes for attempting to get close enough to kill me
 
-  const evalCutoffHazardReward = isDuel || haveWon? 75 : 25
+  const evalCutoffHazardReward = isTypeOfDuel || haveWon? 75 : 25
   const evalCutoffHazardPenalty = -60
 
   let evalFoodVal = 3
   const evalFoodStep = 1
-  let evalEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
+  let evalEatingMultiplier = evalInitialEatingMultiplier // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
   const evalVoronoiDeltaStepConstrictor = 50
@@ -410,7 +419,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
   if (gameState.board.snakes.length === 0) {
-    return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
+    return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (myself === undefined) {
     if (_myself !== undefined && _myself.health <= 0) { // if I starved, return evalNoMe, this is certain death
@@ -641,21 +650,31 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evalFoodVal = 4
   } else if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
+  } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
     evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
-  } else if (isDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
+  } else if (isTypeOfDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 2
   } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
     evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
   } else if (delta > 6) { // If I am more than 6 bigger, want food less
     evalFoodVal = 2
   }
-  if (delta > 8) { // if already larger, prioritize eating immediately less
-    evalEatingMultiplier = 1
-  } else if (delta > 5) {
-    evalEatingMultiplier = 1.75
-  } else if (delta > 3) {
-    evalEatingMultiplier = 2.5
+  if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
+    if (delta > 3) { // if I am 4 or more greater
+      evalEatingMultiplier = 1 
+    } else if (delta > 2) { // if I am 3 greater
+      evalEatingMultiplier = 2
+    } else if (delta > 1) { // if I am 2 greater
+      evalEatingMultiplier = 3
+    }
+  } else {
+    if (delta > 8) { // if already larger, prioritize eating immediately less
+      evalEatingMultiplier = 1
+    } else if (delta > 5) {
+      evalEatingMultiplier = 1.75
+    } else if (delta > 3) {
+      evalEatingMultiplier = 2.5
+    }
   }
 
   if (!isConstrictor) { // constrictor snake length is irrelevant
@@ -685,7 +704,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (snakeHasEaten(myself, lookahead) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
+  if (snakeHasEaten(myself, lookahead, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
     let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
     if (nearbyFood[depthToAdd]) { // should never succeed at depth 0, but may at others
@@ -693,13 +712,20 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     } else {
       nearbyFood[depthToAdd] = [myself.head]
     }
+
+    if (isMinimaxDuel) { // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+      if (firstEatTurn) {
+        evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalEatingMultiplier * 3
+      }
+    }
   }
 
   // health considerations, which are effectively hazard considerations
+  // TODO: check how necessary this is in minimax duel
   if (!isSolo && !isConstrictor) {
     let healthEval: number = isArcadeMaze? determineHealthEvalArcadeMaze(myself, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe) : determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
 
-    if (lookaheadDepth > 0 && healthEval < 0 && lookaheadDepth === lookahead) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
+    if (lookaheadDepth > 0 && healthEval < 0 && lookaheadDepth === lookahead && !isDuel) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
       healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less
     }
     evaluationResult.health = healthEval
@@ -707,7 +733,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
     wantToEat = false
-  } else if (isSolo && snakeHasEaten(myself, lookahead)) {
+  } else if (isSolo && snakeHasEaten(myself, lookahead, firstEatTurn)) {
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
@@ -716,15 +742,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
-    if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
-      if (delta > 3) { // if I am 4 or more greater
-        evalEatingMultiplier = 1 
-      } else if (delta > 2) { // if I am 3 greater
-        evalEatingMultiplier = 2
-      } else if (delta > 1) { // if I am 2 greater
-        evalEatingMultiplier = 3
-      }
-    }
     let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
     let foodCalc : number = 0
     for (let i: number = 0; i <= foodSearchDepth; i++) {
@@ -733,7 +750,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
   
         let foodToHuntLength: number = foodToHunt.length
-        if (!isSolo && i === 0) {
+        if (!isSolo && !isMinimaxDuel && i === 0) { // solo snakes don't reward eating, & duel snakes use minimax & have their own method
           foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
         }
         for(const fud of foodToHunt) {
@@ -758,7 +775,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     let isParanoid: boolean = false // used to determine if Voronoi calq is Paranoid or MaxN
     if (isConstrictor) {
       isParanoid = true
-    } else if (isDuel || haveWon) {
+    } else if (isTypeOfDuel || haveWon) {
       isParanoid = true
     }
 
@@ -833,7 +850,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
           if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
             howBad = howBad - evalAvailableMoves0Moves // evalAvailableMoves0Moves is negative, but here we negate it as a reward
           }
-          if (isOriginalSnake && !isDuel) {
+          if (isOriginalSnake && !isTypeOfDuel) {
             howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
           }
           voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
@@ -921,7 +938,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   if (haveWon) {
-    let turnsOfLookaheadLeft: number = lookahead - lookaheadDepth // if lookahead is 3, & lookaheadDepth is 2, we had one lookahead left - give bonus for winning earlier 
     evaluationResult.winValue = turnsOfLookaheadLeft * evalHaveWonTurnStep
   }
 

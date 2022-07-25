@@ -23,6 +23,10 @@ export function getRandomInt(min: number, max: number) : number {
   return res
 }
 
+export function floatsEqual(a: number, b: number) : boolean {
+  return Math.abs(a - b) < 0.0001
+}
+
 export function getRandomMove(moves: Direction[]) : Direction {
   let randomMove : Direction = moves[getRandomInt(0, moves.length)]
   return randomMove
@@ -33,8 +37,10 @@ export function coordsEqual(c1: Coord, c2: Coord): boolean {
 }
 
 // returns true if snake health is max, indicating it ate this turn
-export function snakeHasEaten(snake: Battlesnake, lookahead?: number) : boolean {
-  if (lookahead !== undefined) {
+export function snakeHasEaten(snake: Battlesnake, lookahead?: number, firstEatTurn?: number) : boolean {
+  if (firstEatTurn !== undefined) { // if firstEatTurn is defined, the snake has eaten within the lookahead (on that turn)
+    return true
+  } else if (lookahead !== undefined) {
     return ((snake.health + lookahead) >= 100) && snake.length > 3
   } else {
     return (snake.health === 100 && snake.length > 3)
@@ -1363,9 +1369,6 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
   }
   lookahead = gameState.turn > 0 && lookahead < 1? 1 : lookahead // lookahead should always be at least 1, except on turn 0
   //logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} found branching factor of ${branchingFactor}. Returned lookahead of ${lookahead}`)
-  if (gameState.board.snakes.length === 2 && lookahead > 3) { // necessary before alpha-beta pruning is implemented
-    lookahead = 3
-  }
   return lookahead
 }
 
