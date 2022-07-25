@@ -1,4 +1,4 @@
-export const version: string = "1.4.5" // need to declare this before imports since several imports utilize it
+export const version: string = "1.4.6" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -495,6 +495,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
+
+    // shuffle availableMoves array so snake doesn't prefer one direction
+    shuffle(availableMoves)
+
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
@@ -527,6 +531,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
         let minAlpha: number | undefined = alpha // minAlpha & minBeta are passed along by calling max function, but can't overwrite max's alpha & beta
         let minBeta: number | undefined = beta
+
+        // shuffle otherSnakeValidMoves array so snake doesn't prefer one direction
+        shuffle(otherSnakeValidMoves)
+
         // then, move otherSnake in each possible direction
         for (let j: number = 0; j < otherSnakeValidMoves.length; j++) {
           let otherMove: Direction = otherSnakeValidMoves[j]
@@ -593,10 +601,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       } else {
         if (worstOriginalSnakeScore.score !== undefined) {
           if (worstOriginalSnakeScore.score > bestMove.score) {
-            bestMove.direction = move
-            bestMove.score = worstOriginalSnakeScore.score
-            bestMove.evaluationResult = worstOriginalSnakeScore.evaluationResult
-          } else if (lookahead === startLookahead && floatsEqual(worstOriginalSnakeScore.score, bestMove.score) && getRandomInt(0, 2)) { // still want to be able to randomize equivalent choices at root level
             bestMove.direction = move
             bestMove.score = worstOriginalSnakeScore.score
             bestMove.evaluationResult = worstOriginalSnakeScore.evaluationResult

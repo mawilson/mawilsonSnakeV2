@@ -316,7 +316,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
   let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
-  // TODO: Evaluate removing or neutering the Moves metric & see how it performs
   
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealthStep = hazardDamage > 0? 6 : 3
@@ -721,7 +720,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   // health considerations, which are effectively hazard considerations
-  // TODO: check how necessary this is in minimax duel
   if (!isSolo && !isConstrictor) {
     let healthEval: number = isArcadeMaze? determineHealthEvalArcadeMaze(myself, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe) : determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
 
