@@ -1,10 +1,10 @@
-export const version: string = "1.4.6" // need to declare this before imports since several imports utilize it
+export const version: string = "1.4.7" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, getSuicidalMove, lookaheadDeterminator, getHazardDamage, floatsEqual, snakeHasEaten } from "./util"
-import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze } from "./eval"
+import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze, evalHaveWonTurnStep } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
@@ -117,7 +117,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     noMe = evalNoMeStandard
   }
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _firstEatTurn?: number): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
     const originalSnake: boolean = myself.id === gameState.you.id
@@ -144,7 +144,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
       
-      _evalThisState = evaluate(gameState, myself, evaluateKisses)
+      _evalThisState = evaluate(gameState, myself, evaluateKisses, _firstEatTurn)
       evalThisState = _evalThisState.sum(noMe)
     }
 
@@ -358,13 +358,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           } else {
             kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           }
+
+          let firstEatTurn: number | undefined = _firstEatTurn
+          if (snakeHasEaten(newSelf) && firstEatTurn === undefined) { // if I ate this turn & haven't eaten earlier in the lookahead, this is the first turn I've eaten
+            firstEatTurn = newGameState.turn
+          }
           
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
-            if (kissArgs) {
-              evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined) // This is the recursive case!!!
-            } else {
-              evalState = _decideMove(newGameState, newSelf, lookahead - 1) // This is the recursive case!!!
-            }
+            evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, firstEatTurn) // This is the recursive case!!!
           } else { // base case, just run the eval
             if (kissArgs) {
               evaluationResult = evaluate(newGameState, newSelf, kissArgs)
@@ -435,6 +436,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
       return snake.id === myself.id
     })
+    let lossState: boolean = false
 
     let finishEvaluatingNow: boolean = false
 
@@ -464,9 +466,11 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
+      lossState = true
     } else {
       if (availableMoves.length < 1) { // if there's nowhere left to decide to move
-      finishEvaluatingNow = true
+        finishEvaluatingNow = true
+        lossState = true
       } else if (availableMoves.length === 1 && lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score 
         finishEvaluatingNow = true
       } else if (gameState.game.ruleset.name !== "solo" && gameState.board.snakes.length === 1) { // it's not a solo game, & we're the only one left - we've won
@@ -478,7 +482,19 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
-      let _evalThisState: EvaluationResult = evaluate(gameState, myself, evaluateKisses, _firstEatTurn)
+      let _evalThisState: EvaluationResult
+
+      if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
+        let evaluationResult: EvaluationResult = new EvaluationResult(myself) 
+        evaluationResult.noMe = noMe
+        _evalThisState = evaluationResult
+      } else {
+        _evalThisState = evaluate(gameState, myself, evaluateKisses, _firstEatTurn)
+      }
+      if (lossState) { // give penalty for how early in the lookahead this loss came - try to prolong death when it's inevitable
+        _evalThisState.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
+      }
+
       let evalThisState: number = _evalThisState.sum(noMe)
     
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
@@ -652,7 +668,7 @@ export function move(gameState: GameState): MoveResponse {
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
   let board2d: Board2d = new Board2d(gameState, true)
-  let futureSight: number = lookaheadDeterminator(gameState, board2d)
+  let futureSight: number
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
@@ -680,7 +696,6 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
-  thisGameData.lookahead = futureSight // replace gameData lookahead with latest copy
   thisGameData.turn = gameState.turn
   if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
     thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
@@ -714,43 +729,47 @@ export function move(gameState: GameState): MoveResponse {
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   
   let chosenMove: MoveWithEval
-  if (gameDataIds.length === 1 && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
-    chosenMove = decideMove(gameState, gameState.you, timeBeginning, 0, board2d, true)
-    if (gameState.turn === 0) {
-      futureSight = 0
-    } else if (gameState.turn < 10) {
-      futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
-    } else if (gameState.turn < 20) {
-      futureSight = 5 // as above, but ramping up
-    } else {
-      if (gameStateIsArcadeMaze(gameState)) {
-        if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
-          futureSight = 15
-        } else {
-          futureSight = 12
-        }
+  //if (gameDataIds.length === 1 && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
+  thisGameData.lookahead = 0
+  chosenMove = decideMove(gameState, gameState.you, timeBeginning, 0, board2d, true)
+  if (gameState.turn <= 1) {
+    futureSight = 0
+  } else if (gameState.turn < 10) {
+    futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
+  } else if (gameState.turn < 20) {
+    futureSight = 5 // as above, but ramping up
+  } else {
+    if (gameStateIsArcadeMaze(gameState)) {
+      if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
+        futureSight = 15
       } else {
-        futureSight = 7
+        futureSight = 12
       }
+    } else {
+      futureSight = 7
     }
-
-    let i: number = 1
-    let newMove: MoveWithEval
-    while(checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
-      thisGameData.lookahead = i
-      newMove = decideMove(gameState, gameState.you, timeBeginning, i, board2d, true) // choose another move with increased lookahead depth
-      if (checkTime(timeBeginning, gameState)) { 
-        chosenMove = newMove // if chosenMove was determined with time to spare, can use it
-        i = i + 1
-      } else {
-        break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
-      } 
-    }
-    logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
-  } else { // if running three or more games at once, do not iteratively deepen, may time out on the basic stuff
-    chosenMove = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d, false)
   }
 
+  if (gameDataIds.length > 1) { // if running multiple games, strongly constrain max lookahead
+    futureSight = futureSight > 4? 4 : futureSight
+  } else if (gameState.game.source === "testing") { // if testing, use a standard future sight for simplicity & consistency
+    futureSight = futureSight > 3? 3 : futureSight
+  }
+
+  let i: number = 1
+  let newMove: MoveWithEval
+  while(checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
+    thisGameData.lookahead = i
+    newMove = decideMove(gameState, gameState.you, timeBeginning, i, board2d, true) // choose another move with increased lookahead depth
+    if (checkTime(timeBeginning, gameState)) { 
+      chosenMove = newMove // if chosenMove was determined with time to spare, can use it
+      i = i + 1
+    } else {
+      break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
+    } 
+  }
+  logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
+  
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, board2d) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {
