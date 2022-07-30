@@ -24,6 +24,8 @@ const evalVoronoiNegativeStep = 100
 const evalVoronoiPositiveStep = 4.5
 const evalVoronoiPreyStep = 100
 
+export const evalHaveWonTurnStep: number = 50
+
 let evalInitialEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
@@ -175,7 +177,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     }
   } // otherSnakes in duel use Voronoi delta, & Voronoi scores here should be identical, so can skip that entirely
   if (firstEatTurn) {
-      evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalInitialEatingMultiplier * 3
+    evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalInitialEatingMultiplier * 3
   }
   evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluationResult
@@ -225,7 +227,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const isSolo: boolean = gameStateIsSolo(gameState)
   const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
-  const evalHaveWonTurnStep: number = 50
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   let isMinimaxDuel: boolean = thisGameData? thisGameData.isDuel : false
@@ -421,7 +422,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (myself === undefined) {
-    if (_myself !== undefined && _myself.health <= 0) { // if I starved, return evalNoMe, this is certain death
+    if (_myself.health <= 0) { // if I starved, return evalNoMe, this is certain death
       evaluationResult.noMe = evalNoMe
       return evaluationResult
     } else if (priorKissStates.deathState !== KissOfDeathState.kissOfDeathNo) {
@@ -712,9 +713,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       nearbyFood[depthToAdd] = [myself.head]
     }
 
-    if (isMinimaxDuel) { // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
-      if (firstEatTurn) {
-        evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalEatingMultiplier * 3
+    if (firstEatTurn) { // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+      if (isMinimaxDuel) { // minimax evals only happen at terminal nodes
+        let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
+        evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
+        evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
       }
     }
   }

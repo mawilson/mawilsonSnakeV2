@@ -1709,7 +1709,7 @@ export class EvaluationResult {
   flipFlop: number = 0
   flipFlopTail: number = 0
 
-  // scores related to death & ties
+  // scores related to win, loss & ties
   tieValue: number = 0
   noMe: number = 0
   winValue: number = 0

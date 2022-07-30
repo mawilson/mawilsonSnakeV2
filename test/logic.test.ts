@@ -928,16 +928,18 @@ describe('Kiss of death tests', () => {
     }
   })
   it('avoids kisses of death even if it will die in a few turns anyway', () => {
-    const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
-    const gameState = createGameState(snek)
+    for (let i: number = 0; i < 5; i++) {
+      const snek = new Battlesnake("snek", "snek", 80, [{x: 5, y: 3}, {x: 4, y: 3}, {x: 4, y: 2}, {x: 5, y: 2}, {x: 6, y: 2}, {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}, {x: 10, y: 2}, {x: 10, y: 3}, {x: 9, y: 3}, {x: 9, y: 4}, {x: 8, y: 4}, {x: 8, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 6, y: 6}], "30", "", "")
+      const gameState = createGameState(snek)
 
-    const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}, {x: 10, y: 7}, {x: 10, y: 8}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 4, y: 8}], "30", "", "")
-    gameState.board.snakes.push(otherSnek)
+      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 25, [{x: 4, y: 4}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 4, y: 5}, {x: 4, y: 6}, {x: 4, y: 7}, {x: 5, y: 7}, {x: 6, y: 7}, {x: 7, y: 7}, {x: 8, y: 7}, {x: 9, y: 7}, {x: 10, y: 7}, {x: 10, y: 8}, {x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 7, y: 9}, {x: 6, y: 9}, {x: 6, y: 8}, {x: 5, y: 8}, {x: 4, y: 8}], "30", "", "")
+      gameState.board.snakes.push(otherSnek)
 
-    gameState.board.food = [{x: 7, y: 4}, {x: 9, y: 6}]
+      gameState.board.food = [{x: 7, y: 4}, {x: 9, y: 6}]
 
-    let moveResponse: MoveResponse = move(gameState)
-    expect(moveResponse.move).not.toBe("up") // otherSnek 'must' move here, & it will eat us if we do too. We will get shoved into a corner in four turns anyway, but don't just walk into otherSnek
+      let moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).not.toBe("up") // otherSnek 'must' move here, & it will eat us if we do too. We will get shoved into a corner in four turns anyway, but don't just walk into otherSnek
+    }
   })
   it('avoids kisses of death that it can avoid even if they have food', () => {
     const snek = new Battlesnake("snek", "snek", 80, [{x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3}, {x: 6, y: 2}], "30", "", "")
@@ -3461,6 +3463,13 @@ describe('duel tests', () => {
       const gameState = {"game":{"id":"abb47fb8-f5f0-46bf-8da3-9abbd6c29019","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"standard","timeout":500,"source":"testing"},"turn":24,"board":{"width":11,"height":11,"food":[{"x":9,"y":6},{"x":6,"y":0}],"hazards":[],"snakes":[{"id":"gs_3jd99jxfMw6C7SSBmBHXtQmB","name":"Snek","health":98,"body":[{"x":2,"y":4},{"x":1,"y":4},{"x":1,"y":3},{"x":2,"y":3},{"x":2,"y":2},{"x":3,"y":2},{"x":4,"y":2},{"x":4,"y":1}],"latency":29,"head":{"x":2,"y":4},"length":8,"shout":"","squad":"","customizations":{"color":"#ff0000","head":"default","tail":"default"}},{"id":"gs_b6KJWjrvxgDbJ9cCcYBS8x9B","name":"Jaguar Meets Snake","health":84,"body":[{"x":4,"y":4},{"x":4,"y":5},{"x":5,"y":5},{"x":5,"y":6},{"x":4,"y":6}],"latency":452,"head":{"x":4,"y":4},"length":5,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}]},"you":{"id":"gs_b6KJWjrvxgDbJ9cCcYBS8x9B","name":"Jaguar Meets Snake","health":84,"body":[{"x":4,"y":4},{"x":4,"y":5},{"x":5,"y":5},{"x":5,"y":6},{"x":4,"y":6}],"latency":452,"head":{"x":4,"y":4},"length":5,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}}
       const moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).not.toBe("left") // left gives snek a strong chance at murdering us, we have decent alt options in down or right
+    }
+  })
+  it('duel3: does not choose death one turn earlier than inevitable', () => {
+    for (let i: number= 0; i < 3; i++) {
+      const gameState = {"game":{"id":"6e54bbc4-c60f-4d5a-9b8f-bf567d6b5274","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"standard","timeout":500,"source":"testing"},"turn":381,"board":{"width":11,"height":11,"food":[{"x":5,"y":10},{"x":1,"y":10},{"x":8,"y":4},{"x":7,"y":8},{"x":10,"y":9}],"hazards":[],"snakes":[{"id":"gs_dJJG7QC6dKJCRj9mS4BWRtCd","name":"hawthhhh++","health":92,"body":[{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":5},{"x":7,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":5,"y":9},{"x":5,"y":8},{"x":5,"y":7},{"x":4,"y":7},{"x":3,"y":7},{"x":2,"y":7},{"x":2,"y":6},{"x":3,"y":6},{"x":3,"y":5},{"x":4,"y":5},{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":3},{"x":3,"y":2},{"x":3,"y":1},{"x":4,"y":1},{"x":5,"y":1},{"x":6,"y":1},{"x":7,"y":1},{"x":7,"y":2},{"x":8,"y":2},{"x":9,"y":2},{"x":9,"y":3},{"x":8,"y":3},{"x":7,"y":3},{"x":7,"y":4},{"x":6,"y":4}],"latency":453,"head":{"x":9,"y":6},"length":36,"shout":"","squad":"","customizations":{"color":"#fcba03","head":"caffeine","tail":"bolt"}},{"id":"gs_QF8yw3YhmVCcSTJV3HXddGqW","name":"Jaguar Meets Snake","health":83,"body":[{"x":10,"y":1},{"x":9,"y":1},{"x":9,"y":0},{"x":8,"y":0},{"x":7,"y":0},{"x":6,"y":0},{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":1,"y":1},{"x":1,"y":0},{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":1,"y":2},{"x":2,"y":2},{"x":2,"y":3},{"x":1,"y":3},{"x":1,"y":4},{"x":2,"y":4},{"x":2,"y":5}],"latency":315,"head":{"x":10,"y":1},"length":23,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}]},"you":{"id":"gs_QF8yw3YhmVCcSTJV3HXddGqW","name":"Jaguar Meets Snake","health":83,"body":[{"x":10,"y":1},{"x":9,"y":1},{"x":9,"y":0},{"x":8,"y":0},{"x":7,"y":0},{"x":6,"y":0},{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":1,"y":1},{"x":1,"y":0},{"x":0,"y":0},{"x":0,"y":1},{"x":0,"y":2},{"x":1,"y":2},{"x":2,"y":2},{"x":2,"y":3},{"x":1,"y":3},{"x":1,"y":4},{"x":2,"y":4},{"x":2,"y":5}],"latency":315,"head":{"x":10,"y":1},"length":23,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}}
+      const moveResponse: MoveResponse = move(gameState)
+      expect(moveResponse.move).toBe("up")
     }
   })
 })
