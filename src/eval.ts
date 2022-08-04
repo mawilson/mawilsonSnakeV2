@@ -780,7 +780,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
           }
         }
         let foodCalcStep = 0
-        foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
+        if (haveWon) { // if I have already won, give max food score - as if I was as close as possible to all food at once
+          foodCalcStep = evalFoodVal * (evalFoodStep + (foodSearchDepth + 1)) * foodToHuntLength
+        } else {
+          foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
+        }
         //buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
         foodCalc = foodCalc + foodCalcStep
       }
