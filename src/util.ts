@@ -37,13 +37,11 @@ export function coordsEqual(c1: Coord, c2: Coord): boolean {
 }
 
 // returns true if snake health is max, indicating it ate this turn
-export function snakeHasEaten(snake: Battlesnake, lookahead?: number, firstEatTurn?: number) : boolean {
+export function snakeHasEaten(snake: Battlesnake, firstEatTurn?: number) : boolean {
   if (firstEatTurn !== undefined) { // if firstEatTurn is defined, the snake has eaten within the lookahead (on that turn)
     return true
-  } else if (lookahead !== undefined) {
-    return ((snake.health + lookahead) >= 100) && snake.length > 3
-  } else {
-    return (snake.health === 100 && snake.length > 3)
+  } else { // snake has eaten if its tail & pre-tail are equivalent coords
+    return (snake.length > 3 && coordsEqual(snake.body[snake.length - 1], snake.body[snake.length - 2]))
   }
 }
 
@@ -508,8 +506,8 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     if (newCell.food || isConstrictor) { // in constrictor, there is no food, but every move is treated as though we ate, with length growing, tail duplicating, & health maximizing
       snake.health = 100
       snake.body.push(snake.body[snake.body.length - 1]) // snake should duplicate its tail cell if it has just eaten
-    } else if (newCell.hazard) {
-      snake.health = snake.health - 1 - hazardDamage
+    } else if (newCell.hazard > 0) {
+      snake.health = snake.health - 1 - (hazardDamage * newCell.hazard)
     } else {
       snake.health = snake.health - 1
     }
@@ -2190,12 +2188,14 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
         let voronoiKeys = Object.keys(cell.voronoi)
         let depth = cell? cell.voronoiDepth : undefined
         let isHazard: boolean
+        let isHazardValue: number = hazardValue
         if (isHazardSpiral && hazardSpiral !== undefined && cell !== undefined && depth !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
           let hazardSpiralCell = hazardSpiral.getCell(cell.coord)
-          isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : cell.hazard // gameState turn + depth is effective turn
+          isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : cell.hazard > 0 // gameState turn + depth is effective turn
           // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
         } else {
-          isHazard = cell.hazard
+          isHazard = cell.hazard > 0
+          isHazardValue = hazardValue / cell.hazard // hazard value is divided by number of hazards in a cell
         }
         for (const snakeId of voronoiKeys) { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
@@ -2209,7 +2209,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
                 voronoiValue = hazardFoodValue
                 voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue
               } else { // hazard reward without food
-                voronoiValue = hazardValue
+                voronoiValue = isHazardValue
                 voronoiResults.snakeResults[snakeId].reachableCells = voronoiResults.snakeResults[snakeId].reachableCells + voronoiValue
               }
             } else { // normal Voronoi reward
@@ -2260,7 +2260,7 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
           if (cell.food) {
             totalReachableCells = totalReachableCells + hazardFoodValue
           } else {
-            totalReachableCells = totalReachableCells + hazardValue
+            totalReachableCells = totalReachableCells + isHazardValue
           }
         } else {
           totalReachableCells = totalReachableCells + 1
@@ -2365,8 +2365,10 @@ export function isFlip(coord: Coord) {
 
 export function determineVoronoiHazardValue(gameState: GameState): number {
   const hazardDamage: number = getHazardDamage(gameState)
-  if (hazardDamage <= 0) {
+  if (hazardDamage === 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
+  } else if (hazardDamage < 0) { // as in case of healing pools, hazard heals us here, give it a stronger score
+    return 2 // a healing pool is worth double that of a regular cell
   }
   const voronoiHazardValueSmall: number = 3/8
   const voronoiHazardValueLarge: number = 3/4

@@ -704,7 +704,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (snakeHasEaten(myself, lookahead, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
+  if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
     let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
     if (nearbyFood[depthToAdd]) { // should never succeed at depth 0, but may at others
@@ -735,7 +735,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
     wantToEat = false
-  } else if (isSolo && snakeHasEaten(myself, lookahead, firstEatTurn)) {
+  } else if (isSolo && snakeHasEaten(myself, firstEatTurn)) {
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.

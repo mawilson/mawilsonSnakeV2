@@ -543,7 +543,7 @@ describe('Board2d accurately maps game state', () => {
       let boardCell = board2d.getCell(coord)
       if (boardCell) {
         boardCell = boardCell as BoardCell
-        expect(boardCell.hazard).toBe(true)
+        expect(boardCell.hazard).toBe(1)
       }
     }
   })
@@ -3471,5 +3471,31 @@ describe('duel tests', () => {
       const moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up")
     }
+  })
+})
+
+describe('healing pool tests', () => {
+  it('healingPool1: understands a healing pool is not eating', () => {
+    const gameState: GameState = {"game":{"id":"f563a428-8f65-458d-b57a-7ebfc57d4229","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":2,"minimumFood":1,"hazardDamagePerTurn":-30,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"healing_pools","timeout":500,"source":"testing"},"turn":2152,"board":{"width":11,"height":11,"food":[{"x":0,"y":1}],"hazards":[{"x":3,"y":3},{"x":7,"y":7}],"snakes":[{"id":"gs_MSyxYGFrRY9VrPRCtdb7M6pY","name":"soma-mini v3[healing]","health":83,"body":[{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":5,"y":7},{"x":4,"y":7},{"x":3,"y":7},{"x":2,"y":7},{"x":2,"y":8},{"x":1,"y":8},{"x":0,"y":8},{"x":0,"y":7},{"x":1,"y":7},{"x":1,"y":6},{"x":2,"y":6},{"x":3,"y":6},{"x":4,"y":6},{"x":4,"y":5},{"x":5,"y":5},{"x":5,"y":4},{"x":5,"y":3},{"x":6,"y":3},{"x":7,"y":3},{"x":8,"y":3},{"x":9,"y":3},{"x":9,"y":2},{"x":10,"y":2},{"x":10,"y":3}],"latency":15,"head":{"x":6,"y":4},"length":28,"shout":"10","squad":"","customizations":{"color":"#ff0055","head":"snail","tail":"fat-rattle"}},{"id":"gs_cgFwDKX7YpmhWvqKQdc9kjPW","name":"Jaguar Meets Snake","health":100,"body":[{"x":7,"y":7},{"x":7,"y":8},{"x":6,"y":8},{"x":5,"y":8},{"x":4,"y":8},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":9},{"x":10,"y":8},{"x":10,"y":7},{"x":10,"y":6},{"x":10,"y":5},{"x":9,"y":5},{"x":9,"y":6},{"x":9,"y":7},{"x":9,"y":8},{"x":9,"y":9},{"x":8,"y":9},{"x":8,"y":8},{"x":8,"y":7},{"x":8,"y":6},{"x":8,"y":5},{"x":7,"y":5},{"x":7,"y":6}],"latency":22,"head":{"x":7,"y":7},"length":32,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}]},"you":{"id":"gs_cgFwDKX7YpmhWvqKQdc9kjPW","name":"Jaguar Meets Snake","health":100,"body":[{"x":7,"y":7},{"x":7,"y":8},{"x":6,"y":8},{"x":5,"y":8},{"x":4,"y":8},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":9},{"x":5,"y":9},{"x":6,"y":9},{"x":7,"y":9},{"x":7,"y":10},{"x":8,"y":10},{"x":9,"y":10},{"x":10,"y":10},{"x":10,"y":9},{"x":10,"y":8},{"x":10,"y":7},{"x":10,"y":6},{"x":10,"y":5},{"x":9,"y":5},{"x":9,"y":6},{"x":9,"y":7},{"x":9,"y":8},{"x":9,"y":9},{"x":8,"y":9},{"x":8,"y":8},{"x":8,"y":7},{"x":8,"y":6},{"x":8,"y":5},{"x":7,"y":5},{"x":7,"y":6}],"latency":22,"head":{"x":7,"y":7},"length":32,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("down") // down is life, but if Jaguar thinks he just ate he'll choose a direction at random
+  })
+})
+
+describe('sinkhole tests', () => {
+  it('sinkhole1: does not walk into the sinkhole given viable alternatives', () => {
+    const gameState: GameState = {"game":{"id":"8b5a34c4-0db9-44e9-9667-fc2ba8c8b089","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":10,"royale":{"shrinkEveryNTurns":20},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"sinkholes","timeout":500,"source":"testing"},"turn":106,"board":{"width":11,"height":11,"food":[{"x":3,"y":4},{"x":6,"y":4}],"hazards":[{"x":5,"y":5},{"x":4,"y":5},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":5},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":2,"y":9},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":4,"y":9},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":6,"y":1},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":7,"y":9},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7},{"x":8,"y":8},{"x":8,"y":9},{"x":9,"y":2},{"x":9,"y":3},{"x":9,"y":4},{"x":9,"y":5},{"x":9,"y":6},{"x":9,"y":7},{"x":9,"y":8}],"snakes":[{"id":"gs_DVW3q7t3fCJkwTwgDrBhW6xc","name":"CoolerSnake!","health":98,"body":[{"x":10,"y":6},{"x":10,"y":7},{"x":0,"y":7},{"x":0,"y":6},{"x":1,"y":6},{"x":1,"y":5},{"x":1,"y":4},{"x":1,"y":3},{"x":1,"y":2},{"x":2,"y":2},{"x":2,"y":1},{"x":3,"y":1}],"latency":110,"head":{"x":10,"y":6},"length":12,"shout":"9, 168","squad":"","customizations":{"color":"#ff6600","head":"cosmic-horror","tail":"cosmic-horror"}},{"id":"gs_FWmjMyGKRKXGdBgm4hrgKgP8","name":"Jaguar Meets Snake","health":100,"body":[{"x":5,"y":9},{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":1,"y":9},{"x":1,"y":10},{"x":2,"y":10},{"x":3,"y":10},{"x":4,"y":10},{"x":4,"y":0},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":1}],"latency":64,"head":{"x":5,"y":9},"length":13,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}]},"you":{"id":"gs_FWmjMyGKRKXGdBgm4hrgKgP8","name":"Jaguar Meets Snake","health":100,"body":[{"x":5,"y":9},{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":1,"y":9},{"x":1,"y":10},{"x":2,"y":10},{"x":3,"y":10},{"x":4,"y":10},{"x":4,"y":0},{"x":5,"y":0},{"x":5,"y":1},{"x":5,"y":1}],"latency":64,"head":{"x":5,"y":9},"length":13,"shout":"","squad":"","customizations":{"color":"#ff9900","head":"tiger-king","tail":"mystic-moon"}}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("down") // down has two stacked hazards & takes us into the sinkhole. Up or right lead away from sinkhole.
+    let board2d: Board2d = new Board2d(gameState)
+    moveSnake(gameState, gameState.you, board2d, Direction.Down) // test to confirm health is going down as expected
+    updateGameStateAfterMove(gameState)
+    expect(gameState.you.health).toBe(79) // 100 - 20 - 1
+    moveSnake(gameState, gameState.you, board2d, Direction.Down) // test to confirm health is going down as expected
+    updateGameStateAfterMove(gameState)
+    expect(gameState.you.health).toBe(48) // 79 - 30 - 1
+    moveSnake(gameState, gameState.you, board2d, Direction.Down) // test to confirm health is going down as expected
+    updateGameStateAfterMove(gameState)
+    expect(gameState.you.health).toBe(7) // 48 - 40 - 1
   })
 })
