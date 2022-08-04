@@ -1558,6 +1558,7 @@ export class GameData {
   turn: number
   isDuel: boolean
   timeouts: number
+  priorDeepeningMoves: MoveWithEval[]
 
   constructor(source: string) {
     this.hazardWalls = new HazardWalls(undefined)
@@ -1570,6 +1571,7 @@ export class GameData {
     this.turn = 0
     this.isDuel = false
     this.timeouts = 0
+    this.priorDeepeningMoves = []
   }
 }
 
