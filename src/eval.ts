@@ -728,7 +728,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
     // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
     if (isMinimaxDuel) {
-      if (haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+      if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
         evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
       } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
         let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
@@ -737,6 +737,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
       evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
     }
+  } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+    evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
   }
 
   // health considerations, which are effectively hazard considerations
