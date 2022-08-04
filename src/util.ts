@@ -37,13 +37,11 @@ export function coordsEqual(c1: Coord, c2: Coord): boolean {
 }
 
 // returns true if snake health is max, indicating it ate this turn
-export function snakeHasEaten(snake: Battlesnake, lookahead?: number, firstEatTurn?: number) : boolean {
+export function snakeHasEaten(snake: Battlesnake, firstEatTurn?: number) : boolean {
   if (firstEatTurn !== undefined) { // if firstEatTurn is defined, the snake has eaten within the lookahead (on that turn)
     return true
-  } else if (lookahead !== undefined) {
-    return ((snake.health + lookahead) >= 100) && snake.length > 3
-  } else {
-    return (snake.health === 100 && snake.length > 3)
+  } else { // snake has eaten if its tail & pre-tail are equivalent coords
+    return (snake.length > 3 && coordsEqual(snake.body[snake.length - 1], snake.body[snake.length - 2]))
   }
 }
 
