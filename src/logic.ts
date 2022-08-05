@@ -1,4 +1,4 @@
-export const version: string = "1.4.9" // need to declare this before imports since several imports utilize it
+export const version: string = "1.5.0" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -813,6 +813,7 @@ export function move(gameState: GameState): MoveResponse {
     if (timeTaken > gameState.game.timeout) {
       thisGameData.timeouts = thisGameData.timeouts + 1
     }
+    thisGameData.priorDeepeningMoves = []
   }
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
