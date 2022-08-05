@@ -29,8 +29,12 @@ export const evalHaveWonTurnStep: number = 50
 let evalInitialEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
-function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
-  const validHazardTurns = snake.health / (hazardDamage + 1)
+function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): number {
+  if (hazardDamage < 0 || hazardDamage >= 100) { // use arcadeMaze health evaluater for healing pools or walls (arcade maze)
+    return determineHealthEvalArcadeMaze(snake, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
+  }
+  const snakeHealth: number = haveWon? 100 : snake.health
+  const validHazardTurns = snakeHealth / (hazardDamage + 1)
   const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
   const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealth6 = evalHealth7 - healthTierDifference // 75 - 10 = 65
@@ -42,9 +46,9 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
   const evalHealth0 = -200
   let evaluation: number = 0
 
-  if (snake.health <= 0) {
+  if (snakeHealth <= 0) {
     evaluation = evalHealthStarved
-  } else if (hazardDamage <= 0 && snake.health < 10) { // in a non-hazard game, we still need to prioritize food at some point
+  } else if (hazardDamage <= 0 && snakeHealth < 10) { // in a non-hazard game, we still need to prioritize food at some point
     evaluation = evalHealth0
   } else if (validHazardTurns > 6) {
     evaluation = evalHealth7
@@ -66,7 +70,8 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
 }
 
 // for use in games with max hazard damage, aka walls
-function determineHealthEvalArcadeMaze(snake: Battlesnake, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number): number {
+function determineHealthEvalArcadeMaze(snake: Battlesnake, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): number {
+  const snakeHealth: number = haveWon? 100 : snake.health
   const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
   const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealth6 = evalHealth7 - healthTierDifference // 75 - 10 = 65
@@ -77,19 +82,19 @@ function determineHealthEvalArcadeMaze(snake: Battlesnake, healthStep: number, h
   const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) - 50 // 15 - 10 - (6 * 5) - 50 = -125
   let evaluation: number = 0
 
-  if (snake.health <= 0) {
+  if (snakeHealth <= 0) {
     evaluation = evalHealthStarved
-  } else if (snake.health > 90) {
+  } else if (snakeHealth > 90) {
     evaluation = evalHealth7
-  } else if (snake.health > 75) {
+  } else if (snakeHealth > 75) {
     evaluation = evalHealth6
-  } else if (snake.health > 60) {
+  } else if (snakeHealth > 60) {
     evaluation = evalHealth5
-  } else if (snake.health > 45) {
+  } else if (snakeHealth > 45) {
     evaluation = evalHealth4
-  } else if (snake.health > 30) {
+  } else if (snakeHealth > 30) {
     evaluation = evalHealth3     
-  } else if (snake.health > 15) {
+  } else if (snakeHealth > 15) {
     evaluation = evalHealth2 
   } else {
     evaluation = evalHealth1
@@ -136,7 +141,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   const evalHealthTierDifference = 10
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
 
-  evaluationResult.health = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMeStandard)
+  evaluationResult.health = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMeStandard, false)
   if (tieSnake) {
     evaluationResult.otherSnakeHealth = determineOtherSnakeHealthEval([tieSnake])
   }
@@ -177,6 +182,11 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     }
   } // otherSnakes in duel use Voronoi delta, & Voronoi scores here should be identical, so can skip that entirely
   if (firstEatTurn) {
+    const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
+    const lookahead: number = thisGameData !== undefined? thisGameData.lookahead : 0
+    const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
+    let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
+    evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalInitialEatingMultiplier * 3
     evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalInitialEatingMultiplier * 3
   }
   evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
@@ -422,6 +432,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
   if (myself === undefined) {
+    evaluationResult.winValue = turnsOfLookaheadLeft * -evalHaveWonTurnStep
     if (_myself.health <= 0) { // if I starved, return evalNoMe, this is certain death
       evaluationResult.noMe = evalNoMe
       return evaluationResult
@@ -650,7 +661,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evalFoodVal = 4
   } else if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
+  } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold && hazardDamage > 0) { // care a bit more about food to try to starve the other snake out, except in healing pool
     evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
   } else if (isTypeOfDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 2
@@ -688,9 +699,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       let award: number = 0
       let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
       for (let i: number = 1; i <= cap; i++) {
-        if (i === 0) {
+        if (i === 1) {
           award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
-        } else if (i === 1) {
+        } else if (i === 2) {
           award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
         } else {
           award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
@@ -706,26 +717,36 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
     // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
-    let depthToAdd = 100 - myself.health // determine depth the food was acquired at by subtracting it from max health of 100
+    let depthToAdd: number
+    if (firstEatTurn !== undefined) {
+      depthToAdd = gameState.turn - firstEatTurn // depth eaten should be how far from current turn firstEatTurn is
+    } else {
+      depthToAdd = 100 - myself.health // not necessarily accurate, but a decent fallback if firstEatTurn was unprovided
+    }
     if (nearbyFood[depthToAdd]) { // should never succeed at depth 0, but may at others
       nearbyFood[depthToAdd].push(myself.head)
     } else {
       nearbyFood[depthToAdd] = [myself.head]
     }
 
-    if (firstEatTurn) { // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
-      if (isMinimaxDuel) { // minimax evals only happen at terminal nodes
+    // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+    if (isMinimaxDuel) {
+      if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
+        evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+      } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
         let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
         evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
-      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
-        evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
       }
+    } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
+      evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
     }
+  } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+    evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
   }
 
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
-    let healthEval: number = isArcadeMaze? determineHealthEvalArcadeMaze(myself, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe) : determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe)
+    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
 
     if (lookaheadDepth > 0 && healthEval < 0 && lookaheadDepth === lookahead && !isDuel) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
       healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less
@@ -762,7 +783,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
           }
         }
         let foodCalcStep = 0
-        foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
+        if (haveWon) { // if I have already won, give max food score - as if I was as close as possible to all food at once
+          foodCalcStep = evalFoodVal * (evalFoodStep + (foodSearchDepth + 1)) * foodToHuntLength
+        } else {
+          foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
+        }
         //buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
         foodCalc = foodCalc + foodCalcStep
       }

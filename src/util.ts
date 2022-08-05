@@ -508,6 +508,7 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
       snake.body.push(snake.body[snake.body.length - 1]) // snake should duplicate its tail cell if it has just eaten
     } else if (newCell.hazard > 0) {
       snake.health = snake.health - 1 - (hazardDamage * newCell.hazard)
+      snake.health = snake.health > 100? 100 : snake.health // snake health caps at 100, healing pool cannot raise its health past that
     } else {
       snake.health = snake.health - 1
     }
@@ -2368,7 +2369,7 @@ export function determineVoronoiHazardValue(gameState: GameState): number {
   if (hazardDamage === 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
   } else if (hazardDamage < 0) { // as in case of healing pools, hazard heals us here, give it a stronger score
-    return 2 // a healing pool is worth double that of a regular cell
+    return 5 // a healing pool is worth five times that of a regular cell
   }
   const voronoiHazardValueSmall: number = 3/8
   const voronoiHazardValueLarge: number = 3/4

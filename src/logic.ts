@@ -1,4 +1,4 @@
-export const version: string = "1.4.8" // need to declare this before imports since several imports utilize it
+export const version: string = "1.4.9" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -39,7 +39,7 @@ export function info(): InfoResponse {
         author: "waryferryman",
         color: "#ff9900", // #ff9900
         head: "tiger-king", //"tiger-king",
-        tail: "mystic-moon", //"mystic-moon",
+        tail: "wave", //"mystic-moon",
         version: version
       }
     }
@@ -436,7 +436,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
       return snake.id === myself.id
     })
-    let lossState: boolean = false
 
     let finishEvaluatingNow: boolean = false
 
@@ -466,11 +465,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       finishEvaluatingNow = true
     } else if (!stateContainsMe) { // if we're dead
       finishEvaluatingNow = true
-      lossState = true
     } else {
       if (availableMoves.length < 1) { // if there's nowhere left to decide to move
         finishEvaluatingNow = true
-        lossState = true
       } else if (availableMoves.length === 1 && lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score 
         finishEvaluatingNow = true
       } else if (gameState.game.ruleset.name !== "solo" && gameState.board.snakes.length === 1) { // it's not a solo game, & we're the only one left - we've won
@@ -485,17 +482,16 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let _evalThisState: EvaluationResult
 
       if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
+        // custom build an EvaluationResult here without calling evaluate. Wants noMe provided & winValue provided.
         let evaluationResult: EvaluationResult = new EvaluationResult(myself) 
         evaluationResult.noMe = noMe
+        evaluationResult.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
         _evalThisState = evaluationResult
       } else {
         _evalThisState = evaluate(gameState, myself, evaluateKisses, _firstEatTurn)
       }
-      if (lossState) { // give penalty for how early in the lookahead this loss came - try to prolong death when it's inevitable
-        _evalThisState.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
-      }
 
-      let evalThisState: number = _evalThisState.sum(noMe)
+      let evalThisState: number = _evalThisState.sum() // don't provide minimum - negative winValue will always result in a lower minimum than that
     
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
       return new MoveWithEval(defaultDir, evalThisState, _evalThisState)
@@ -511,9 +507,42 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
-
-    // shuffle availableMoves array so snake doesn't prefer one direction
-    shuffle(availableMoves)
+    if (lookahead === startLookahead && thisGameData && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
+      thisGameData.priorDeepeningMoves.sort((a: MoveWithEval, b: MoveWithEval) => {
+        if (a.direction !== undefined && a.score !== undefined && b.direction !== undefined && b.score !== undefined) {
+          if (floatsEqual(a.score, b.score)) { // if element scores are equal, don't change order
+            return 0
+          } else if (a.score < b.score) { // if b is better than a, put b first
+            return 1
+          } else { //if (a.score > b.score) // if a is better than b, put a first
+            return -1
+          }
+        } else { // if any of the elements we're trying to sort lack a direction or score, we can't compare them, so don't move them
+          return 0
+        }
+      })
+      for (let i: number = 0; i < thisGameData.priorDeepeningMoves.length; i++) {
+        switch (thisGameData.priorDeepeningMoves[i].direction) {
+          case Direction.Up:
+            availableMoves[i] = Direction.Up
+            break
+          case Direction.Down:
+            availableMoves[i] = Direction.Down
+            break
+          case Direction.Left:
+            availableMoves[i] = Direction.Left
+            break
+          case Direction.Right:
+            availableMoves[i] = Direction.Right
+            break
+          default: // if move is undefined or AlreadyMoved, don't do anything with it
+            break
+        }
+      }
+      thisGameData.priorDeepeningMoves = [] // clear this so next level can repopulate it
+    } else { // shuffle availableMoves array so snake doesn't prefer one direction
+      shuffle(availableMoves)
+    }
 
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
@@ -622,6 +651,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             bestMove.evaluationResult = worstOriginalSnakeScore.evaluationResult
           }
         }
+      }
+      if (thisGameData && lookahead === startLookahead) { // save the top-level moves for each startLookahead, for iterative deepening move sorting
+        thisGameData.priorDeepeningMoves.push(new MoveWithEval(move, worstOriginalSnakeScore.score))
       }
 
       if (alpha === undefined || (worstOriginalSnakeScore.score !== undefined && worstOriginalSnakeScore.score > alpha)) { // if max player found a higher alpha, assign it
@@ -752,8 +784,6 @@ export function move(gameState: GameState): MoveResponse {
 
     if (gameDataIds.length > 1) { // if running multiple games, strongly constrain max lookahead
       futureSight = futureSight > 4? 4 : futureSight
-    } else if (gameState.game.source === "testing") { // if testing, use a standard future sight for simplicity & consistency
-      futureSight = futureSight > 3? 3 : futureSight
     }
 
     let i: number = 1
@@ -770,6 +800,7 @@ export function move(gameState: GameState): MoveResponse {
     }
     logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
   } else {
+    thisGameData.lookahead = futureSight
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d, false)
   }
   
