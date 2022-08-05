@@ -405,7 +405,9 @@ export class Board2d {
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (isHazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - isHazardDamage), tailOffset)
+                            let effectiveHealth: number = voronoiSnake.effectiveHealth - 1 - isHazardDamage
+                            effectiveHealth = effectiveHealth > 100? 100 : effectiveHealth // snake cannot heal to more than 100 health from healing pool
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, effectiveHealth, tailOffset)
                             neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
@@ -423,8 +425,10 @@ export class Board2d {
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (isHazardDamage + 1)) { // snake will not starve in moving to this cell
+                            let effectiveHealth: number = voronoiSnake.effectiveHealth - 1 - isHazardDamage
+                            effectiveHealth = effectiveHealth > 100? 100 : effectiveHealth // snake cannot heal to more than 100 health from healing pool
                             neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - isHazardDamage), tailOffset)
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, effectiveHealth, tailOffset)
                             neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
@@ -442,7 +446,9 @@ export class Board2d {
                           isNewVoronoiBoardCell = true
                         } else {
                           if (isHazard && voronoiSnake.effectiveHealth > (isHazardDamage + 1)) { // snake will not starve in moving to this cell
-                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, (voronoiSnake.effectiveHealth - 1 - isHazardDamage), tailOffset)
+                            let effectiveHealth: number = voronoiSnake.effectiveHealth - 1 - isHazardDamage
+                            effectiveHealth = effectiveHealth > 100? 100 : effectiveHealth // snake cannot heal to more than 100 health from healing pool
+                            neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength, effectiveHealth, tailOffset)
                             neighbor.voronoiDepth = depth
                             isNewVoronoiBoardCell = true
                           } else if (!isHazard && voronoiSnake.effectiveHealth > 1) { // snake will not starve in moving to this cell
@@ -462,6 +468,7 @@ export class Board2d {
 
                         let oldHealth = neighbor.voronoi[snakeId].effectiveHealth
                         let newHealth: number = (neighbor.food || this.isConstrictor)? 100 : isHazard? voronoiSnake.effectiveHealth - 1 - isHazardDamage : voronoiSnake.effectiveHealth - 1
+                        newHealth = newHealth > 100? 100 : newHealth // snake cannot heal to more than 100 health from healing pool
                         if (newHealth > oldHealth) {
                           neighbor.voronoi[snakeId].effectiveHealth = newHealth
                         }

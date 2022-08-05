@@ -30,6 +30,9 @@ let evalInitialEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' imm
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
 function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): number {
+  if (hazardDamage < 0 || hazardDamage >= 100) { // use arcadeMaze health evaluater for healing pools or walls (arcade maze)
+    return determineHealthEvalArcadeMaze(snake, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
+  }
   const snakeHealth: number = haveWon? 100 : snake.health
   const validHazardTurns = snakeHealth / (hazardDamage + 1)
   const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
@@ -658,7 +661,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evalFoodVal = 4
   } else if (gameState.turn < 3) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold) { // care a bit more about food to try to starve the other snake out
+  } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold && hazardDamage > 0) { // care a bit more about food to try to starve the other snake out, except in healing pool
     evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
   } else if (isTypeOfDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 2
@@ -743,7 +746,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
-    let healthEval: number = isArcadeMaze? determineHealthEvalArcadeMaze(myself, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon) : determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
+    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
 
     if (lookaheadDepth > 0 && healthEval < 0 && lookaheadDepth === lookahead && !isDuel) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
       healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less
