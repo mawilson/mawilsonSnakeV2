@@ -111,13 +111,17 @@ function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[]): number {
     for (let idx: number = 0; idx < otherSnakesSortedByHealth.length; idx++) {
       let snake: Battlesnake = otherSnakesSortedByHealth[idx]
       if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
-        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep // largest remaining snake gets
+        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep
       } else { // give remaining snakes a smaller penalty for health
         otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
       }
     }
 
     return otherSnakeHealthPenalty
+}
+
+function determineOtherSnakeHealthEvalDuel(otherSnake: Battlesnake): number {
+  return otherSnake.health * -1 // otherSnake health penalty is simply its health, negated
 }
 
 // constrictor evalNoSnakes is very simple - just Base - otherSnakeHealth
@@ -483,7 +487,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.hazardWall = evalHazardWallPenalty
   }
 
-  if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
+  if (isMinimaxDuel && otherSnakes.length === 1) {
+    let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEvalDuel(otherSnakes[0])
+    evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+  } else if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
     let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes)
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }

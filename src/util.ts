@@ -2369,7 +2369,7 @@ export function determineVoronoiHazardValue(gameState: GameState): number {
   if (hazardDamage === 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
   } else if (hazardDamage < 0) { // as in case of healing pools, hazard heals us here, give it a stronger score
-    return 5 // a healing pool is worth five times that of a regular cell
+    return 10 // a healing pool is worth five times that of a regular cell
   }
   const voronoiHazardValueSmall: number = 3/8
   const voronoiHazardValueLarge: number = 3/4
