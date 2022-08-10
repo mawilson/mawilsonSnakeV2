@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -151,11 +151,18 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   }
   if (gameState.you.id === myself.id) {
     if (hazardDamage > 0) { // hazard Voronoi calqs have smaller totalReachableCells & a healthRatio in wrapped
-      const hazardValue: number = determineVoronoiHazardValue(gameState)
+      let numHazards: number
+      if (gameStateIsSinkhole(gameState)) { // sinkhole games or other game modes with stacked hazards must get # of hazards thru board2d
+        let board2d: Board2d = new Board2d(gameState, false) // no need for voronoi
+        numHazards = board2d.numHazards
+      } else { // in non-stacked hazard modes, can simply count hazard array length
+        numHazards = gameState.board.hazards.length
+      }
+      const hazardValue = determineVoronoiHazardValue(gameState, numHazards)
       const boardSize: number = gameState.board.height * gameState.board.width
-      const totalReachableCells: number = (boardSize - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+      const totalReachableCells: number = (boardSize - numHazards) + numHazards * hazardValue
       const myReachableCells: number = totalReachableCells / 2
-      const hazardRatio = gameState.board.hazards.length / boardSize
+      const hazardRatio = numHazards / boardSize
       // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.5 & 0.
       // penalty is applied based on the Voronoi value of the cell, so apply self.length * 2 * hazardValue * hazardRatio penalties for hazard squares, &
       // self.length * 2 * 1 * (1 - hazardRatio) for non-hazard squares, where the first 1 is just a full, non-hazard Voronoi reward
@@ -618,8 +625,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
     }
     voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
-    const hazardValue: number = determineVoronoiHazardValue(gameState)
-    const totalReachableCells: number = (gameState.board.height * gameState.board.width - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+    const hazardValue: number = determineVoronoiHazardValue(gameState, board2d.numHazards)
+    const totalReachableCells: number = (gameState.board.height * gameState.board.width - board2d.numHazards) + board2d.numHazards * hazardValue
     voronoiResults.totalReachableCells = totalReachableCells
     voronoiResults.snakeResults[myself.id].reachableCells = totalReachableCells
   } else {

@@ -243,9 +243,10 @@ export class VoronoiResults {
 
 export class Board2d {
   private cells: Array<BoardCell>;
-  width: number;
-  height: number;
+  width: number
+  height: number
   hazardDamage: number
+  numHazards: number // used to keep track of hazards, particularly in stacked hazard games like sinkhole where we can't just get board.hazards.length
   isWrapped: boolean
   isConstrictor: boolean
   isArcadeMaze: boolean
@@ -255,6 +256,7 @@ export class Board2d {
     this.width = board.width;
     this.height = board.height;
     this.hazardDamage = getHazardDamage(gameState)
+    this.numHazards = 0
     this.isWrapped = gameStateIsWrapped(gameState)
     this.isConstrictor = gameStateIsConstrictor(gameState)
     this.isArcadeMaze = gameStateIsArcadeMaze(gameState)
@@ -318,6 +320,7 @@ export class Board2d {
               let board2dCell = self.getCell(coord)
               if (hazardSpiralCell !== undefined && board2dCell !== undefined) { // if this coord exists in the HazardSpiral & the Board2d, should add its hazard to Board2d
                 if (gameState.turn >= hazardSpiralCell.turnIsHazard) { // if gameState is far enough along, this cell is a hazard
+                  this.numHazards = this.numHazards + 1
                   board2dCell.hazard = 1 // hazard spiral doesn't currently support stacked hazards, so can just set to 1 rather than adding together
                 }
               }
@@ -329,6 +332,9 @@ export class Board2d {
       for (const coord of gameState.board.hazards) {
         let board2dCell = self.getCell(coord)
         if (board2dCell instanceof BoardCell) {
+          if (board2dCell.hazard === 0) { // this is a new hazard, increment number of cells on board that have hazard
+            this.numHazards = this.numHazards + 1
+          }
           board2dCell.hazard = board2dCell.hazard + 1;
         }
       }

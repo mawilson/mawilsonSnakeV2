@@ -207,7 +207,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let effectiveLookahead = lookahead === undefined? 0 : lookahead
     let foodCountTier = getFoodCountTier(gameState.board.food.length)
-    let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
+    let hazardCountTier = getHazardCountTier(board2d.numHazards)
     let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead)
     let averageMoveScore: number | undefined = evaluationsForMachineLearning[snakeScoreHash]
     let doneEvaluating: boolean = false
@@ -402,7 +402,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
         let foodCountTier = getFoodCountTier(gameState.board.food.length)
-        let hazardCountTier = getHazardCountTier(gameState.board.hazards.length)
+        let hazardCountTier = getHazardCountTier(board2d.numHazards)
         let newSnakeScore = new SnakeScore(bestMove.score, myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, version)
         thisGameData.evaluationsForLookaheads.push(newSnakeScore)
       }

@@ -136,6 +136,10 @@ export function gameStateIsArcadeMaze(gameState: GameState): boolean {
   return gameState.game.map === "arcade_maze"
 }
 
+export function gameStateIsSinkhole(gameState: GameState): boolean {
+  return gameState.game.map === "sinkholes"
+}
+
 // returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.
 export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
@@ -2168,18 +2172,18 @@ export function getHazardCountTier(numHazard: number): HazardCountTier {
 // given a board2d & an array of battlesnakes, returns an object whose keys are snake IDs & whose values are numbers of cells in that snake's Voronoi cell
 export function calculateReachableCells(gameState: GameState, board2d: Board2d): VoronoiResults {
   let voronoiResults: VoronoiResults = new VoronoiResults()
-  let hazardValue: number = determineVoronoiHazardValue(gameState)
-  let hazardFoodValue: number = determineVoronoiHazardFoodValue(gameState)
+  let hazardValue: number = determineVoronoiHazardValue(gameState, board2d.numHazards)
+  let hazardFoodValue: number = determineVoronoiHazardFoodValue(gameState, board2d.numHazards)
   let totalReachableCells: number = 0
   let isHazardSpiral: boolean = gameStateIsHazardSpiral(gameState)
-    let hazardSpiral: HazardSpiral | undefined
-    if (isHazardSpiral) {
-      let gameDataId = createGameDataId(gameState)
-      let thisGameData: GameData | undefined = gameData[gameDataId]
-      if (thisGameData) {
-        hazardSpiral = thisGameData.hazardSpiral
-      }
+  let hazardSpiral: HazardSpiral | undefined
+  if (isHazardSpiral) {
+    let gameDataId = createGameDataId(gameState)
+    let thisGameData: GameData | undefined = gameData[gameDataId]
+    if (thisGameData) {
+      hazardSpiral = thisGameData.hazardSpiral
     }
+  }
   for (const snake of gameState.board.snakes) { voronoiResults.snakeResults[snake.id] = new VoronoiResultsSnake() } // instantiate each snake object
   for (let i: number = 0; i < board2d.width; i++) { // for each cell at width i
     for (let j: number = 0; j < board2d.height; j++) { // for each cell at height j
@@ -2364,7 +2368,7 @@ export function isFlip(coord: Coord) {
   return (xIsEven && yIsEven) || (!xIsEven && !yIsEven)
 }
 
-export function determineVoronoiHazardValue(gameState: GameState): number {
+export function determineVoronoiHazardValue(gameState: GameState, numHazards: number): number {
   const hazardDamage: number = getHazardDamage(gameState)
   if (hazardDamage === 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
@@ -2388,7 +2392,7 @@ export function determineVoronoiHazardValue(gameState: GameState): number {
   }
 
   const boardSize: number = gameState.board.height * gameState.board.width
-  const hazardRatio: number = gameState.board.hazards.length / boardSize
+  const hazardRatio: number = numHazards / boardSize
   const baseRatio: number = 0.4
   if (hazardRatio < baseRatio) {
     return baseValue // if there are fewer hazards than baseRatio, return the base value for hazards
@@ -2405,7 +2409,7 @@ export function determineVoronoiHazardValue(gameState: GameState): number {
   }
 }
 
-function determineVoronoiHazardFoodValue(gameState: GameState): number {
+function determineVoronoiHazardFoodValue(gameState: GameState, numHazards: number): number {
   const hazardDamage: number = getHazardDamage(gameState)
   if (hazardDamage <= 0) {
     return 1 // if hazard damage is 0, Voronoi value for hazard is same as standard, 1
@@ -2427,7 +2431,7 @@ function determineVoronoiHazardFoodValue(gameState: GameState): number {
   }
 
   const boardSize: number = gameState.board.height * gameState.board.width
-  const hazardRatio: number = gameState.board.hazards.length / boardSize
+  const hazardRatio: number = numHazards / boardSize
   const baseRatio: number = 0.4
   if (hazardRatio < baseRatio) {
     return baseValue // if there are fewer hazards than baseRatio, return the base value for hazards
