@@ -191,7 +191,6 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
     let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
     evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalInitialEatingMultiplier * 3
-    evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalInitialEatingMultiplier * 3
   }
   evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluationResult
@@ -733,21 +732,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
-
-    // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
-    if (isMinimaxDuel) {
-      if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
-        evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
-      } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
-        let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
-        evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+  if (!isConstrictor) {
+    if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
+      // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+      if (isMinimaxDuel) {
+        if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
+          evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+        } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
+          let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
+          evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+        }
+      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
+        evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
       }
-    } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
-      evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
+    } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+      evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
     }
-  } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
-    evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
   }
 
   // health considerations, which are effectively hazard considerations
@@ -760,14 +760,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.health = healthEval
   }
 
-  if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
+  if (isConstrictor) {
+    wantToEat = false // don't need to eat in constrictor
+  } else if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
     wantToEat = false
   } else if (isSolo && snakeHasEaten(myself, firstEatTurn)) {
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
-  } else if (isConstrictor) {
-    wantToEat = false // don't need to eat in constrictor
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
