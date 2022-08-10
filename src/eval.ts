@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -151,11 +151,18 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   }
   if (gameState.you.id === myself.id) {
     if (hazardDamage > 0) { // hazard Voronoi calqs have smaller totalReachableCells & a healthRatio in wrapped
-      const hazardValue: number = determineVoronoiHazardValue(gameState)
+      let numHazards: number
+      if (gameStateIsSinkhole(gameState)) { // sinkhole games or other game modes with stacked hazards must get # of hazards thru board2d
+        let board2d: Board2d = new Board2d(gameState, false) // no need for voronoi
+        numHazards = board2d.numHazards
+      } else { // in non-stacked hazard modes, can simply count hazard array length
+        numHazards = gameState.board.hazards.length
+      }
+      const hazardValue = determineVoronoiHazardValue(gameState, numHazards)
       const boardSize: number = gameState.board.height * gameState.board.width
-      const totalReachableCells: number = (boardSize - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+      const totalReachableCells: number = (boardSize - numHazards) + numHazards * hazardValue
       const myReachableCells: number = totalReachableCells / 2
-      const hazardRatio = gameState.board.hazards.length / boardSize
+      const hazardRatio = numHazards / boardSize
       // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.5 & 0.
       // penalty is applied based on the Voronoi value of the cell, so apply self.length * 2 * hazardValue * hazardRatio penalties for hazard squares, &
       // self.length * 2 * 1 * (1 - hazardRatio) for non-hazard squares, where the first 1 is just a full, non-hazard Voronoi reward
@@ -191,7 +198,6 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
     let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
     evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalInitialEatingMultiplier * 3
-    evaluationResult.foodEaten = (gameState.turn - firstEatTurn) * evalInitialEatingMultiplier * 3
   }
   evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluationResult
@@ -619,8 +625,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
     }
     voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
-    const hazardValue: number = determineVoronoiHazardValue(gameState)
-    const totalReachableCells: number = (gameState.board.height * gameState.board.width - gameState.board.hazards.length) + gameState.board.hazards.length * hazardValue
+    const hazardValue: number = determineVoronoiHazardValue(gameState, board2d.numHazards)
+    const totalReachableCells: number = (gameState.board.height * gameState.board.width - board2d.numHazards) + board2d.numHazards * hazardValue
     voronoiResults.totalReachableCells = totalReachableCells
     voronoiResults.snakeResults[myself.id].reachableCells = totalReachableCells
   } else {
@@ -733,21 +739,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
-
-    // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
-    if (isMinimaxDuel) {
-      if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
-        evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
-      } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
-        let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
-        evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+  if (!isConstrictor) {
+    if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
+      // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+      if (isMinimaxDuel) {
+        if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
+          evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+        } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
+          let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
+          evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+        }
+      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
+        evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
       }
-    } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
-      evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
+    } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+      evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
     }
-  } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
-    evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
   }
 
   // health considerations, which are effectively hazard considerations
@@ -760,14 +767,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.health = healthEval
   }
 
-  if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
+  if (isConstrictor) {
+    wantToEat = false // don't need to eat in constrictor
+  } else if (isSolo && myself.health > 7) { // don't need to eat in solo mode until starving
     wantToEat = false
   } else if (isSolo && snakeHasEaten(myself, firstEatTurn)) {
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
-  } else if (isConstrictor) {
-    wantToEat = false // don't need to eat in constrictor
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
