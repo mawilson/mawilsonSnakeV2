@@ -198,7 +198,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, firstEatTurn?: number) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, _eatTurns?: number[]) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -431,6 +431,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
+  let firstEatTurn: number | undefined
+  let eatTurns: number[] = _eatTurns? _eatTurns : []
+  if (eatTurns.length > 0) {
+    firstEatTurn = eatTurns[0]
+  } else {
+    firstEatTurn = undefined
+  }
   if (gameState.board.snakes.length === 0) {
     return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
@@ -766,8 +773,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (wantToEat) { // only add food calc if snake wants to eat
     let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
     let foodCalc : number = 0
-    let firstEatTurnDepth: number | undefined = firstEatTurn !== undefined? gameState.turn - firstEatTurn : undefined // depth eaten should be how far from current turn firstEatTurn is
+    let eatTurnIndex: number = eatTurns.length - 1 // start at end of eatTurns array & go backwards
+    let eatTurnDepth: number = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // snake ate a food this many turns ago
+    let ateAtThisDepth: boolean
     for (let i: number = 0; i <= foodSearchDepth; i++) {
+      ateAtThisDepth = false
+      if (eatTurnIndex >= 0) { // so long as there is another eatTurn in the array, keep checking if it ate at this foodSearchDepth
+        if (eatTurnDepth === i) { // if eatTurnDepth matches this food depth, it ate at this depth
+          ateAtThisDepth = true // tell food function to add this food back during this iteration
+          eatTurnIndex = eatTurnIndex - 1 // also tell next iteration to only look at food eaten earlier on, as we've already processed this index & all after it
+          eatTurnDepth = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // also tell next iteration what depth that food was eaten at, so we don't do this math each iteration
+        }
+      }
+      
       foodToHunt = nearbyFood[i]
       if (foodToHunt && foodToHunt.length > 0) {
         // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
@@ -793,7 +811,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
 
       // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
-      if (safeToEat && firstEatTurnDepth !== undefined && firstEatTurnDepth === i) {
+      if (safeToEat && ateAtThisDepth) {
         foodCalc = foodCalc + (evalFoodVal * j) // add another food at this depth. Note that this food cannot be treated as hazard food
       }
 
