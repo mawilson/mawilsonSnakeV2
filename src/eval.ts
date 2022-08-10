@@ -111,13 +111,17 @@ function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[]): number {
     for (let idx: number = 0; idx < otherSnakesSortedByHealth.length; idx++) {
       let snake: Battlesnake = otherSnakesSortedByHealth[idx]
       if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
-        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep // largest remaining snake gets
+        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep
       } else { // give remaining snakes a smaller penalty for health
         otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
       }
     }
 
     return otherSnakeHealthPenalty
+}
+
+function determineOtherSnakeHealthEvalDuel(otherSnake: Battlesnake): number {
+  return otherSnake.health * -1 // otherSnake health penalty is simply its health, negated
 }
 
 // constrictor evalNoSnakes is very simple - just Base - otherSnakeHealth
@@ -194,7 +198,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, firstEatTurn?: number) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, _eatTurns?: number[]) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -412,7 +416,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const evalCutoffHazardPenalty = -60
 
   let evalFoodVal = 3
-  const evalFoodStep = 1
   let evalEatingMultiplier = evalInitialEatingMultiplier // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
   // Voronoi values
@@ -428,6 +431,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   let evaluationResult: EvaluationResult = new EvaluationResult(_myself)
 
+  let firstEatTurn: number | undefined
+  let eatTurns: number[] = _eatTurns? _eatTurns : []
+  if (eatTurns.length > 0) {
+    firstEatTurn = eatTurns[0]
+  } else {
+    firstEatTurn = undefined
+  }
   if (gameState.board.snakes.length === 0) {
     return determineEvalNoSnakes(gameState, _myself, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   }
@@ -462,7 +472,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
   let board2d: Board2d
   let calculateVoronoi: boolean
-  if (haveWon || gameState.turn <= 1) {
+  if (haveWon || originalTurn <= 1) {
     board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
     calculateVoronoi = false
   } else {
@@ -483,7 +493,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.hazardWall = evalHazardWallPenalty
   }
 
-  if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
+  if (isMinimaxDuel && otherSnakes.length === 1) {
+    let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEvalDuel(otherSnakes[0])
+    evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+  } else if (!isSolo) { // don't need to calculate otherSnake health penalty in game without otherSnakes
     let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes)
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }
@@ -592,7 +605,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.kissOfMurderSelfBonus = evalKissOfMurderSelfBonus
   }
 
-  const foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
+  let foodSearchDepth: number
+  if (originalTurn <= 1) {
+    foodSearchDepth = 2 // for turns 0 & 1, only want to consider starting food right next to us
+  } else {
+    foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
+  }
   let voronoiResults: VoronoiResults
   if (!calculateVoronoi) { // don't want to build Voronoi graph here, so fudge the VoronoiResults object
     voronoiResults = new VoronoiResults()
@@ -659,7 +677,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   if (haveWon) { // set food val to max so as not to penalize winning states
     evalFoodVal = 4
-  } else if (gameState.turn < 3) {
+  } else if (originalTurn <= 1) {
     evalFoodVal = 50 // simply, should always want to get the starting food
   } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold && hazardDamage > 0) { // care a bit more about food to try to starve the other snake out, except in healing pool
     evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
@@ -716,18 +734,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
-    // if snake has eaten recently, add that food back at snake head when calculating food score so as not to penalize it for eating that food
-    let depthToAdd: number
-    if (firstEatTurn !== undefined) {
-      depthToAdd = gameState.turn - firstEatTurn // depth eaten should be how far from current turn firstEatTurn is
-    } else {
-      depthToAdd = 100 - myself.health // not necessarily accurate, but a decent fallback if firstEatTurn was unprovided
-    }
-    if (nearbyFood[depthToAdd]) { // should never succeed at depth 0, but may at others
-      nearbyFood[depthToAdd].push(myself.head)
-    } else {
-      nearbyFood[depthToAdd] = [myself.head]
-    }
 
     // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
     if (isMinimaxDuel) {
@@ -767,7 +773,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (wantToEat) { // only add food calc if snake wants to eat
     let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
     let foodCalc : number = 0
+    let eatTurnIndex: number = eatTurns.length - 1 // start at end of eatTurns array & go backwards
+    let eatTurnDepth: number = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // snake ate a food this many turns ago
+    let ateAtThisDepth: boolean
     for (let i: number = 0; i <= foodSearchDepth; i++) {
+      ateAtThisDepth = false
+      if (eatTurnIndex >= 0) { // so long as there is another eatTurn in the array, keep checking if it ate at this foodSearchDepth
+        if (eatTurnDepth === i) { // if eatTurnDepth matches this food depth, it ate at this depth
+          ateAtThisDepth = true // tell food function to add this food back during this iteration
+          eatTurnIndex = eatTurnIndex - 1 // also tell next iteration to only look at food eaten earlier on, as we've already processed this index & all after it
+          eatTurnDepth = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // also tell next iteration what depth that food was eaten at, so we don't do this math each iteration
+        }
+      }
+      
       foodToHunt = nearbyFood[i]
       if (foodToHunt && foodToHunt.length > 0) {
         // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
@@ -784,13 +802,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
         let foodCalcStep = 0
         if (haveWon) { // if I have already won, give max food score - as if I was as close as possible to all food at once
-          foodCalcStep = evalFoodVal * (evalFoodStep + (foodSearchDepth + 1)) * foodToHuntLength
+          foodCalcStep = evalFoodVal * (foodSearchDepth + 1) * foodToHuntLength
         } else {
-          foodCalcStep = evalFoodVal * (evalFoodStep + j) * foodToHuntLength
+          foodCalcStep = evalFoodVal * j * foodToHuntLength
         }
         //buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
         foodCalc = foodCalc + foodCalcStep
       }
+
+      // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
+      if (safeToEat && ateAtThisDepth) {
+        foodCalc = foodCalc + (evalFoodVal * j) // add another food at this depth. Note that this food cannot be treated as hazard food
+      }
+
       j = j - 1
     }
 
@@ -798,7 +822,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   // Voronoi stuff
-  if (gameState.turn > 1) { // don't calculate on early turns, just get early food
+  if (originalTurn > 1) { // don't calculate on early turns, just get early food
     let isParanoid: boolean = false // used to determine if Voronoi calq is Paranoid or MaxN
     if (isConstrictor) {
       isParanoid = true
@@ -920,7 +944,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (isWrapped) { 
     if (haveWon) { // don't penalize snake for winning
       evaluationResult.flipFlop = evalWrappedFlipFlopStep
-    } else if (gameState.turn > 1) { // ignore this on early turns, just get starting food
+    } else if (originalTurn > 1) { // ignore this on early turns, just get starting food
       let myselfIsFlip: boolean = isFlip(myself.head)
       let flipOtherSnakes: number = 0
       let flopOtherSnakes: number = 0

@@ -1,4 +1,4 @@
-export const version: string = "1.5.1" // need to declare this before imports since several imports utilize it
+export const version: string = "1.5.2" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -24,16 +24,16 @@ export let gameData: {[key: string]: GameData} = {}
 export function info(): InfoResponse {
     console.log("INFO")
     let response: InfoResponse
-    if (isDevelopment) { // businesssssnake
+    if (isDevelopment) { // Gene Scallop
       response = {
         apiversion: "1",
         author: "waryferryman",
-        color: "#A06D4A", // #CF5476
-        head: "replit-mark", // "lantern-fish",
-        tail: "rbc-necktie", // "fat-rattle",
+        color: "#afeeee", // #A06D4A
+        head: "cosmic-horror", // "replit-mark",
+        tail: "do-sammy", // "rbc-necktie",
         version: version
       }
-    } else { // Jaguar
+    } else { // Jagwire
       response = {
         apiversion: "1",
         author: "waryferryman",
@@ -117,7 +117,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     noMe = evalNoMeStandard
   }
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _firstEatTurn?: number): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _eatTurns?: number[]): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
     const originalSnake: boolean = myself.id === gameState.you.id
@@ -144,7 +144,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
       
-      _evalThisState = evaluate(gameState, myself, evaluateKisses, _firstEatTurn)
+      _evalThisState = evaluate(gameState, myself, evaluateKisses, _eatTurns)
       evalThisState = _evalThisState.sum(noMe)
     }
 
@@ -359,21 +359,21 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           }
 
-          let firstEatTurn: number | undefined = _firstEatTurn
-          if (snakeHasEaten(newSelf) && firstEatTurn === undefined) { // if I ate this turn & haven't eaten earlier in the lookahead, this is the first turn I've eaten
-            firstEatTurn = newGameState.turn
+          let eatTurns: number[] = []
+          if (_eatTurns && _eatTurns.length > 0) { // clone _eatTurns so I have my own copy to pass down to my children
+            for (const eatTurn of _eatTurns) {
+              eatTurns.push(eatTurn)
+            }
+          }
+          if (snakeHasEaten(newSelf)) {
+            eatTurns.push(newGameState.turn)
           }
           
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
-            evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, firstEatTurn) // This is the recursive case!!!
+            evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, eatTurns) // This is the recursive case!!!
           } else { // base case, just run the eval
-            if (kissArgs) {
-              evaluationResult = evaluate(newGameState, newSelf, kissArgs)
-              evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
-            } else {
-              evaluationResult = evaluate(newGameState, newSelf)
-              evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
-            }
+            evaluationResult = evaluate(newGameState, newSelf, kissArgs, eatTurns)
+            evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
           }
 
           if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
@@ -429,12 +429,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   }
 
   // for duels, will only work properly with exactly two snakes
-  function _decideMoveMinMax(gameState: GameState, myself: Battlesnake, lookahead: number, kisses?: KissStatesForEvaluate, _alpha?: number, _beta?: number, _firstEatTurn?: number): MoveWithEval {
+  function _decideMoveMinMax(gameState: GameState, lookahead: number, kisses?: KissStatesForEvaluate, _alpha?: number, _beta?: number, _eatTurns?: number[]): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
     let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
-      return snake.id === myself.id
+      return snake.id === gameState.you.id
     })
 
     let finishEvaluatingNow: boolean = false
@@ -449,14 +449,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       board2d = new Board2d(gameState, false)
     }
 
-    let moves: Moves = getAvailableMoves(gameState, myself, board2d)
+    let moves: Moves = getAvailableMoves(gameState, gameState.you, board2d)
     let availableMoves: Direction[] = moves.validMoves()
   
-    let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
+    let moveNeighbors = findMoveNeighbors(gameState, gameState.you, board2d, moves)
     let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
     let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
   
-    let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
+    let kissStatesThisState: KissStates = kissDecider(gameState, gameState.you, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let alpha: number | undefined = _alpha || undefined
     let beta: number | undefined = _beta || undefined
@@ -483,21 +483,21 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
         // custom build an EvaluationResult here without calling evaluate. Wants noMe provided & winValue provided.
-        let evaluationResult: EvaluationResult = new EvaluationResult(myself) 
+        let evaluationResult: EvaluationResult = new EvaluationResult(gameState.you) 
         evaluationResult.noMe = noMe
         evaluationResult.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
         _evalThisState = evaluationResult
       } else {
-        _evalThisState = evaluate(gameState, myself, evaluateKisses, _firstEatTurn)
+        _evalThisState = evaluate(gameState, gameState.you, evaluateKisses, _eatTurns)
       }
 
       let evalThisState: number = _evalThisState.sum() // don't provide minimum - negative winValue will always result in a lower minimum than that
     
-      let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, myself, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
+      let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, gameState.you, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
       return new MoveWithEval(defaultDir, evalThisState, _evalThisState)
     }
     
-    let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== myself.id)
+    let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== gameState.you.id)
     let otherSnakeAvailableMoves: Moves = getAvailableMoves(gameState, otherSnake, board2d)
     let otherSnakeValidMoves: Direction[] = otherSnakeAvailableMoves.validMoves()
 
@@ -552,7 +552,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let newSelf: Battlesnake | undefined,
           newOtherSnake: Battlesnake | undefined
       for (const snake of newGameState.board.snakes) {
-        if (snake.id === myself.id) {
+        if (snake.id === gameState.you.id) {
           newSelf = snake
         } else {
           newOtherSnake = snake
@@ -588,13 +588,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               newOriginalSnake: Battlesnake | undefined
 
           for (const snake of otherNewGameState.board.snakes) {
-            if (snake.id === myself.id) {
+            if (snake.id === gameState.you.id) {
               newOriginalSnake = snake
             } else {
               newOtherself = snake
             }
           }
-
 
           // then, base case & recursive case: if we've hit our lookahead, we want to evaluate each move for newOriginalSnke's score, then choose the worst one for them
           // else, we want to call decideMove again, & move again, & assign that return value to this state's value
@@ -602,16 +601,21 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             moveSnake(otherNewGameState, newOtherself, board2d, otherMove)
             updateGameStateAfterMove(otherNewGameState)
 
-            let firstEatTurn: number | undefined = _firstEatTurn
-            if (snakeHasEaten(newOriginalSnake) && firstEatTurn === undefined) { // if I ate this turn & haven't eaten earlier in the lookahead, this is the first turn I've eaten
-              firstEatTurn = otherNewGameState.turn
+            let eatTurns: number[] = []
+            if (_eatTurns && _eatTurns.length > 0) { // clone _eatTurns so I have my own copy to pass down to my children
+              for (const eatTurn of _eatTurns) {
+                eatTurns.push(eatTurn)
+              }
+            }
+            if (snakeHasEaten(newOriginalSnake)) {
+              eatTurns.push(otherNewGameState.turn)
             }
 
             if (lookahead <= 0) { // base case, start returning
-              evaluationResult = evaluate(otherNewGameState, newOriginalSnake, kissArgs, firstEatTurn)
+              evaluationResult = evaluate(otherNewGameState, newOriginalSnake, kissArgs, eatTurns)
               evalState = new MoveWithEval(move, evaluationResult.sum(), evaluationResult)
             } else {
-              evalState = _decideMoveMinMax(otherNewGameState, newOriginalSnake, lookahead - 1, kissArgs, minAlpha, minBeta, firstEatTurn)
+              evalState = _decideMoveMinMax(otherNewGameState, lookahead - 1, kissArgs, minAlpha, minBeta, eatTurns)
             }
 
             // then, determine whether this move is worse than the existing worst move, & if so, replace it
@@ -681,7 +685,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   } else { // otherwise, start deciding
     let myselfMove: MoveWithEval
     if (gameState.board.snakes.length === 2) {
-      myselfMove = _decideMoveMinMax(gameState, myself, startLookahead)
+      myselfMove = _decideMoveMinMax(gameState, startLookahead)
     } else {
       myselfMove = _decideMove(gameState, myself, startLookahead)
     }
