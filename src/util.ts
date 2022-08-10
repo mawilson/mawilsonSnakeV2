@@ -1319,7 +1319,7 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
   let numSnakes: number = gameState.board.snakes.length
 
   if (isSpeedSnake) {
-    if (gameState.turn === 0) {
+    if (gameState.turn <= 1) {
       lookahead = 0
     } else if (gameKeys.length > 1) { // if at least one other game is already running, run the game with one lookahead to avoid excess CPU usage 
         lookahead = 1
@@ -1332,7 +1332,7 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     return lookahead
   }
 
-  if (gameState.turn === 0) {
+  if (gameState.turn <= 1) {
     lookahead = 0
   } else if (gameState.turn < 11) {
     lookahead = 2
@@ -1367,7 +1367,7 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     lookahead = lookahead > 0? lookahead - 1 : lookahead
     logToFile(consoleWriteStream, `two games were running, decrementing lookahead to ${lookahead}`)
   }
-  lookahead = gameState.turn > 0 && lookahead < 1? 1 : lookahead // lookahead should always be at least 1, except on turn 0
+  lookahead = gameState.turn > 1 && lookahead < 1? 1 : lookahead // lookahead should always be at least 1, except on turns 0 & 1
   //logToFile(consoleWriteStream, `lookahead determinator on turn ${gameState.turn} found branching factor of ${branchingFactor}. Returned lookahead of ${lookahead}`)
   return lookahead
 }

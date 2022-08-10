@@ -2434,46 +2434,53 @@ describe('Food tests', () => {
     }
   })
   it('acquires starting food', () => { // starting food is diagonal from starting position, in one of four directions
-    for (let i: number = 0; i < 4; i++) {
-      const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 9}], "30", "", "")
-      const gameState = createGameState(snek)
+    for (let j: number = 0; j < 5; j++) {
+      for (let i: number = 0; i < 4; i++) {
+        const snek = new Battlesnake("snek", "snek", 100, [{x: 1, y: 9}, {x: 1, y: 9}, {x: 1, y: 9}], "30", "", "")
+        const gameState = createGameState(snek)
+        
+        let gameDataId = createGameDataId(gameState)
+        if (gameData[gameDataId]) { // clean up game data after each different move combo
+          delete gameData[gameDataId]
+        }
 
-      const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 1}, {x: 1, y: 1}, {x: 1, y: 1}], "30", "", "")
-      gameState.board.snakes.push(otherSnek)
+        const otherSnek = new Battlesnake("otherSnek", "otherSnek", 100, [{x: 1, y: 1}, {x: 1, y: 1}, {x: 1, y: 1}], "30", "", "")
+        gameState.board.snakes.push(otherSnek)
 
-      const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 9, y: 1}, {x: 9, y: 1}, {x: 9, y: 1}], "30", "", "")
-      gameState.board.snakes.push(otherSnek2)
+        const otherSnek2 = new Battlesnake("otherSnek2", "otherSnek2", 100, [{x: 9, y: 1}, {x: 9, y: 1}, {x: 9, y: 1}], "30", "", "")
+        gameState.board.snakes.push(otherSnek2)
 
-      const otherSnek3 = new Battlesnake("otherSnek2", "otherSnek3", 100, [{x: 9, y: 9}, {x: 9, y: 9}, {x: 9, y: 9}], "30", "", "")
-      gameState.board.snakes.push(otherSnek3)
+        const otherSnek3 = new Battlesnake("otherSnek2", "otherSnek3", 100, [{x: 9, y: 9}, {x: 9, y: 9}, {x: 9, y: 9}], "30", "", "")
+        gameState.board.snakes.push(otherSnek3)
 
-      gameState.turn = 0
+        gameState.turn = 0
 
-      gameState.board.food = [{x: 8, y: 10}, {x: 2, y: 2}, {x: 8, y: 2}, {x: 5, y: 5}]
+        gameState.board.food = [{x: 8, y: 10}, {x: 2, y: 2}, {x: 8, y: 2}, {x: 5, y: 5}]
 
-      switch(i) {
-        case 0:
-          gameState.board.food.push({x: 0, y: 10})
-          break
-        case 1:
-          gameState.board.food.push({x: 0, y: 8})
-          break
-        case 2:
-          gameState.board.food.push({x: 2, y: 10})
-          break
-        default: //case 3:
-          gameState.board.food.push({x: 2, y: 8})
-          break
+        switch(i) {
+          case 0:
+            gameState.board.food.push({x: 0, y: 10})
+            break
+          case 1:
+            gameState.board.food.push({x: 0, y: 8})
+            break
+          case 2:
+            gameState.board.food.push({x: 2, y: 10})
+            break
+          default: //case 3:
+            gameState.board.food.push({x: 2, y: 8})
+            break
+        }
+
+        let moveResponse: MoveResponse = move(gameState)
+        moveSnake(gameState, gameState.you, new Board2d(gameState), stringToDirection(moveResponse.move))
+        updateGameStateAfterMove(gameState)
+        moveResponse = move(gameState)
+        moveSnake(gameState, gameState.you, new Board2d(gameState), stringToDirection(moveResponse.move))
+        updateGameStateAfterMove(gameState)
+
+        expect(gameState.you.length).toBe(4) // for any starting food spawns, should always retrieve them. Always be length 4 after two moves.
       }
-
-      let moveResponse: MoveResponse = move(gameState)
-      moveSnake(gameState, gameState.you, new Board2d(gameState), stringToDirection(moveResponse.move))
-      updateGameStateAfterMove(gameState)
-      moveResponse = move(gameState)
-      moveSnake(gameState, gameState.you, new Board2d(gameState), stringToDirection(moveResponse.move))
-      updateGameStateAfterMove(gameState)
-
-      expect(gameState.you.length).toBe(4) // for any starting food spawns, should always retrieve them. Always be length 4 after two moves.
     }
   })
   it('avoids food when the board is entirely full', () => {

@@ -367,13 +367,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
             evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, firstEatTurn) // This is the recursive case!!!
           } else { // base case, just run the eval
-            if (kissArgs) {
-              evaluationResult = evaluate(newGameState, newSelf, kissArgs)
-              evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
-            } else {
-              evaluationResult = evaluate(newGameState, newSelf)
-              evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
-            }
+            evaluationResult = evaluate(newGameState, newSelf, kissArgs, firstEatTurn)
+            evalState = new MoveWithEval(move, evaluationResult.sum(noMe))
           }
 
           if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
