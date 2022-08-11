@@ -247,11 +247,7 @@ export class Board2d {
   height: number
   hazardDamage: number
   numHazards: number // used to keep track of hazards, particularly in stacked hazard games like sinkhole where we can't just get board.hazards.length
-  isWrapped: boolean
-  isConstrictor: boolean
-  isArcadeMaze: boolean
-  isSinkhole: boolean
-  sinkholeLatestSpawnTurn: number | undefined
+  isWrapped: boolean // needs to be an attribute because getCell uses it after instantiation
 
   constructor(gameState: GameState, populateVoronoi?: boolean) {
     let board: Board = gameState.board
@@ -261,10 +257,10 @@ export class Board2d {
     this.hazardDamage = getHazardDamage(gameState)
     this.numHazards = 0
     this.isWrapped = gameStateIsWrapped(gameState)
-    this.isConstrictor = gameStateIsConstrictor(gameState)
-    this.isArcadeMaze = gameStateIsArcadeMaze(gameState)
-    this.isSinkhole = gameStateIsSinkhole(gameState)
-    this.sinkholeLatestSpawnTurn = (this.isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
+    let isConstrictor: boolean = gameStateIsConstrictor(gameState)
+    let isArcadeMaze: boolean = gameStateIsArcadeMaze(gameState)
+    let isSinkhole: boolean = gameStateIsSinkhole(gameState)
+    let sinkholeLatestSpawnTurn: number | undefined = (isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
       (2 + expansionRate * 4) : undefined // sinkhole map only works on 11x11 boards, & only if shrink turns are provided
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
@@ -334,7 +330,7 @@ export class Board2d {
           }
         } // no need for else, if hazardSpiral is undefined in a hazardSpiral game, that just means there haven't been any hazards yet
       }
-    } else if (this.isSinkhole && this.sinkholeLatestSpawnTurn !== undefined && expansionRate !== undefined) { // give hardcoded hazards based on gameState turn, if we know we can predict them
+    } else if (isSinkhole && sinkholeLatestSpawnTurn !== undefined && expansionRate !== undefined) { // give hardcoded hazards based on gameState turn, if we know we can predict them
       let hazards: Coord[]
       if (gameState.turn > (2 + expansionRate * 4)) {
         hazards = [{"x":5,"y":5},{"x":4,"y":5},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":5},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":2,"y":9},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":4,"y":9},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":6,"y":1},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":7,"y":9},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7},{"x":8,"y":8},{"x":8,"y":9},{"x":9,"y":2},{"x":9,"y":3},{"x":9,"y":4},{"x":9,"y":5},{"x":9,"y":6},{"x":9,"y":7},{"x":9,"y":8}]
@@ -381,7 +377,7 @@ export class Board2d {
         let point = voronoiPoints.shift() // get the top point off the list
 
         if (point !== undefined) {
-          let neighbors = getSurroundingCells(point.coord, self, undefined, this.isArcadeMaze)
+          let neighbors = getSurroundingCells(point.coord, self, undefined, isArcadeMaze)
           for (const neighbor of neighbors) { // for each neighbor, update its voronoi array if applicable
             let isNewVoronoiBoardCell: boolean = false // if any VoronoiSnakes are added to this neighbor, set this to true so we can add it to voronoiPoints array
             if (point !== undefined) {
@@ -395,7 +391,7 @@ export class Board2d {
                   let isBodyCell: boolean = false // only true if neighbor contains a snakeCell which has not receded as a tail by this depth
                   let tailOffset: number | undefined = undefined // used to keep track of following otherSnake tail danger
                   if (neighbor.snakeCell !== undefined) {
-                    if (this.isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
+                    if (isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
                       isBodyCell = true
                     } else {
                       let effectiveIndex: number
@@ -427,7 +423,7 @@ export class Board2d {
                       isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : neighbor.hazard > 0 // gameState turn + depth is effective turn
                       // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
                       isHazardDamage = isHazard? self.hazardDamage : 0
-                    } else if (this.isSinkhole && this.sinkholeLatestSpawnTurn !== undefined && gameState.turn < this.sinkholeLatestSpawnTurn) { // only need to predict future spawning sinkholes before latest turn they can spawn
+                    } else if (isSinkhole && sinkholeLatestSpawnTurn !== undefined && gameState.turn < sinkholeLatestSpawnTurn) { // only need to predict future spawning sinkholes before latest turn they can spawn
                       let turn: number = gameState.turn + depth
                       let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn, gameState.game.ruleset.settings.royale.shrinkEveryNTurns)
                       isHazard = hazardNumber > 0
@@ -437,9 +433,9 @@ export class Board2d {
                       isHazardDamage = neighbor.hazard * self.hazardDamage
                     }
                     if (!neighborVoronoiKeys.includes(snakeId)) { // if another voronoiPoint has already added this snakeId to this cell, no need to revisit
-                      let voronoiSnakeNewEffectiveLength: number = neighbor.food || this.isConstrictor? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
+                      let voronoiSnakeNewEffectiveLength: number = neighbor.food || isConstrictor? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
                       if (neighborVoronoiKeys.length === 0) { // if I am the first one to this boardCell, add myself to its voronoi array
-                        if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
+                        if (neighbor.food || isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           neighbor.voronoiDepth = depth
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
@@ -458,7 +454,7 @@ export class Board2d {
                           }
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && (voronoiSnakeNewEffectiveLength > neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength)) { // else if I am at the same depth as, & larger than the existing snakes in this board cell, remove them, & add myself
-                        if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
+                        if (neighbor.food || isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi = {} // clear out old, smaller voronoiSnakes
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           neighbor.voronoiDepth = depth
@@ -480,7 +476,7 @@ export class Board2d {
                           } // do not clear out old, smaller voronoiSnakes if snake would starve by stealing this cell away
                         }
                       } else if (depth === neighbor.voronoi[neighborVoronoiKeys[0]].depth && voronoiSnakeNewEffectiveLength === neighbor.voronoi[neighborVoronoiKeys[0]].effectiveLength) { // else if I am at the same depth as, & equal to the existing snakes in this board cell, add myself
-                        if (neighbor.food || this.isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
+                        if (neighbor.food || isConstrictor) { // if it has food, snake cannot starve getting here, no need for effectiveHealth check
                           neighbor.voronoi[snakeId] = new VoronoiSnake(voronoiSnake.snake, depth, voronoiSnake.effectiveLength + 1, 100, tailOffset)
                           neighbor.voronoiDepth = depth
                           eatDepths[snakeId] = true // whether or not this is the first food we could eat at this depth, can just replace it, just so long as we can eat at this depth
@@ -502,13 +498,13 @@ export class Board2d {
                     } else { // may want to update the effectiveLength & effectiveHealth of voronoiSnake for myself here
                       if (depth === neighbor.voronoi[snakeId].depth) {
                         let oldLength = neighbor.voronoi[snakeId].effectiveLength
-                        let newLength = (neighbor.food || this.isConstrictor)? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
+                        let newLength = (neighbor.food || isConstrictor)? voronoiSnake.effectiveLength + 1 : voronoiSnake.effectiveLength
                         if (newLength > oldLength) {
                           neighbor.voronoi[snakeId].effectiveLength = newLength
                         }
 
                         let oldHealth = neighbor.voronoi[snakeId].effectiveHealth
-                        let newHealth: number = (neighbor.food || this.isConstrictor)? 100 : isHazard? voronoiSnake.effectiveHealth - 1 - isHazardDamage : voronoiSnake.effectiveHealth - 1
+                        let newHealth: number = (neighbor.food || isConstrictor)? 100 : isHazard? voronoiSnake.effectiveHealth - 1 - isHazardDamage : voronoiSnake.effectiveHealth - 1
                         newHealth = newHealth > 100? 100 : newHealth // snake cannot heal to more than 100 health from healing pool
                         if (newHealth > oldHealth) {
                           neighbor.voronoi[snakeId].effectiveHealth = newHealth
@@ -531,7 +527,7 @@ export class Board2d {
             // once we're moving on to a new depth, can update snakePossibleEats with the eats that each snake may have done at this depth
             let snakeIds = Object.keys(eatDepths)
             for (const id of snakeIds) {
-              if (this.isConstrictor || eatDepths[id]) { // constrictor snakes always effectively eat, otherwise, check eatDepths to see if snake at at this depth
+              if (isConstrictor || eatDepths[id]) { // constrictor snakes always effectively eat, otherwise, check eatDepths to see if snake at at this depth
                 snakePossibleEats[id] = snakePossibleEats[id] + 1
               }
             }
