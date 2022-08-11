@@ -2517,3 +2517,71 @@ export function getHazardDamage(gameState: GameState): number {
     return hazardDamagePerTurn
   }
 }
+
+// returns number of sinkholes that coord occupies on turn
+export function getSinkholeNumber(coord: Coord, turn: number): number {
+  if (turn > 82) {
+    if (coord.x === 5 && coord.y === 5) {
+      return 5
+    } else if (coord.x === 5 && (coord.y === 4 || coord.y === 6)) {
+      return 4
+    } else if (coord.y === 5 && (coord.x === 4 || coord.x === 6)) {
+      return 4
+    } else if (coord.x >= 3 && coord.x <= 7 && coord.y >= 4 && coord.y <= 6) {
+      return 3
+    } else if (coord.y >= 3 && coord.y <= 7 && coord.x >= 4 && coord.x <= 6) {
+      return 3
+    } else if (coord.x >= 2 && coord.x <= 8 && coord.y >= 3 && coord.y <= 7) {
+      return 2
+    } else if (coord.y >= 2 && coord.y <= 8 && coord.x >= 3 && coord.x <= 7) {
+      return 2
+    } else if (coord.x >= 1 && coord.x <= 9 && coord.y >= 2 && coord.y <= 8) {
+      return 1
+    } else if (coord.y >= 1 && coord.y <= 9 && coord.x >= 1 && coord.x <= 8) {
+      return 1
+    }
+  } else if (turn > 62) {
+    if (coord.x === 5 && coord.y === 5) {
+      return 4
+    } else if (coord.x === 5 && (coord.y === 4 || coord.y === 6)) {
+      return 3
+    } else if (coord.y === 5 && (coord.x === 4 || coord.x === 6)) {
+      return 3
+    } else if (coord.x >= 3 && coord.x <= 7 && coord.y >= 4 && coord.y <= 6) {
+      return 2
+    } else if (coord.y >= 3 && coord.y <= 7 && coord.x >= 4 && coord.x <= 6) {
+      return 2
+    } else if (coord.x >= 2 && coord.x <= 8 && coord.y >= 3 && coord.y <= 7) {
+      return 1
+    } else if (coord.y >= 2 && coord.y <= 8 && coord.x >= 3 && coord.x <= 7) {
+      return 1
+    }
+  } else if (turn > 42) {
+    if (coord.x === 5 && coord.y === 5) {
+      return 3
+    } else if (coord.x === 5 && (coord.y === 4 || coord.y === 6)) {
+      return 2
+    } else if (coord.y === 5 && (coord.x === 4 || coord.x === 6)) {
+      return 2
+    } else if (coord.x >= 3 && coord.x <= 7 && coord.y >= 4 && coord.y <= 6) {
+      return 1
+    } else if (coord.y >= 3 && coord.y <= 7 && coord.x >= 4 && coord.x <= 6) {
+      return 1
+    }
+  } else if (turn > 22) {
+    if (coord.x === 5 && coord.y === 5) {
+      return 2
+    } else if (coord.x === 5 && (coord.y === 4 || coord.y === 6)) {
+      return 1
+    } else if (coord.y === 5 && (coord.x === 4 || coord.x === 6)) {
+      return 1
+    }
+  } else if (turn > 2) {
+    if (coord.x === 5 && coord.y === 5) {
+      return 1
+    }
+  } else { // hazard has not spawned yet, cell must have zero hazard damage
+    return 0
+  }
+  return 0 // did not match any hazards on this turn
+}
