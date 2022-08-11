@@ -948,7 +948,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
   }
 
-  if (isWrapped) { 
+  if (isWrapped && !isMinimaxDuel) { // metric is useful outside of duel but minimax is smarter than it in duel 
     if (haveWon) { // don't penalize snake for winning
       evaluationResult.flipFlop = evalWrappedFlipFlopStep
     } else if (originalTurn > 1) { // ignore this on early turns, just get starting food
