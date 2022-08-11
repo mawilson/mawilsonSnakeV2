@@ -1,9 +1,9 @@
-export const version: string = "1.5.3" // need to declare this before imports since several imports utilize it
+export const version: string = "1.5.4" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, getSuicidalMove, lookaheadDeterminator, getHazardDamage, floatsEqual, snakeHasEaten } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze, evalHaveWonTurnStep } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -704,7 +704,6 @@ export function move(gameState: GameState): MoveResponse {
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
   let board2d: Board2d = new Board2d(gameState, true)
-  let futureSight: number = lookaheadDeterminator(gameState, board2d)
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
@@ -765,30 +764,12 @@ export function move(gameState: GameState): MoveResponse {
   //logToFile(consoleWriteStream, `lookahead turn ${gameState.turn}: ${futureSight}`)
   
   let chosenMove: MoveWithEval
+  let futureSight: number
+
   if (gameDataIds.length === 1 && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
+    futureSight = lookaheadDeterminatorDeepening(gameState, board2d)
     thisGameData.lookahead = 0
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, 0, board2d, true)
-    if (gameState.turn <= 1) {
-      futureSight = 0
-    } else if (gameState.turn < 10) {
-      futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
-    } else if (gameState.turn < 20) {
-      futureSight = 5 // as above, but ramping up
-    } else {
-      if (gameStateIsArcadeMaze(gameState)) {
-        if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
-          futureSight = 15
-        } else {
-          futureSight = 12
-        }
-      } else {
-        futureSight = 7
-      }
-    }
-
-    if (gameDataIds.length > 1) { // if running multiple games, strongly constrain max lookahead
-      futureSight = futureSight > 4? 4 : futureSight
-    }
 
     let i: number = 1
     let newMove: MoveWithEval
@@ -804,6 +785,7 @@ export function move(gameState: GameState): MoveResponse {
     }
     logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
   } else {
+    futureSight = lookaheadDeterminator(gameState, board2d)
     thisGameData.lookahead = futureSight
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d, false)
   }

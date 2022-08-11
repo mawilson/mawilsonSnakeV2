@@ -1376,6 +1376,35 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
   return lookahead
 }
 
+export function lookaheadDeterminatorDeepening(gameState: GameState, board2d: Board2d): number {
+  let futureSight: number
+  let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 3)
+  if (gameState.turn <= 1) {
+    futureSight = 0
+  } else if (gameState.turn < 10) {
+    futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
+  } else if (gameState.turn < 20) {
+    futureSight = 5 // as above, but ramping up
+  } else {
+    if (gameStateIsArcadeMaze(gameState)) {
+      if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
+        futureSight = 15
+      } else {
+        futureSight = 12
+      }
+    } else {
+      if (branchingFactor > 40) {
+        futureSight = 7
+      } else if (branchingFactor > 28) {
+        futureSight = 8
+      } else { // 28 & below
+        futureSight = 9
+      }
+    }
+  }
+  return futureSight
+}
+
 // returns true if 'myself' is in position to cut off 'snake' at an edge
 export function isCutoff(gameState: GameState, _myself: Battlesnake | undefined, _snake: Battlesnake | undefined, board2d: Board2d): boolean {  
   if (_myself === undefined) { // undefined snakes cannot cut off
