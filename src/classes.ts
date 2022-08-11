@@ -251,9 +251,11 @@ export class Board2d {
   isConstrictor: boolean
   isArcadeMaze: boolean
   isSinkhole: boolean
+  sinkholeLatestSpawnTurn: number | undefined
 
   constructor(gameState: GameState, populateVoronoi?: boolean) {
     let board: Board = gameState.board
+    let expansionRate: number | undefined = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
     this.width = board.width;
     this.height = board.height;
     this.hazardDamage = getHazardDamage(gameState)
@@ -262,6 +264,8 @@ export class Board2d {
     this.isConstrictor = gameStateIsConstrictor(gameState)
     this.isArcadeMaze = gameStateIsArcadeMaze(gameState)
     this.isSinkhole = gameStateIsSinkhole(gameState)
+    this.sinkholeLatestSpawnTurn = (this.isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
+      (2 + expansionRate * 4) : undefined // sinkhole map only works on 11x11 boards, & only if shrink turns are provided
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
@@ -330,15 +334,15 @@ export class Board2d {
           }
         } // no need for else, if hazardSpiral is undefined in a hazardSpiral game, that just means there haven't been any hazards yet
       }
-    } else if (this.isSinkhole) { // give hardcoded hazards based on gameState turn
+    } else if (this.isSinkhole && this.sinkholeLatestSpawnTurn !== undefined && expansionRate !== undefined) { // give hardcoded hazards based on gameState turn, if we know we can predict them
       let hazards: Coord[]
-      if (gameState.turn > 82) {
+      if (gameState.turn > (2 + expansionRate * 4)) {
         hazards = [{"x":5,"y":5},{"x":4,"y":5},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":5},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7},{"x":1,"y":2},{"x":1,"y":3},{"x":1,"y":4},{"x":1,"y":5},{"x":1,"y":6},{"x":1,"y":7},{"x":1,"y":8},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":2,"y":9},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":3,"y":9},{"x":4,"y":1},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":4,"y":9},{"x":5,"y":1},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":5,"y":9},{"x":6,"y":1},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":7,"y":9},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7},{"x":8,"y":8},{"x":8,"y":9},{"x":9,"y":2},{"x":9,"y":3},{"x":9,"y":4},{"x":9,"y":5},{"x":9,"y":6},{"x":9,"y":7},{"x":9,"y":8}]
-      } else if (gameState.turn > 62) {
+      } else if (gameState.turn > (2 + expansionRate * 3)) {
         hazards = [{"x":5,"y":5},{"x":4,"y":5},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":5},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":5},{"x":2,"y":6},{"x":2,"y":7},{"x":3,"y":2},{"x":3,"y":3},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":3,"y":7},{"x":3,"y":8},{"x":4,"y":2},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":4,"y":8},{"x":5,"y":2},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":5,"y":8},{"x":6,"y":2},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":5},{"x":8,"y":6},{"x":8,"y":7}]
-      } else if (gameState.turn > 42) {
+      } else if (gameState.turn > (2 + expansionRate * 2)) {
         hazards = [{"x":5,"y":5},{"x":4,"y":5},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":5},{"x":3,"y":4},{"x":3,"y":5},{"x":3,"y":6},{"x":4,"y":3},{"x":4,"y":4},{"x":4,"y":5},{"x":4,"y":6},{"x":4,"y":7},{"x":5,"y":3},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":5,"y":7},{"x":6,"y":3},{"x":6,"y":4},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":4},{"x":7,"y":5},{"x":7,"y":6}]
-      } else if (gameState.turn > 22) {
+      } else if (gameState.turn > (2 + expansionRate)) {
         hazards = [{"x":5,"y":5},{"x":4,"y":5},{"x":5,"y":4},{"x":5,"y":5},{"x":5,"y":6},{"x":6,"y":5}]
       } else if (gameState.turn > 2) {
         hazards = [{x: 5, y: 5}]
@@ -423,9 +427,9 @@ export class Board2d {
                       isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : neighbor.hazard > 0 // gameState turn + depth is effective turn
                       // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
                       isHazardDamage = isHazard? self.hazardDamage : 0
-                    } else if (this.isSinkhole && gameState.turn < 82) { // only need to predict future spawning sinkholes before turn 82
+                    } else if (this.isSinkhole && this.sinkholeLatestSpawnTurn !== undefined && gameState.turn < this.sinkholeLatestSpawnTurn) { // only need to predict future spawning sinkholes before latest turn they can spawn
                       let turn: number = gameState.turn + depth
-                      let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn)
+                      let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn, gameState.game.ruleset.settings.royale.shrinkEveryNTurns)
                       isHazard = hazardNumber > 0
                       isHazardDamage = hazardNumber * self.hazardDamage
                     } else {
