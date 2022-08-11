@@ -488,8 +488,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
-  if (myCell !== undefined && myCell.hazard && hazardDamage > 0) {
-    evaluationResult.hazard = evalHazardPenalty
+  if (myCell !== undefined && myCell.hazard > 0 && hazardDamage > 0) {
+    evaluationResult.hazard = evalHazardPenalty * myCell.hazard // penalty is multiplied for how many stacks of hazard live here
   }
 
   let wantToEat: boolean = true // condition for whether we currently want food
