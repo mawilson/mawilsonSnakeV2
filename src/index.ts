@@ -7,6 +7,9 @@ import { connectToDatabase, getCollection, snakeScoreAggregations } from "./db"
 import { SnakeScoreMongoAggregate } from "./types"
 import { Server } from "http";
 
+import tokei from 'node-tokei'
+import { TokeiResult } from "node-tokei"
+
 const app = express()
 app.use(express.json())
 
@@ -17,8 +20,16 @@ export const evaluationsForMachineLearning: {[key: string]: number} = {} // a re
 // key should be unique because DB aggregated things together based on matching fields - shouldn't be possible for there to be duplicates, or else they
 // would have also been grouped together by the DB. Key should also contain all the context needed for the score
 
+const locStats: Promise<{[language: string]: TokeiResult }> = tokei('./')
+
 app.get("/", (req: Request, res: Response) => {
     res.send(info())
+});
+
+app.get("/stats", (req: Request, res: Response) => {
+    locStats.then(value => {
+        return res.send(value)
+    })
 });
 
 app.post("/start", (req: Request, res: Response) => {
