@@ -1362,6 +1362,10 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     } else { // 17 & below
       lookahead = 5
     }
+
+    if (gameStateIsArcadeMaze(gameState)) { // arcade maze has much smaller search trees & we can search much deeper
+      lookahead = lookahead * 2
+    }
   }
 
   if (gameKeys.length >= 3) { // if three or more games are already running, run the game with two less lookahead to avoid excess CPU usage 
