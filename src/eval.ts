@@ -344,7 +344,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
 
-  const evalLengthMult = isSolo? -20 : 20 // larger values result in more food prioritization. Negative preference towards length in solo
+  let evalLengthMult: number // larger values result in more food prioritization. Negative preference towards length in solo
+  if (isSolo) {
+    evalLengthMult = -20
+  } else if (isMinimaxDuel) {
+    evalLengthMult = 10
+  } else {
+    evalLengthMult = 20
+  }
   let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
 
   const evalPriorKissOfDeathCertainty = isOriginalSnake? -800 : 0 // otherSnakes can pick again, let them evaluate this without fear of death
@@ -649,6 +656,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   } else if (voronoiMyself <= 5 || canBeCutoffHazardBySnake) { // eating this food puts me into a box I likely can't get out of, that's not safe
+    //TODO: test this with VoronoiBaseGood instead of 5
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   }
@@ -880,7 +888,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
       voronoiDelta = voronoiMyself - voronoiLargest
       let voronoiSelfParanoid: number = voronoiDelta * voronoiDeltaStep
-      if (voronoiSelf < 0) { // if voronoiSelf is bad, voronoiSelf score should be the lowest of the Paranoid & Adjusted scores
+      if (!isMinimaxDuel && voronoiSelf < 0) { // if voronoiSelf is bad, voronoiSelf score should be the lowest of the Paranoid & Adjusted scores. Minimax truly only cares about the difference
         let voronoiSelfAdjusted: number = getVoronoiSelfAdjusted()
         evaluationResult.voronoiSelf = Math.min(voronoiSelfParanoid, voronoiSelfAdjusted)
       } else {
@@ -890,44 +898,46 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       evaluationResult.voronoiSelf = getVoronoiSelfAdjusted()
     }
 
-    let voronoiPredatorBonus: number = 0
-    // tell snake to reward positions to limit preySnake's Voronoi coverage significantly  
-    if (haveWon || (!isOriginalSnake && originalSnake === undefined)) { // add max Voronoi reward for winning snake or otherSnake that has outlasted me so as not to encourage it to keep opponent alive for that sweet reward
-      let lastVoronoiReward: number = evalVoronoiNegativeMax - evalAvailableMoves0Moves
-      if (!haveWon) { // for otherSnakes that beat me but still need to beat another snake, minimize this reward to account for their need to still beat another snake
-        lastVoronoiReward = lastVoronoiReward / 2
-      }
-      voronoiPredatorBonus = lastVoronoiReward
-      evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
-    } else if (preySnake !== undefined) {
-      let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
-      if (preySnakeResults !== undefined) {
-        let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, true) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
-        if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
-          let howBad: number = -preySnakeVoronoi * evalVoronoiPreyStep // preySnakeVoronoi is negative so need to negate this
-          if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
-            howBad = howBad - evalAvailableMoves0Moves // evalAvailableMoves0Moves is negative, but here we negate it as a reward
-          }
-          if (isOriginalSnake && !isTypeOfDuel) {
-            howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
-          }
-          voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
+    if (!isMinimaxDuel) { // needless in minimax, above Voronoi handles everything anyway
+      let voronoiPredatorBonus: number = 0
+      // tell snake to reward positions to limit preySnake's Voronoi coverage significantly
+      if (haveWon || (!isOriginalSnake && originalSnake === undefined)) { // add max Voronoi reward for winning snake or otherSnake that has outlasted me so as not to encourage it to keep opponent alive for that sweet reward
+        let lastVoronoiReward: number = evalVoronoiNegativeMax - evalAvailableMoves0Moves
+        if (!haveWon) { // for otherSnakes that beat me but still need to beat another snake, minimize this reward to account for their need to still beat another snake
+          lastVoronoiReward = lastVoronoiReward / 2
         }
+        voronoiPredatorBonus = lastVoronoiReward
+        evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
+      } else if (preySnake !== undefined) {
+        let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
+        if (preySnakeResults !== undefined) {
+          let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, evalVoronoiBaseGood, true) // originalSnake's prey will not be originalSnake, & otherSnakes' will, so invert it
+          if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
+            let howBad: number = -preySnakeVoronoi * evalVoronoiPreyStep // preySnakeVoronoi is negative so need to negate this
+            if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
+              howBad = howBad - evalAvailableMoves0Moves // evalAvailableMoves0Moves is negative, but here we negate it as a reward
+            }
+            if (isOriginalSnake && !isTypeOfDuel) {
+              howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
+            }
+            voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
+          }
 
-        if (hazardDamage > 0) { // additional reward for starving out prey snake
-          const validHazardTurns = Math.floor(preySnake.health / (hazardDamage + 1))
-          const preySnakeFoodKeys = Object.keys(preySnakeResults.food)
-          if (preySnakeFoodKeys.length === 0) { // if prey snake cannot reach any food in this state, & is starving, give additional starvation reward
-            if (validHazardTurns === 1) {
-              evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward
-            } else if (validHazardTurns === 0) {
-              evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3
+          if (hazardDamage > 0) { // additional reward for starving out prey snake
+            const validHazardTurns = Math.floor(preySnake.health / (hazardDamage + 1))
+            const preySnakeFoodKeys = Object.keys(preySnakeResults.food)
+            if (preySnakeFoodKeys.length === 0) { // if prey snake cannot reach any food in this state, & is starving, give additional starvation reward
+              if (validHazardTurns === 1) {
+                evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward
+              } else if (validHazardTurns === 0) {
+                evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3
+              }
             }
           }
         }
       }
+      evaluationResult.voronoiPredator = voronoiPredatorBonus
     }
-    evaluationResult.voronoiPredator = voronoiPredatorBonus
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
