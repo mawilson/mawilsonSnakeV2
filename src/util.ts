@@ -2332,7 +2332,8 @@ function calculateReachableCellsAtDepth(board2d: Board2d, depth: number): number
   return total
 }
 
-export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: VoronoiResultsSnake, voronoiBaseGood: number, isOriginalSnake: boolean) {
+// determines score for a VoronoiResultsSnake based on tail chases & snake body chases, & subtracts a 'base good' score if provided
+export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: VoronoiResultsSnake, useTailChase: boolean, useTailOffset: boolean, voronoiBaseGood?: number): number {
   const evalVoronoiTailChaseDepthCoefficient: number = 1/10 // in mx+b, this is m
   const evalVoronoiTailChaseOffset: number = 1/10 // in mx+b, this is b
   const evalVoronoiTailChaseMinPenalty: number = 0.4 // tail chase Voronoi penalty at min depth
@@ -2347,9 +2348,9 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
   const evalVoronoiTailOffsetMinOffset: number = 0
   const evalVoronoiTailOffsetMaxOffset: number = -8
 
-  if (isOriginalSnake) {
-    let voronoiTailOffsetPenalty: number = 0
-    let tailOffsetKeys: string[] = Object.keys(voronoiResultsSnake.tailOffsets)
+  let voronoiTailOffsetPenalty: number = 0
+  let tailOffsetKeys: string[] = Object.keys(voronoiResultsSnake.tailOffsets)
+  if (useTailChase || useTailOffset) {
     for (const snakeId of tailOffsetKeys) {
       let depths: string[] = Object.keys(voronoiResultsSnake.tailOffsets[snakeId])
 
@@ -2358,39 +2359,45 @@ export function determineVoronoiSelf(myself: Battlesnake, voronoiResultsSnake: V
         let tailOffsetArray: VoronoiResultsSnakeTailOffset[] = voronoiResultsSnake.tailOffsets[snakeId][depth]
         for (const offset of tailOffsetArray) {
           let newOffsetPenalty: number = 0
-          if (snakeId !== myself.id) { // other snakes penalize tail chasing in addition to tailOffset penalty
-            if (offset.tailOffset === 0 && depth > 2) { // tailOffset 0 means we're directly on the tail. Only penalize chasing otherSnake tail past depth 2
-              if (depth >= evalVoronoiTailChaseMaxDepth) { // the latest depth at which we penalize tail chasing further
-                newOffsetPenalty = offset.voronoiValue * evalVoronoiTailChaseMaxPenalty
-              } else if (depth === evalVoronoiTailChaseMinDepth) { // the earliest depth at which we penalize tail chasing
-                newOffsetPenalty = offset.voronoiValue * evalVoronoiTailChaseMinPenalty
-              } else { // for the inbetween values, consult the formula
-                newOffsetPenalty = offset.voronoiValue * (evalVoronoiTailChaseDepthCoefficient * depth + evalVoronoiTailChaseOffset) // formula is 1/10 * depth - 1/20. Works out to 0.25 penalty at depth 3, 0.75 penalty at depth 8
+          if (useTailChase) {
+            if (snakeId !== myself.id) { // other snakes penalize tail chasing in addition to tailOffset penalty
+              if (offset.tailOffset === 0 && depth > 2) { // tailOffset 0 means we're directly on the tail. Only penalize chasing otherSnake tail past depth 2
+                if (depth >= evalVoronoiTailChaseMaxDepth) { // the latest depth at which we penalize tail chasing further
+                  newOffsetPenalty = offset.voronoiValue * evalVoronoiTailChaseMaxPenalty
+                } else if (depth === evalVoronoiTailChaseMinDepth) { // the earliest depth at which we penalize tail chasing
+                  newOffsetPenalty = offset.voronoiValue * evalVoronoiTailChaseMinPenalty
+                } else { // for the inbetween values, consult the formula
+                  newOffsetPenalty = offset.voronoiValue * (evalVoronoiTailChaseDepthCoefficient * depth + evalVoronoiTailChaseOffset) // formula is 1/10 * depth - 1/20. Works out to 0.25 penalty at depth 3, 0.75 penalty at depth 8
+                }
               }
             }
           }
 
-          // in all games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
-          if (newOffsetPenalty === 0) { // If newOffsetPenalty is already > 0, tailChase penalty already applied, don't double penalize
-            let tailOffsetPenaltyPercentage: number = 0
-            if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
-              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
-            } else if (offset.tailOffset === evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
-              tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
-            } else if (offset.tailOffset > evalVoronoiTailOffsetMaxOffset) { // for the inbetween values, consult the formula
-              tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is 0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, .1 penalty at tailOffset -8, 0 after that
-            } // tailOffset should never be greater than 0, as this would have been a body cell. If tailOffset is less than evalVoronoiTailOffsetMaxOffset, no penalty
-            newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
+          if (useTailOffset) { // when VoronoiBaseGood is undefined, we are in minimax mode, & minimax does not want to penalize for body cell coverage
+            // in all games, want to deprioritize spaces which contain snake bodies, as they are less likely to spawn future food
+            if (newOffsetPenalty === 0) { // If newOffsetPenalty is already > 0, tailChase penalty already applied, don't double penalize
+              let tailOffsetPenaltyPercentage: number = 0
+              if (offset.tailOffset === evalVoronoiTailOffsetMinOffset) { // the earliest tailOffset at which we penalize occupying a body cell
+                tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMinPenalty
+              } else if (offset.tailOffset === evalVoronoiTailOffsetMaxOffset) { // the latest tailOffset at which we penalize occupying a body cell further
+                tailOffsetPenaltyPercentage = evalVoronoiTailOffsetMaxPenalty
+              } else if (offset.tailOffset > evalVoronoiTailOffsetMaxOffset) { // for the inbetween values, consult the formula
+                tailOffsetPenaltyPercentage = (evalVoronoiTailOffsetCoefficient * offset.tailOffset + evalVoronoiTailOffsetConstant) // formula is 0.025 * tailOffset + 0.3. Works out to 0.3 penalty at tailOffset 0, .1 penalty at tailOffset -8, 0 after that
+              } // tailOffset should never be greater than 0, as this would have been a body cell. If tailOffset is less than evalVoronoiTailOffsetMaxOffset, no penalty
+              newOffsetPenalty = offset.voronoiValue * tailOffsetPenaltyPercentage
+            }
           }
 
           voronoiTailOffsetPenalty = voronoiTailOffsetPenalty + newOffsetPenalty
         }
       }
     }
+  }
 
+  if (voronoiBaseGood !== undefined) {
     return voronoiResultsSnake.reachableCells - voronoiBaseGood - voronoiTailOffsetPenalty
-  } else { // otherSnakes don't consider tail chase or tail offset penalty
-    return voronoiResultsSnake.reachableCells - voronoiBaseGood
+  } else {
+    return voronoiResultsSnake.reachableCells - voronoiTailOffsetPenalty
   }
 }
 
