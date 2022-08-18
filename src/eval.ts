@@ -874,7 +874,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
     } else if (isMinimaxDuel) { // only use delta, with tail chase & tail offset taken into account
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
-      let otherSnakeVoronoi: number = voronoiResults.snakeResults[otherSnakes[0].id].reachableCells
+      let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnakes[0], voronoiResults.snakeResults[otherSnakes[0].id], useTailChase, useTailOffset)
       let voronoiDelta: number = voronoiSelf - otherSnakeVoronoi // consider Voronoi delta after adjusting for tail & body chases
       evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
     } else { // use delta & baseGood scores, with tail chase & tail offset taken into account for originalSnake

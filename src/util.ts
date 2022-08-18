@@ -743,7 +743,7 @@ export function checkForSnakesHealthAndWalls(me: Battlesnake, gameState: GameSta
 // checks how much time has elapsed since beginning of move function,
 // returns true if more than 50ms exists after latency
 export function checkTime(timeBeginning: number, gameState: GameState, logTime?: boolean) : boolean {
-  if (gameState.game.source === "testing" && isDevelopment) { return true } // don't do time checks while running tests
+  if (isDevelopment && (gameState.game.source === "testing" || gameState.game.source === "testingDeepening")) { return true } // don't do time checks while running tests
   let timeCurrent : number = Date.now()
   let timeElapsed : number = timeCurrent - timeBeginning
   //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
