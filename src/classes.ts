@@ -1750,10 +1750,11 @@ export class EvaluationResult {
   foodEaten: number = 0 // used in duels to reward snake based on how recently it's eaten
   voronoiSelf: number = 0
   voronoiPredator: number = 0
+  tailChasePenalty: number = 0 // for chasing other snake tails
   selfMoves: number = 0
 
   // scores specific to certain game modes (wrapped, solo)
-  tailChase: number = 0
+  tailChase: number = 0 // for chasing my own tail
   center: number = 0
   flipFlop: number = 0
   flipFlopTail: number = 0
