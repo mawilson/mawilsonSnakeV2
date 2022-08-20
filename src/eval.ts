@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -236,6 +236,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   //const isHazardSpiral = gameStateIsHazardSpiral(gameState)
   const isConstrictor = gameStateIsConstrictor(gameState)
   const isArcadeMaze = gameStateIsArcadeMaze(gameState)
+  const isHealingPools: boolean = gameStateIsHealingPools(gameState)
   let evalNoMe: number
   if (isConstrictor) {
     evalNoMe = evalNoMeConstrictor
@@ -719,6 +720,24 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       evalEatingMultiplier = 2.5
     }
   }
+  if (thisGameData) {
+    let startingHealth: number = thisGameData.startingGameState.you.health
+    if (isHealingPools && gameState.board.hazards.length === 0) { // prioritize eating more when starving if healing pools are gone
+      if (startingHealth < 20) {
+        evalEatingMultiplier = evalEatingMultiplier + 1.75
+      } else if (startingHealth < 30) {
+        evalEatingMultiplier = evalEatingMultiplier + 1.25
+      } else if (startingHealth < 40) {
+        evalEatingMultiplier = evalEatingMultiplier + .75
+      }
+    } else { // prioritize eating more when starving if hazard damage is close to killing me
+      if (hazardDamage > startingHealth) {
+        evalEatingMultiplier = evalEatingMultiplier + 1.25
+      } else if ((hazardDamage * 2) > startingHealth) {
+        evalEatingMultiplier = evalEatingMultiplier + .75
+      }
+    }
+  }
 
   if (!isConstrictor) { // constrictor snake length is irrelevant
     if (isSolo) { // Penalize solo snake for being larger
@@ -950,6 +969,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       }
       evaluationResult.voronoiPredator = voronoiPredatorBonus
     }
+  }
+
+  if (isMinimaxDuel && evaluationResult.voronoiSelf < -200) { // try to penalize duel snake that wanted to eat with very poor Voronoi score
+    evaluationResult.food = 0
   }
 
   if (tailChaseTurns !== undefined && tailChaseTurns.length > 0) {

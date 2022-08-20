@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber } from "./util"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -260,6 +260,7 @@ export class Board2d {
     let isConstrictor: boolean = gameStateIsConstrictor(gameState)
     let isArcadeMaze: boolean = gameStateIsArcadeMaze(gameState)
     let isSinkhole: boolean = gameStateIsSinkhole(gameState)
+    let isHealingPools: boolean = gameStateIsHealingPools(gameState)
     let sinkholeLatestSpawnTurn: number | undefined = (isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
       (2 + expansionRate * 4) : undefined // sinkhole map only works on 11x11 boards, & only if shrink turns are provided
     this.cells = new Array(this.width * this.height);
@@ -418,14 +419,17 @@ export class Board2d {
                     let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
                     let isHazard: boolean
                     let isHazardDamage: number
-                    if (isHazardSpiral && hazardSpiral !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
+                    if (isHealingPools && expansionRate !== undefined && (gameState.turn + depth) >= (expansionRate * 2)) {
+                      isHazard = false
+                      isHazardDamage = 0
+                    } else if (isHazardSpiral && hazardSpiral !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
                       let hazardSpiralCell = hazardSpiral.getCell(neighbor.coord)
                       isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : neighbor.hazard > 0 // gameState turn + depth is effective turn
                       // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
                       isHazardDamage = isHazard? self.hazardDamage : 0
                     } else if (isSinkhole && sinkholeLatestSpawnTurn !== undefined && gameState.turn < sinkholeLatestSpawnTurn) { // only need to predict future spawning sinkholes before latest turn they can spawn
                       let turn: number = gameState.turn + depth
-                      let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn, gameState.game.ruleset.settings.royale.shrinkEveryNTurns)
+                      let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn, expansionRate)
                       isHazard = hazardNumber > 0
                       isHazardDamage = hazardNumber * self.hazardDamage
                     } else {
