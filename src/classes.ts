@@ -1592,30 +1592,30 @@ export class SnakeScoreForMongo {
 }
 
 export class GameData {
+  startingGameState: GameState
   hazardWalls: HazardWalls
   hazardSpiral: HazardSpiral | undefined
   lookahead: number
   timesTaken: number[]
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
-  source: string
   prey: Battlesnake | undefined
-  turn: number
   isDuel: boolean
   timeouts: number
   priorDeepeningMoves: MoveWithEval[]
+  lastMoveTime: number
 
-  constructor(source: string) {
+  constructor(gameState: GameState) {
+    this.startingGameState = gameState
     this.hazardWalls = new HazardWalls(undefined)
     this.hazardSpiral = undefined
     this.lookahead = 0
     this.timesTaken = []
     this.evaluationsForLookaheads = []
-    this.source = source
     this.prey = undefined
-    this.turn = 0
     this.isDuel = false
     this.timeouts = 0
     this.priorDeepeningMoves = []
+    this.lastMoveTime = Date.now()
   }
 }
 
