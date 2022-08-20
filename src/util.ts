@@ -140,6 +140,10 @@ export function gameStateIsSinkhole(gameState: GameState): boolean {
   return gameState.game.map === "sinkholes"
 }
 
+export function gameStateIsHealingPools(gameState: GameState): boolean {
+  return gameState.game.map === "healing_pools"
+}
+
 // returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.
 export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
@@ -601,6 +605,9 @@ export function updateGameStateAfterMove(gameState: GameState) {
         }
       }
     }
+  }
+  if (gameStateIsHealingPools(gameState) && gameState.game.ruleset.settings.royale.shrinkEveryNTurns !== undefined && gameState.turn === (gameState.game.ruleset.settings.royale.shrinkEveryNTurns * 2)) {
+    gameState.board.hazards = [] // after 2 * shrinkEveryNTurns, all healing pools are guaranteed gone
   }
 }
 
