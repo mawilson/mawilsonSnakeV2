@@ -195,7 +195,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   if (firstEatTurn) {
     const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
     const lookahead: number = thisGameData !== undefined? thisGameData.lookahead : 0
-    const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
+    const originalTurn: number = thisGameData !== undefined? thisGameData.startingGameState.turn : gameState.turn
     let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
     evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalInitialEatingMultiplier * 3
   }
@@ -255,7 +255,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
-  const originalTurn: number = thisGameData !== undefined? thisGameData.turn : gameState.turn
+  const originalTurn: number = thisGameData !== undefined? thisGameData.startingGameState.turn : gameState.turn
   const lookaheadDepth: number = gameState.turn - 1 - originalTurn // lookahead begins 2 turns after originalTurn - first turn is 0 lookahead. Note this will be negative for originalTurn
   const turnsOfLookaheadLeft: number = lookahead - lookaheadDepth // how many turns into lookahead we are. Used by minimax to reward winning earlier
 

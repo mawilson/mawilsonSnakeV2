@@ -1,4 +1,4 @@
-export const version: string = "1.5.9" // need to declare this before imports since several imports utilize it
+export const version: string = "1.5.10" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -49,7 +49,7 @@ export function info(): InfoResponse {
 
 export async function start(gameState: GameState): Promise<void> {
   const gameDataId = createGameDataId(gameState)
-  gameData[gameDataId] = new GameData(gameState.game.source) // move() will update hazardWalls & lookahead accordingly later on.
+  gameData[gameDataId] = new GameData(gameState) // move() will update hazardWalls & lookahead accordingly later on.
   console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
 }
 
@@ -129,7 +129,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let isDuel: boolean = stateContainsMe && (gameState.board.snakes.length === 2)
     
     let board2d: Board2d
-    if (originalSnake && thisGameData && gameState.turn === thisGameData.turn) { // only originalSnake can use startingBoard2d, as otherSnakes may be rechoosing moves here after dying
+    if (originalSnake && thisGameData && gameState.turn === thisGameData.startingGameState.turn) { // only originalSnake can use startingBoard2d, as otherSnakes may be rechoosing moves here after dying
       board2d = startingBoard2d
     } else {
       board2d = new Board2d(gameState, false)
@@ -139,7 +139,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let evalThisState: number | undefined = undefined
 
     // non-originalSnakes never need evalThisState (they only care about availableMoves scores, since they can't look ahead)
-    if (originalSnake && thisGameData && gameState.turn !== thisGameData.turn) { // originalSnake does not need evalThisState for the initial turn, since that won't be returned to another _decideMove
+    if (originalSnake && thisGameData && gameState.turn !== thisGameData.startingGameState.turn) { // originalSnake does not need evalThisState for the initial turn, since that won't be returned to another _decideMove
       let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
@@ -443,7 +443,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let numMinPrunes: number = 0
 
     let board2d: Board2d
-    if (thisGameData && gameState.turn === thisGameData.turn) {
+    if (thisGameData && gameState.turn === thisGameData.startingGameState.turn) {
       board2d = startingBoard2d
     } else {
       board2d = new Board2d(gameState, false)
@@ -719,17 +719,25 @@ export function move(gameState: GameState): MoveResponse {
   if (gameData[thisGameDataId]) {
     thisGameData = gameData[thisGameDataId]
   } else { // if for some reason game data for this game doesn't exist yet (happens when testing due to lack of proper start() & end()s, create it & add it to gameData
-    thisGameData = new GameData(source)
+    thisGameData = new GameData(gameState)
     gameData[thisGameDataId] = thisGameData
   }
 
   let gameDataIds: string[] = Object.keys(gameData)
-  let otherLeagueGameRunning: boolean = gameDataIds.some(id => {
+  let otherLeagueGameRunning: boolean = false
+
+  for (const id of gameDataIds) {
     if (id !== thisGameDataId) { // don't consider myself when finding other gameDatas
       let otherGameData: GameData = gameData[id]
-      return otherGameData.source === "league" // return true if some other game is currently running with a league source
+      let otherGameTimeout: number = otherGameData.startingGameState.game.timeout
+      if ((timeBeginning - otherGameData.lastMoveTime) > otherGameTimeout * 5) { // if other game hasn't returned a move in significantly longer than the timeout, clean it up
+        delete gameData[id]
+      } else if (otherGameData.startingGameState.game.source === "league") { // if other game is still running & is a league game
+        otherLeagueGameRunning = true // true if some other game is currently running with a league source
+      }
     }
-  })
+  }
+
   if (otherLeagueGameRunning && source !== "league") { // if another league game is running, & this game is not a league game, return a suicidal move
     let suicidalMove: Direction = getSuicidalMove(gameState, gameState.you)
     let suicidalMoveStr: string = directionToString(suicidalMove) || "up"
@@ -741,7 +749,7 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
-  thisGameData.turn = gameState.turn
+  thisGameData.startingGameState.turn = gameState.turn
   if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
     thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
   }
@@ -803,13 +811,15 @@ export function move(gameState: GameState): MoveResponse {
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, board2d) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
   if (thisGameData !== undefined) {
-    let timeTaken: number = Date.now() - timeBeginning
+    let now: number = Date.now()
+    let timeTaken: number = now - timeBeginning
     let timesTaken = thisGameData.timesTaken
     timesTaken.push(timeTaken)
     if (timeTaken > gameState.game.timeout) {
       thisGameData.timeouts = thisGameData.timeouts + 1
     }
     thisGameData.priorDeepeningMoves = []
+    thisGameData.lastMoveTime = now
   }
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up

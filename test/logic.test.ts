@@ -33,7 +33,7 @@ function createHazardSpiralGameData(gameState: GameState, startTurn: number, sta
   if (gameData[gameDataId]) {
     gameData[gameDataId].hazardSpiral = new HazardSpiral(gameState, startTurn, 3, startCoord)
   } else {
-    gameData[gameDataId] = new GameData("testing")
+    gameData[gameDataId] = new GameData(gameState)
     gameData[gameDataId].hazardSpiral = new HazardSpiral(gameState, startTurn, 3, startCoord)
   }
 }
@@ -3329,7 +3329,10 @@ describe('league early return tests', () => {
       const gameState = createGameState(snek)
 
       gameState.turn = 0
-      gameData["testgameiddonotsteal"] = new GameData("league")
+      
+      const gameStateOther= createGameState(snek)
+      gameStateOther.game.source = "league"
+      gameData["testgameiddonotsteal"] = new GameData(gameStateOther)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 7, y: 7}, {x: 7, y: 7}, {x: 7, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
@@ -3360,10 +3363,14 @@ describe('league early return tests', () => {
     for (let i = 0; i < 3; i++) {
       const snek = new Battlesnake("snek", "snek", 50, [{x: 3, y: 3}, {x: 3, y: 3}, {x: 3, y: 3}], "30", "", "")
       const gameState = createGameState(snek)
+      const gameStateOther= createGameState(snek)
+      gameStateOther.game.source = "notleague"
+      const gameStateOther2 = createGameState(snek)
+      gameStateOther2.game.source = "alsonotleague"
 
       gameState.turn = 0
-      gameData["testgameiddonotsteal"] = new GameData("notleague")
-      gameData["testgameiddonotsteal2"] = new GameData("alsonotleague")
+      gameData["testgameiddonotsteal"] = new GameData(gameStateOther)
+      gameData["testgameiddonotsteal2"] = new GameData(gameStateOther2)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 7, y: 7}, {x: 7, y: 7}, {x: 7, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
@@ -3390,8 +3397,14 @@ describe('league early return tests', () => {
 
       gameState.turn = 0
       gameState.game.source = "league"
-      gameData["testgameiddonotsteal"] = new GameData("notleague")
-      gameData["testgameiddonotsteal2"] = new GameData("league")
+
+      const gameStateOther= createGameState(snek)
+      gameStateOther.game.source = "notleague"
+      const gameStateOther2 = createGameState(snek)
+      gameStateOther2.game.source = "league"
+
+      gameData["testgameiddonotsteal"] = new GameData(gameStateOther)
+      gameData["testgameiddonotsteal2"] = new GameData(gameStateOther2)
 
       const otherSnek = new Battlesnake("otherSnek", "otherSnek", 50, [{x: 7, y: 7}, {x: 7, y: 7}, {x: 7, y: 7}], "30", "", "")
       gameState.board.snakes.push(otherSnek)
