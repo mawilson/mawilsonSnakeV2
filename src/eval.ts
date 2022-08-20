@@ -839,8 +839,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   // Voronoi stuff
   if (originalTurn > 1) { // don't calculate on early turns, just get early food
     let useTailChase: boolean = isOriginalSnake
-    let useTailOffset: boolean = isOriginalSnake && gameState.game.ruleset.settings.foodSpawnChance > 2 // healing pools sets food spawn chance very low, tail offset means less
-    
+    //let useTailOffset: boolean = isOriginalSnake && gameState.game.ruleset.settings.foodSpawnChance > 2 // healing pools sets food spawn chance very low, tail offset means less
+    let useTailOffset: boolean = false
+
     // function which returns a Voronoi score based on how 'good' or 'bad' voronoiSelf is, adjusted for health scores in wrapped games
     function getVoronoiSelfAdjusted(incomingValue: number) : number {
       let voronoiSelfAdjusted: number
@@ -922,7 +923,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       } else if (preySnake !== undefined) {
         let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
         if (preySnakeResults !== undefined) {
-          let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, true, (gameState.game.ruleset.settings.foodSpawnChance > 2), voronoiBaseGood) // will only reach here for preys of originalSnake, so provide 'true' for tail params
+          let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, true, false, voronoiBaseGood) // will only reach here for preys of originalSnake, so provide 'true' for tail params
           if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
             let howBad: number = -preySnakeVoronoi * evalVoronoiPreyStep // preySnakeVoronoi is negative so need to negate this
             if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
