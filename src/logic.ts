@@ -1,4 +1,4 @@
-export const version: string = "1.5.11" // need to declare this before imports since several imports utilize it
+export const version: string = "1.5.12" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -342,7 +342,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 } else if (otherSnakeAvailableMoves.length === 1) {
                   moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
                 } else {
-                  fakeMoveSnake(gameState, snake)
+                  fakeMoveSnake(snake)
                 }
               }
             }
@@ -732,6 +732,7 @@ export function move(gameState: GameState): MoveResponse {
       let otherGameTimeout: number = otherGameData.startingGameState.game.timeout
       if ((timeBeginning - otherGameData.lastMoveTime) > otherGameTimeout * 5) { // if other game hasn't returned a move in significantly longer than the timeout, clean it up
         delete gameData[id]
+        console.log(`cleaned up game. Still ${Object.keys(gameData).length} games running.\n`)
       } else if (otherGameData.startingGameState.game.source === "league") { // if other game is still running & is a league game
         otherLeagueGameRunning = true // true if some other game is currently running with a league source
       }

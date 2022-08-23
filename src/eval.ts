@@ -125,18 +125,20 @@ function determineOtherSnakeHealthEvalDuel(otherSnake: Battlesnake): number {
 }
 
 // constrictor evalNoSnakes is very simple - just Base - otherSnakeHealth
-function determineEvalNoSnakesConstrictor(myself: Battlesnake): EvaluationResult {
+function determineEvalNoSnakesConstrictor(gameState: GameState, myself: Battlesnake): EvaluationResult {
+  const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
   let evaluationResult = new EvaluationResult(myself)
   evaluationResult.base = evalBase
-  let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval([myself]) // otherSnake may as well be me, since my health is also maxed out
+  let otherSnakeHealthPenalty: number = thisGameData?.startingGameState.board.snakes.length === 2 ? determineOtherSnakeHealthEvalDuel(myself) : determineOtherSnakeHealthEval([myself]) // otherSnake may as well be me, since my health is also maxed out
   evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+  evaluationResult.tieValue = evalTieFactor; // want to make a tie slightly worse than an average state. Still good, but don't want it overriding other, better states
   return evaluationResult
 }
 
 // normal evalNoSnakes must distinguish between self & otherSnakes due to difference in how Voronoi is awarded
 export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake, tieSnake: Battlesnake | undefined, firstEatTurn?: number): EvaluationResult {
   if (gameStateIsConstrictor(gameState)) {
-    return determineEvalNoSnakesConstrictor(myself)
+    return determineEvalNoSnakesConstrictor(gameState, myself)
   }
   let evaluationResult = new EvaluationResult(myself)
   evaluationResult.base = evalBase
@@ -989,7 +991,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
-  if (availableMoves.validMoves().length === 0) {
+  if (availableMoves.validMoves().length === 0 && evaluationResult.voronoiSelf < 0) {
     evaluationResult.selfMoves = evalAvailableMoves0Moves
   }
 

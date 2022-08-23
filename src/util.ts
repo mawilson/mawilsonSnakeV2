@@ -41,7 +41,7 @@ export function snakeHasEaten(snake: Battlesnake, firstEatTurn?: number) : boole
   if (firstEatTurn !== undefined) { // if firstEatTurn is defined, the snake has eaten within the lookahead (on that turn)
     return true
   } else { // snake has eaten if its tail & pre-tail are equivalent coords
-    return (snake.length > 3 && coordsEqual(snake.body[snake.length - 1], snake.body[snake.length - 2]))
+    return snake.hasEaten
   }
 }
 
@@ -340,7 +340,7 @@ export function cloneGameState(gameState: GameState) : GameState {
     for (const coord of snake.body) {
       newBody.push({x: coord.x, y: coord.y})
     }
-    cloneSnakes.push(new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad))
+    cloneSnakes.push(new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad, snake.hasEaten))
   }
 
   let cloneHazards : ICoord[] = []
@@ -366,7 +366,7 @@ export function cloneGameState(gameState: GameState) : GameState {
     for (const coord of gameState.you.body) {
       newBody.push(new Coord(coord.x, coord.y))
     }
-    cloneYou = new Battlesnake(gameState.you.id, gameState.you.name, gameState.you.health, newBody, gameState.you.latency, gameState.you.shout, gameState.you.squad)
+    cloneYou = new Battlesnake(gameState.you.id, gameState.you.name, gameState.you.health, newBody, gameState.you.latency, gameState.you.shout, gameState.you.squad, gameState.you.hasEaten)
   } else {
     cloneYou = cloneYouProbably
   }
@@ -514,11 +514,14 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     if (newCell.food || isConstrictor) { // in constrictor, there is no food, but every move is treated as though we ate, with length growing, tail duplicating, & health maximizing
       snake.health = 100
       snake.body.push(snake.body[snake.body.length - 1]) // snake should duplicate its tail cell if it has just eaten
+      snake.hasEaten = true
     } else if (newCell.hazard > 0) {
       snake.health = snake.health - 1 - (hazardDamage * newCell.hazard)
       snake.health = snake.health > 100? 100 : snake.health // snake health caps at 100, healing pool cannot raise its health past that
+      snake.hasEaten = false
     } else {
       snake.health = snake.health - 1
+      snake.hasEaten = false
     }
 
     snake.length = snake.body.length // this is how Battlesnake does it too, length is just a reference to the snake body array length
@@ -530,10 +533,9 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
 }
 
 // for moving a snake without actually moving it. Reduces its tail without reducing its length, duplicating its tail instead
-export function fakeMoveSnake(gameState: GameState, snake: Battlesnake) {
-  if (!gameStateIsConstrictor(gameState) && !snakeHasEaten(snake)) { // if it hasn't eaten & it isn't constrictor, reduce its length by one by removing the tail
-    snake.body = snake.body.slice(0, -1)
-  }
+export function fakeMoveSnake(snake: Battlesnake) {
+  snake.body = snake.body.slice(0, -1) // even if snake has eaten this turn, its tail cell will be duplicated, so we will still want to slice off the last element
+  snake.hasEaten = false // a fake moving snake cannot eat
   snake.body.push(snake.body[snake.body.length - 1]) // duplicate the tail
 }
 
