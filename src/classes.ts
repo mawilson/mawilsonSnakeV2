@@ -1651,9 +1651,9 @@ export class TimingStats {
 }
 
 export class TimingData {
-  average: number
-  max: number
-  populationStandardDeviaton: number
+  average: number | undefined
+  max: number | undefined
+  populationStandardDeviaton: number | undefined
   gameResult: string
   version: string
   amMachineLearning: boolean
@@ -1667,10 +1667,10 @@ export class TimingData {
   snakeLength: number
   numTimeouts: number
 
-  constructor(timingStats: TimingStats, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number) {
-    this.average = timingStats.average
-    this.max = timingStats.max
-    this.populationStandardDeviaton = timingStats.populationStandardDeviation
+  constructor(timingStats: TimingStats | undefined, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number) {
+    this.average = timingStats?.average
+    this.max = timingStats?.max
+    this.populationStandardDeviaton = timingStats?.populationStandardDeviation
     this.version = _version
     this.amMachineLearning = amMachineLearning
     this.amUsingMachineData = amUsingMachineData

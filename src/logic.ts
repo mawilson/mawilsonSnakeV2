@@ -1,8 +1,8 @@
-export const version: string = "1.5.12" // need to declare this before imports since several imports utilize it
+export const version: string = "1.5.13" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord } from "./classes"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten } from "./util"
 import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze, evalHaveWonTurnStep } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
@@ -64,32 +64,36 @@ export async function end(gameState: GameState): Promise<void> {
   let isSolo = gameStateIsSolo(gameState)
   let gameResult = isSolo? "solo" : isWin? "win" : isTie? "tie" : "loss" // it's either a solo, a win, a tie, or a loss
   
-  if (thisGameData !== undefined) { // if we have gameData, log some of it to our gameData directory
-    const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
-    if (thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
-      let timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
-      let hazardDamage: number = getHazardDamage(gameState)
-      let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, thisGameData.timeouts)
-
-      const timingCollection: Collection = await getCollection(mongoClient, "timing")
-
-      await timingCollection.insertOne(timeData)
-    }
-
-    if (amMachineLearning) { // if I am learning, add the results to the thing
-      const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
-
-      if (thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
-        let snakeScoresForMongo: SnakeScoreForMongo[] = []
-        for (const snakeScore of thisGameData.evaluationsForLookaheads) {
-          snakeScoresForMongo.push(new SnakeScoreForMongo(snakeScore.score, snakeScore.hashKey(), version, gameResult))
-        }
-        await snakeScoresCollection.insertMany(snakeScoresForMongo)
-      }
-    }
-
-    await mongoClient.close() // always close your connection out!
+  
+  const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
+  let timeStats: TimingStats | undefined
+  if (thisGameData && thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
+    timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
+  } else {
+    timeStats = undefined
   }
+  let hazardDamage: number = getHazardDamage(gameState)
+  let timeouts: number = thisGameData? thisGameData.timeouts : 0
+  let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts)
+
+  const timingCollection: Collection = await getCollection(mongoClient, "timing")
+
+  await timingCollection.insertOne(timeData)
+
+  if (amMachineLearning) { // if I am learning, add the results to the thing
+    const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
+
+    if (thisGameData && thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
+      let snakeScoresForMongo: SnakeScoreForMongo[] = []
+      for (const snakeScore of thisGameData.evaluationsForLookaheads) {
+        snakeScoresForMongo.push(new SnakeScoreForMongo(snakeScore.score, snakeScore.hashKey(), version, gameResult))
+      }
+      await snakeScoresCollection.insertMany(snakeScoresForMongo)
+    }
+  }
+
+  await mongoClient.close() // always close your connection out!
+  
 
   if (thisGameData !== undefined) { // clean up game-specific data
     delete gameData[gameDataId]
