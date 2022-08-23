@@ -118,28 +118,34 @@ export class MoveWithEval {
 }
 
 export class Battlesnake implements IBattlesnake {
-  id: string;
-  name: string;
-  health: number;
-  body: ICoord[];
-  latency: string;
-  head: ICoord;
-  length: number;
+  id: string
+  name: string
+  health: number
+  body: ICoord[]
+  latency: string
+  head: ICoord
+  length: number
+  hasEaten: boolean
 
   // Used in non-standard game modes
   shout: string;
   squad: string;
 
-  constructor(id: string, name: string, health: number, body: ICoord[], latency: string, shout: string, squad: string) {
-    this.id = id;
-    this.name = name;
-    this.health = health;
-    this.body = body;
-    this.latency = latency;
+  constructor(id: string, name: string, health: number, body: ICoord[], latency: string, shout: string, squad: string, hasEaten?: boolean) {
+    this.id = id
+    this.name = name
+    this.health = health
+    this.body = body
+    this.latency = latency
     this.head = body[0]
     this.length = body.length
-    this.shout = shout;
-    this.squad = squad;
+    this.shout = shout
+    this.squad = squad
+    if (hasEaten === undefined) { // if unprovided, set hasEaten equal to whether tail & subtail are equivalent coords
+      this.hasEaten = coordsEqual(body[body.length - 1], body[body.length - 2])
+    } else {
+      this.hasEaten = hasEaten
+    }
   }
 }
 
@@ -392,23 +398,28 @@ export class Board2d {
                   let isBodyCell: boolean = false // only true if neighbor contains a snakeCell which has not receded as a tail by this depth
                   let tailOffset: number | undefined = undefined // used to keep track of following otherSnake tail danger
                   if (neighbor.snakeCell !== undefined) {
+                    let neighborSnakeLength: number = neighbor.snakeCell.snake.length
                     if (isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
                       isBodyCell = true
                     } else {
                       let effectiveIndex: number
-                      if (neighbor.snakeCell.bodyIndex === (neighbor.snakeCell.snake.length - 1) && snakeHasEaten(neighbor.snakeCell.snake)) {
+                      let duplicatedTail: boolean = coordsEqual(neighbor.snakeCell.snake.body[neighborSnakeLength - 1], neighbor.snakeCell.snake.body[neighborSnakeLength - 2])
+                      // third condition handles special case of fakeMoveSnake where snake has not eaten, but has duplicated its tail. Its tail does not really exist
+                      if (neighbor.snakeCell.bodyIndex === (neighborSnakeLength - 1) && duplicatedTail && snakeHasEaten(neighbor.snakeCell.snake)) {
                         effectiveIndex = neighbor.snakeCell.bodyIndex - 1 // this body index was replaced by its successor - decrement it again
                       } else {
                         effectiveIndex = neighbor.snakeCell.bodyIndex
                       }
                       if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
                         tailOffset = voronoiSnake.effectiveLength - effectiveIndex - depth
-                        isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                       } else {
-                        let neighborSnakeEffectiveLength: number = neighbor.snakeCell.snake.length + snakePossibleEats[neighbor.snakeCell.snake.id]
+                        let neighborSnakeEffectiveLength: number = neighborSnakeLength + snakePossibleEats[neighbor.snakeCell.snake.id]
                         tailOffset = neighborSnakeEffectiveLength - effectiveIndex - depth
-                        isBodyCell = tailOffset > 0
                       }
+                      if (duplicatedTail && !snakeHasEaten(neighbor.snakeCell.snake)) {
+                        tailOffset = tailOffset - 1 // this is a fakeMoveSnake, its tailOffset is always 1 less because its tail did not actually exist
+                      }
+                      isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                     }
                   }
                   // so for a snake of length 5, at the tail, this means: (5 - 4) <= 1, or <= 2, 3, etc. This evaluates to true, which is correct - that's a tail cell, even at depth 1, it's valid
