@@ -41,7 +41,11 @@ export function snakeHasEaten(snake: Battlesnake, firstEatTurn?: number) : boole
   if (firstEatTurn !== undefined) { // if firstEatTurn is defined, the snake has eaten within the lookahead (on that turn)
     return true
   } else { // snake has eaten if its tail & pre-tail are equivalent coords
-    return snake.hasEaten
+    if (snake.hasEaten === undefined) {
+      return coordsEqual(snake.body[snake.body.length - 1], snake.body[snake.body.length - 2])
+    } else {
+      return snake.hasEaten
+    }
   }
 }
 

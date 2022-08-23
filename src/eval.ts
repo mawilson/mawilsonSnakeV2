@@ -29,20 +29,22 @@ export const evalHaveWonTurnStep: number = 50
 let evalInitialEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
-function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): number {
+function determineHealthEval(gameState: GameState, snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): number {
   if (hazardDamage < 0 || hazardDamage >= 100) { // use arcadeMaze health evaluater for healing pools or walls (arcade maze)
     return determineHealthEvalArcadeMaze(snake, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
+  } else if (gameStateIsSinkhole(gameState)) {
+    return determineHealthEvalSinkhole(snake, hazardDamage, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
   }
   const snakeHealth: number = haveWon? 100 : snake.health
-  const validHazardTurns = snakeHealth / (hazardDamage + 1)
+  let validHazardTurns = snakeHealth / (hazardDamage + 1)
   const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
   const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
   const evalHealth6 = evalHealth7 - healthTierDifference // 75 - 10 = 65
   const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 65 - 10 - (6 * 1) = 49
-  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // 54 - 10 - (6 * 2) = 27
-  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // 42 - 10 - (6 * 3) = -1
-  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // 29 - 10 - (6 * 4) = -35
-  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) - 50 // 15 - 10 - (6 * 5) - 50 = -125
+  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // 49 - 10 - (6 * 2) = 27
+  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // 27 - 10 - (6 * 3) = -1
+  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // -1 - 10 - (6 * 4) = -35
+  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) - 50 // -35 - 10 - (6 * 5) - 50 = -125
   const evalHealth0 = -200
   let evaluation: number = 0
 
@@ -50,6 +52,49 @@ function determineHealthEval(snake: Battlesnake, hazardDamage: number, healthSte
     evaluation = evalHealthStarved
   } else if (hazardDamage <= 0 && snakeHealth < 10) { // in a non-hazard game, we still need to prioritize food at some point
     evaluation = evalHealth0
+  } else if (validHazardTurns > 6) {
+    evaluation = evalHealth7
+  } else if (validHazardTurns > 5) {
+    evaluation = evalHealth6
+  } else if (validHazardTurns > 4) {
+    evaluation = evalHealth5
+  } else if (validHazardTurns > 3) {
+    evaluation = evalHealth4
+  } else if (validHazardTurns > 2) {
+    evaluation = evalHealth3     
+  } else if (validHazardTurns > 1) {
+    evaluation = evalHealth2 
+  } else if (validHazardTurns > 0) {
+    evaluation = evalHealth1
+  } // validHazardTurns will never be <= 0, as that is starvation & would match the top if
+
+  return evaluation
+}
+
+function determineHealthEvalSinkhole(snake: Battlesnake, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): number {
+  const snakeHealth: number = haveWon? 100 : snake.health
+  let validHazardTurns = snakeHealth / (hazardDamage + 1)
+  const evalHealthStarved = starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
+  const evalHealth9 = healthBase // 75
+  const evalHealth8 = evalHealth9 - healthTierDifference // 75 - 10 = 65
+  const evalHealth7 = evalHealth8 - healthTierDifference - (healthStep * 1) // 65 - 10 - (6 * 1) = 49
+  const evalHealth6 = evalHealth7 - healthTierDifference - (healthStep * 2) // 49 - 10 - (6 * 2) = 27
+  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 27 - 10 - (6 * 3) = -1
+  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // -1 - 10 - (6 * 4) = -35
+  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // -35 - 10 - (6 * 5) = -75
+  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // -75 - 10 - (6 * 6) = -121
+  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) - 50 // -121 - 10 - (6 * 7) - 50 = -223
+  const evalHealth0 = -200
+  let evaluation: number = 0
+
+  if (snakeHealth <= 0) {
+    evaluation = evalHealthStarved
+  } else if (hazardDamage <= 0 && snakeHealth < 10) { // in a non-hazard game, we still need to prioritize food at some point
+    evaluation = evalHealth0
+  } else if (validHazardTurns > 8) {
+    evaluation = evalHealth9
+  } else if (validHazardTurns > 7) {
+    evaluation = evalHealth8
   } else if (validHazardTurns > 6) {
     evaluation = evalHealth7
   } else if (validHazardTurns > 5) {
@@ -147,7 +192,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   const evalHealthTierDifference = 10
   const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
 
-  evaluationResult.health = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMeStandard, false)
+  evaluationResult.health = determineHealthEval(gameState, myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMeStandard, false)
   if (tieSnake) {
     evaluationResult.otherSnakeHealth = determineOtherSnakeHealthEval([tieSnake])
   }
@@ -788,7 +833,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
-    let healthEval: number = determineHealthEval(myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
+    let healthEval: number = determineHealthEval(gameState, myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
 
     if (lookaheadDepth > 0 && healthEval < 0 && lookaheadDepth === lookahead && !isDuel) { // the deeper we go into lookahead, the more the health evaluation is worth, but particularly we want to penalize not having a 'plan', ending a lookahead with low health
       healthEval = healthEval * lookaheadDepth // health eval is more valuable deeper into the lookahead - should reward snakes for getting food later, & penalize them for delaying eating less

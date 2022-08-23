@@ -50,16 +50,25 @@ export const snakeScoreAggregations = [
 const timingAggregations = [
   {
     '$match': {
-      'average': {
-        '$lt': 500
-      }, 
       'timeout': {
         '$exists': true
-      },
+      }, 
       'gameMode': {
         '$exists': true
-      },
+      }, 
       'isDevelopment': {
+        '$exists': true
+      }, 
+      'source': {
+        '$exists': true
+      }, 
+      'hazardDamage': {
+        '$exists': true
+      }, 
+      'map': {
+        '$exists': true
+      }, 
+      'snakeLength': {
         '$exists': true
       }
     }
@@ -69,9 +78,12 @@ const timingAggregations = [
         'version': '$version', 
         'amMachineLearning': '$amMachineLearning', 
         'amUsingMachineData': '$amUsingMachineData', 
-        'timeout': '$timeout',
-        'gameMode': '$gameMode',
-        'isDevelopment': '$isDevelopment'
+        'timeout': '$timeout', 
+        'gameMode': '$gameMode', 
+        'isDevelopment': '$isDevelopment', 
+        'source': '$source', 
+        'hazardDamage': '$hazardDamage', 
+        'map': '$map'
       }, 
       'averageAverage': {
         '$avg': '$average'
@@ -81,6 +93,9 @@ const timingAggregations = [
       }, 
       'averageStdDev': {
         '$avg': '$populationStandardDeviaton'
+      }, 
+      'averageLength': {
+        '$avg': '$snakeLength'
       }, 
       'wins': {
         '$sum': {
@@ -117,6 +132,9 @@ const timingAggregations = [
       }, 
       'total': {
         '$sum': 1
+      }, 
+      'numTimeouts': {
+        '$sum': '$numTimeouts'
       }
     }
   }, {
@@ -125,11 +143,15 @@ const timingAggregations = [
       'amMachineLearning': '$_id.amMachineLearning', 
       'amUsingMachineData': '$_id.amUsingMachineData', 
       'timeout': '$_id.timeout', 
-      'gameMode': '$_id.gameMode',
-      'isDevelopment': '$_id.isDevelopment',
+      'gameMode': '$_id.gameMode', 
+      'source': '$_id.source', 
+      'hazardDamage': '$_id.hazardDamage', 
+      'map': '$_id.map', 
+      'isDevelopment': '$_id.isDevelopment', 
       'averageAverage': '$averageAverage', 
       'averageMax': '$averageMax', 
       'averageStdDev': '$averageStdDev', 
+      'averageLength': '$averageLength', 
       'winRate': {
         '$divide': [
           '$wins', '$total'
@@ -145,7 +167,15 @@ const timingAggregations = [
           '$ties', '$total'
         ]
       }, 
-      'total': '$total'
+      'total': '$total', 
+      'numTimeouts': '$numTimeouts'
+    }
+  }, {
+    '$match': {
+      'isDevelopment': false, 
+      'source': 'ladder', 
+      'map': 'healing_pools', 
+      'timeout': 500
     }
   }
 ]
