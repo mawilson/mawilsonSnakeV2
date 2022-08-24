@@ -430,7 +430,7 @@ export class Board2d {
                     let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
                     let isHazard: boolean
                     let isHazardDamage: number
-                    if (isHealingPools && expansionRate !== undefined && (gameState.turn + depth) >= (expansionRate * 2)) {
+                    if (isHealingPools && expansionRate !== undefined && (gameState.turn + depth) > (expansionRate * 2)) {
                       isHazard = false
                       isHazardDamage = 0
                     } else if (isHazardSpiral && hazardSpiral !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
