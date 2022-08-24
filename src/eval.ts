@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -813,24 +813,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (!isConstrictor) {
-    if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
-      // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
-      if (isMinimaxDuel) {
-        if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
-          evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
-        } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
-          let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
-          evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
-        }
-      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
-        evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
-      }
-    } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
-      evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
-    }
-  }
-
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
     let healthEval: number = determineHealthEval(gameState, myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
@@ -849,57 +831,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     wantToEat = true // need solo snake to not penalize itself in subsequent turns after eating
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
-  }
-
-  if (wantToEat) { // only add food calc if snake wants to eat
-    let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
-    let foodCalc : number = 0
-    let eatTurnIndex: number = eatTurns.length - 1 // start at end of eatTurns array & go backwards
-    let eatTurnDepth: number = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // snake ate a food this many turns ago
-    let ateAtThisDepth: boolean
-    for (let i: number = 0; i <= foodSearchDepth; i++) {
-      ateAtThisDepth = false
-      if (eatTurnIndex >= 0) { // so long as there is another eatTurn in the array, keep checking if it ate at this foodSearchDepth
-        if (eatTurnDepth === i) { // if eatTurnDepth matches this food depth, it ate at this depth
-          ateAtThisDepth = true // tell food function to add this food back during this iteration
-          eatTurnIndex = eatTurnIndex - 1 // also tell next iteration to only look at food eaten earlier on, as we've already processed this index & all after it
-          eatTurnDepth = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // also tell next iteration what depth that food was eaten at, so we don't do this math each iteration
-        }
-      }
-      
-      foodToHunt = nearbyFood[i]
-      if (foodToHunt && foodToHunt.length > 0) {
-        // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
-  
-        let foodToHuntLength: number = foodToHunt.length
-        if (!isSolo && !isMinimaxDuel && i === 0) { // solo snakes don't reward eating, & duel snakes use minimax & have their own method
-          foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
-        }
-        for(const fud of foodToHunt) {
-          let foodCell = board2d.getCell(fud)
-          if (foodCell && foodCell.hazard && hazardDamage > 0) {
-            foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
-          }
-        }
-        let foodCalcStep = 0
-        if (haveWon) { // if I have already won, give max food score - as if I was as close as possible to all food at once
-          foodCalcStep = evalFoodVal * (foodSearchDepth + 1) * foodToHuntLength
-        } else {
-          foodCalcStep = evalFoodVal * j * foodToHuntLength
-        }
-        //buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
-        foodCalc = foodCalc + foodCalcStep
-      }
-
-      // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
-      if (safeToEat && ateAtThisDepth) {
-        foodCalc = foodCalc + (evalFoodVal * j) // add another food at this depth. Note that this food cannot be treated as hazard food
-      }
-
-      j = j - 1
-    }
-
-    evaluationResult.food = foodCalc
   }
 
   // Voronoi stuff
@@ -1018,8 +949,83 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (isMinimaxDuel && evaluationResult.voronoiSelf < -200) { // try to penalize duel snake that wanted to eat with very poor Voronoi score
-    evaluationResult.food = 0
+  if (!isConstrictor) {
+    if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
+      // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+      if (isMinimaxDuel) {
+        if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
+          evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+        } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
+          let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
+          evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+        }
+      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
+        if (isOriginalSnake) {
+          evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
+        } else {
+          evaluationResult.foodEaten = evalEatingMultiplier * 9 // turnsOfLookaheadLeft will always be 0 for otherSnakes, but we still want them to get a foodEaten bonus
+        }
+      }
+    } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+      evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+    }
+  }
+
+  if (wantToEat) { // only add food calc if snake wants to eat
+    let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
+    let foodCalc : number = 0
+    let eatTurnIndex: number = eatTurns.length - 1 // start at end of eatTurns array & go backwards
+    let eatTurnDepth: number = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // snake ate a food this many turns ago
+    let ateAtThisDepth: boolean
+    for (let i: number = 0; i <= foodSearchDepth; i++) {
+      ateAtThisDepth = false
+      if (eatTurnIndex >= 0) { // so long as there is another eatTurn in the array, keep checking if it ate at this foodSearchDepth
+        if (eatTurnDepth === i) { // if eatTurnDepth matches this food depth, it ate at this depth
+          ateAtThisDepth = true // tell food function to add this food back during this iteration
+          eatTurnIndex = eatTurnIndex - 1 // also tell next iteration to only look at food eaten earlier on, as we've already processed this index & all after it
+          eatTurnDepth = eatTurnIndex >= 0? (gameState.turn - eatTurns[eatTurnIndex]) : -1 // also tell next iteration what depth that food was eaten at, so we don't do this math each iteration
+        }
+      }
+      
+      foodToHunt = nearbyFood[i]
+      if (foodToHunt && foodToHunt.length > 0) {
+        // for each piece of found found at this depth, add some score. Score is higher if the depth i is lower, since j will be higher when i is lower
+  
+        let foodToHuntLength: number = foodToHunt.length
+        if (!isSolo && !isMinimaxDuel && i === 0) { // solo snakes don't reward eating, & duel snakes use minimax & have their own method
+          foodToHuntLength = foodToHuntLength * evalEatingMultiplier // give extra weight towards food I have already eaten - another nudge towards eating food earlier
+        }
+        for(const fud of foodToHunt) {
+          let foodCell = board2d.getCell(fud)
+          if (foodCell && foodCell.hazard && hazardDamage > 0) {
+            foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
+          }
+        }
+        let foodCalcStep = 0
+        if (haveWon) { // if I have already won, give max food score - as if I was as close as possible to all food at once
+          foodCalcStep = evalFoodVal * (foodSearchDepth + 1) * foodToHuntLength
+        } else {
+          foodCalcStep = evalFoodVal * j * foodToHuntLength
+        }
+        //buildLogString(`found ${foodToHunt.length} food at depth ${i}, adding ${foodCalcStep}`)
+        foodCalc = foodCalc + foodCalcStep
+      }
+
+      // if snake has eaten recently, add that food back when calculating food score so as not to penalize it for eating that food
+      if (safeToEat && ateAtThisDepth) {
+        foodCalc = foodCalc + (evalFoodVal * (foodSearchDepth + 1)) // add another food at max depth. Note that this food cannot be treated as hazard food
+      }
+
+      j = j - 1
+    }
+
+    evaluationResult.food = foodCalc
+  }
+
+  if (isMinimaxDuel && evaluationResult.food > 0 && evaluationResult.voronoiSelf < 0) { // try to penalize duel snake that wanted to eat with somewhat poor Voronoi score
+    let foodMult: number = getFoodModifier(evaluationResult.voronoiSelf)
+    evaluationResult.food = evaluationResult.food * foodMult
+    evaluationResult.foodEaten = evaluationResult.foodEaten * foodMult
   }
 
   if (tailChaseTurns !== undefined && tailChaseTurns.length > 0) {
