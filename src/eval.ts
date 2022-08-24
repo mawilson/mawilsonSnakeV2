@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -813,24 +813,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (!isConstrictor) {
-    if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
-      // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
-      if (isMinimaxDuel) {
-        if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
-          evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
-        } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
-          let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
-          evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
-        }
-      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
-        evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
-      }
-    } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
-      evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
-    }
-  }
-
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
     let healthEval: number = determineHealthEval(gameState, myself, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
@@ -967,8 +949,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (isMinimaxDuel && evaluationResult.voronoiSelf < -200) { // try to penalize duel snake that wanted to eat with very poor Voronoi score
-    wantToEat = false
+  if (!isConstrictor) {
+    if (snakeHasEaten(myself, firstEatTurn) && safeToEat) { // don't reward snake for eating if it got into a cutoff or sandwich situation doing so, or if it risked a kiss of death for the food
+      // in addition to adding the eaten food back to the board for scoring, we want to give a reward to snake for eating depending on how early in lookahead it did so
+      if (isMinimaxDuel) {
+        if (haveWon) { // winning snakes should be rewarded as if they ate ASAP
+          evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+        } else if (firstEatTurn !== undefined) { // if firstEatTurn was provided, that is the earliest turn in lookahead we ate, reward how many turns were left after that
+          let turnsOfLookaheadLeftAfterEating: number = (originalTurn + 1 + lookahead) - firstEatTurn // ex: original 30, lookahead 3, turn 31 (first turn). Should be 3 turns lookahead left: 30 + 1 + 3 - 31 = 3
+          evaluationResult.foodEaten = turnsOfLookaheadLeftAfterEating * evalEatingMultiplier * 3
+        }
+      } else if (firstEatTurn === gameState.turn) { // for maxN evals, want to only give this reward on the turn eaten
+        if (isOriginalSnake) {
+          evaluationResult.foodEaten = turnsOfLookaheadLeft * evalEatingMultiplier * 3
+        } else {
+          evaluationResult.foodEaten = evalEatingMultiplier * 9 // turnsOfLookaheadLeft will always be 0 for otherSnakes, but we still want them to get a foodEaten bonus
+        }
+      }
+    } else if (isMinimaxDuel && haveWon) { // winning snakes should be rewarded as if they ate ASAP, even if they didn't eat at all
+      evaluationResult.foodEaten = lookahead * evalEatingMultiplier * 3
+    }
   }
 
   if (wantToEat) { // only add food calc if snake wants to eat
@@ -1020,6 +1020,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
 
     evaluationResult.food = foodCalc
+  }
+
+  if (isMinimaxDuel && evaluationResult.food > 0 && evaluationResult.voronoiSelf < 0) { // try to penalize duel snake that wanted to eat with somewhat poor Voronoi score
+    let foodMult: number = getFoodModifier(evaluationResult.voronoiSelf)
+    evaluationResult.food = evaluationResult.food * foodMult
+    evaluationResult.foodEaten = evaluationResult.foodEaten * foodMult
   }
 
   if (tailChaseTurns !== undefined && tailChaseTurns.length > 0) {
