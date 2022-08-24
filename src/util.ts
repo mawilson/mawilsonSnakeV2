@@ -612,8 +612,8 @@ export function updateGameStateAfterMove(gameState: GameState) {
       }
     }
   }
-  if (gameStateIsHealingPools(gameState) && gameState.game.ruleset.settings.royale.shrinkEveryNTurns !== undefined && gameState.turn === (gameState.game.ruleset.settings.royale.shrinkEveryNTurns * 2)) {
-    gameState.board.hazards = [] // after 2 * shrinkEveryNTurns, all healing pools are guaranteed gone
+  if (gameStateIsHealingPools(gameState) && gameState.game.ruleset.settings.royale.shrinkEveryNTurns !== undefined && gameState.turn === ((gameState.game.ruleset.settings.royale.shrinkEveryNTurns * 2) + 1)) {
+    gameState.board.hazards = [] // after 2 * shrinkEveryNTurns + 1, all healing pools are guaranteed gone
   }
 }
 
