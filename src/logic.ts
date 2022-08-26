@@ -1,10 +1,10 @@
-export const version: string = "1.6.1" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.2" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten } from "./util"
-import { evaluate, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze, evalHaveWonTurnStep } from "./eval"
+import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze, evalHaveWonTurnStep } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
@@ -492,7 +492,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         evaluationResult.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
         _evalThisState = evaluationResult
       } else {
-        _evalThisState = evaluate(gameState, gameState.you, evaluateKisses, _eatTurns, _tailChaseTurns)
+        _evalThisState = evaluateMinimax(gameState, evaluateKisses, _eatTurns, _tailChaseTurns)
       }
 
       let evalThisState: number = _evalThisState.sum() // don't provide minimum - negative winValue will always result in a lower minimum than that
@@ -626,7 +626,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             }
 
             if (lookahead <= 0) { // base case, start returning
-              evaluationResult = evaluate(otherNewGameState, newOriginalSnake, kissArgs, eatTurns, tailChaseTurns)
+              evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns, tailChaseTurns)
               evalState = new MoveWithEval(move, evaluationResult.sum(), evaluationResult)
             } else {
               evalState = _decideMoveMinMax(otherNewGameState, lookahead - 1, tailChaseTurns, kissArgs, minAlpha, minBeta, eatTurns)
