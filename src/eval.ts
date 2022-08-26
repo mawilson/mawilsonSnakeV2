@@ -741,8 +741,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evalFoodVal = 4
   } else if (originalTurn <= 1) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isTypeOfDuel && otherSnakeHealth < evalHealthEnemyThreshold && hazardDamage > 0) { // care a bit more about food to try to starve the other snake out, except in healing pool
-    evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
   } else if (isTypeOfDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 2
   } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
@@ -1297,8 +1295,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   const evalHealthStep = hazardDamage > 0? 6 : 3
   const evalHealthTierDifference = 10
 
-  const evalHealthEnemyThreshold = 50 // enemy health at which we try harder to starve other snakes out
-
   let evalLengthMult: number = 10 // larger values result in more food prioritization. Negative preference towards length in solo
   let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
 
@@ -1478,8 +1474,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     evalFoodVal = 4
   } else if (originalTurn <= 1) {
     evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (otherSnake && otherSnake.health < evalHealthEnemyThreshold && hazardDamage > 0) { // care a bit more about food to try to starve the other snake out, except in healing pool
-    evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
   } else if (delta < -4) { // care a bit less about food due to already being substantially smaller
     evalFoodVal = 2
   } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
