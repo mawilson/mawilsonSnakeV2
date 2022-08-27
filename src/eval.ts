@@ -1532,20 +1532,20 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
       let voronoiDelta: number
-      // if (isHealingPools) {
-      //   function reduceScoreByHealthAverage(voronoiScore: number, voronoiResultsSnake: VoronoiResultsSnake): number {
-      //     if (voronoiResultsSnake && voronoiResultsSnake.effectiveHealths.length > 0) {
-      //       const healthSum: number = voronoiResultsSnake.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
-      //       const healthAverage: number = healthSum / voronoiResultsSnake.effectiveHealths.length // is average health of snake in reachable cells
-      //       const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
-      //       return voronoiScore * healthRatio // return voronoiScore reduced by average health ratio of reachable cells
-      //     } else {
-      //       return voronoiScore
-      //     }
-      //   }
-      //   voronoiSelf = reduceScoreByHealthAverage(voronoiSelf, voronoiResultsSelf)
-      //   otherSnakeVoronoi = reduceScoreByHealthAverage(otherSnakeVoronoi, voronoiResults.snakeResults[otherSnake.id])
-      // }
+      if (isHealingPools) {
+        function reduceScoreByHealthAverage(voronoiScore: number, voronoiResultsSnake: VoronoiResultsSnake): number {
+          if (voronoiResultsSnake && voronoiResultsSnake.effectiveHealths.length > 0) {
+            const healthSum: number = voronoiResultsSnake.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
+            const healthAverage: number = healthSum / voronoiResultsSnake.effectiveHealths.length // is average health of snake in reachable cells
+            const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
+            return voronoiScore * healthRatio // return voronoiScore reduced by average health ratio of reachable cells
+          } else {
+            return voronoiScore
+          }
+        }
+        voronoiSelf = reduceScoreByHealthAverage(voronoiSelf, voronoiResultsSelf)
+        otherSnakeVoronoi = reduceScoreByHealthAverage(otherSnakeVoronoi, voronoiResults.snakeResults[otherSnake.id])
+      }
       
       voronoiDelta = voronoiSelf - otherSnakeVoronoi // consider Voronoi delta after adjusting for tail & body chases
       evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
