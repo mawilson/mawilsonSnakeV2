@@ -2615,7 +2615,9 @@ export function getSinkholeNumber(coord: Coord, turn: number, _expansionRate: nu
 export function getFoodModifier(voronoi: number) {
   if (voronoi >= 0) { // for good Voronoi scores, food score can remain unmodified
     return 1
+  } else if (voronoi <= -200) {
+    return 0
   } else { // for bad Voronoi scores, less than zero.
-    return (7/4000) * voronoi + (7/20) // this is 0.35 for 0, down to 0 for -200, & progressing into negatives for worse than that - actual penalties for pursuing food
+    return (7/4000) * voronoi + (7/20) // this is 0.35 for 0, down to 0 for -200
   }
 }

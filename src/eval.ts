@@ -1532,7 +1532,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
       let voronoiDelta: number
-      if (isHealingPools) {
+      if (isHealingPools && thisGameData && thisGameData.startingGameState.you.health < 40) {
         function reduceScoreByHealthAverage(voronoiScore: number, voronoiResultsSnake: VoronoiResultsSnake): number {
           if (voronoiResultsSnake && voronoiResultsSnake.effectiveHealths.length > 0) {
             const healthSum: number = voronoiResultsSnake.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
