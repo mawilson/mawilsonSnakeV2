@@ -1409,10 +1409,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
-  } else if (voronoiMyself <= 5) { // eating this food puts me into a box I likely can't get out of, that's not safe
-    //TODO: test this with VoronoiBaseGood instead of 5
-    safeToEat = false
-    wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   }
 
   let selfPossibleLength: number = myself.length // not sure if I want to do this, or just consider myself.length
@@ -1518,6 +1514,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
   }
 
+  let healingPoolStarvationSwitch: boolean = false
   // Voronoi stuff
   if (originalTurn > 1) { // don't calculate on early turns, just get early food
     let useTailChase: boolean = true
@@ -1533,6 +1530,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
       let voronoiDelta: number
       if (isHealingPools && thisGameData && thisGameData.startingGameState.you.health < 40) {
+        healingPoolStarvationSwitch = true
         function reduceScoreByHealthAverage(voronoiScore: number, voronoiResultsSnake: VoronoiResultsSnake): number {
           if (voronoiResultsSnake && voronoiResultsSnake.effectiveHealths.length > 0) {
             const healthSum: number = voronoiResultsSnake.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
@@ -1614,7 +1612,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     evaluationResult.food = foodCalc
   }
 
-  if (evaluationResult.food > 0 && evaluationResult.voronoiSelf < 0) { // try to penalize duel snake that wanted to eat with somewhat poor Voronoi score
+  if (evaluationResult.food > 0 && evaluationResult.voronoiSelf < 0 && !healingPoolStarvationSwitch) { // try to penalize duel snake that wanted to eat with somewhat poor Voronoi score
     let foodMult: number = getFoodModifier(evaluationResult.voronoiSelf)
     evaluationResult.food = evaluationResult.food * foodMult
     evaluationResult.foodEaten = evaluationResult.foodEaten * foodMult
