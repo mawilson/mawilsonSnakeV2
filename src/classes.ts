@@ -235,6 +235,16 @@ export class VoronoiResultsSnake {
     this.effectiveHealths = []
     this.tailOffsets = {}
   }
+
+  getAverageHealth(): number {
+    if (this.effectiveHealths.length > 0) {
+      const healthSum: number = this.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
+      return healthSum / this.effectiveHealths.length // is average health of snake in reachable cells
+    } else {
+      return 0 // if no effective healths are present, treat as if snake is dead with 0 health
+    }
+  }
+
 }
 
 export class VoronoiResults {
@@ -1822,5 +1832,15 @@ export class EvaluationResult {
     buildString(`total: ${this.sum()}`)
 
     return str
+  }
+}
+
+export class HealthTier {
+  score: number
+  tier: number
+
+  constructor(score: number, tier: number) {
+    this.score = score
+    this.tier = tier
   }
 }
