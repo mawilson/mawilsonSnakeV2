@@ -3052,6 +3052,14 @@ describe('Voronoi tests', () => {
   })
 })
 
+describe('MaxN tests', () => {
+  it('maxn1: does not allow itself to be cornered by an opponent snake', () => {
+    const gameState: GameState = {"game":{"id":"71bd764d-5af5-45fe-8f86-8373525f681e","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":5,"minimumFood":1,"hazardDamagePerTurn":-30,"royale":{"shrinkEveryNTurns":300},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"healing_pools","timeout":500,"source":"testing"},"turn":66,"board":{"width":11,"height":11,"food":[{"x":1,"y":0}],"hazards":[{"x":3,"y":3},{"x":7,"y":7}],"snakes":[{"id":"gs_jmPhHpRQGHXpfJ8PpTvbGd79","name":"Hovering Hobbs","health":96,"body":[{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":6,"y":7},{"x":7,"y":7}],"latency":456,"head":{"x":5,"y":5},"length":5,"shout":"","squad":"","customizations":{"color":"#da8a1a","head":"beach-puffin-special","tail":"beach-puffin-special"}},{"id":"gs_ccGDSMxRTrbjGpmDYK7R4H4G","name":"CoolerSnake!","health":92,"body":[{"x":4,"y":2},{"x":5,"y":2},{"x":5,"y":3},{"x":6,"y":3},{"x":6,"y":4}],"latency":109,"head":{"x":4,"y":2},"length":5,"shout":"10, 4","squad":"","customizations":{"color":"#ff6600","head":"cosmic-horror","tail":"cosmic-horror"}},{"id":"gs_fJK4Q7pj3xk3kWW8hhRFmgBM","name":"Jagwire","health":100,"body":[{"x":6,"y":0},{"x":6,"y":1},{"x":7,"y":1},{"x":7,"y":2},{"x":8,"y":2},{"x":8,"y":2}],"latency":345,"head":{"x":6,"y":0},"length":6,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}]},"you":{"id":"gs_fJK4Q7pj3xk3kWW8hhRFmgBM","name":"Jagwire","health":100,"body":[{"x":6,"y":0},{"x":6,"y":1},{"x":7,"y":1},{"x":7,"y":2},{"x":8,"y":2},{"x":8,"y":2}],"latency":345,"head":{"x":6,"y":0},"length":6,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("right") // left allows CoolerSnake to cut us off, right gets us out safe
+  })
+})
+
 describe('Prolonging death tests', () => { // tests to ensure Jaguar tries to survive as long as possible even when death seems inevitable
   it('chooses a few turns of hazard & a likely murder over an immediate tie death', () => {
     const snek = new Battlesnake("snek", "snek", 69, [{x: 10, y: 9}, {x: 9, y: 9}, {x: 8, y: 9}, {x: 8, y: 8}, {x: 8, y: 7}, {x: 7, y: 7}, {x: 7, y: 8}], "30", "", "")
