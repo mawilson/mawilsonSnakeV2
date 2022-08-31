@@ -79,11 +79,11 @@ function determineHealthEvalSinkhole(_snakeHealth: number, hazardDamage: number,
   const evalHealth8 = evalHealth9 - healthTierDifference // 75 - 10 = 65
   const evalHealth7 = evalHealth8 - healthTierDifference - (healthStep * 1) // 65 - 10 - (6 * 1) = 49
   const evalHealth6 = evalHealth7 - healthTierDifference - (healthStep * 2) // 49 - 10 - (6 * 2) = 27
-  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 1) // 27 - 10 - (6 * 3) = -1
-  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 2) // -1 - 10 - (6 * 4) = -35
-  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 3) // -35 - 10 - (6 * 5) = -75
-  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 4) // -75 - 10 - (6 * 6) = -121
-  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 5) - 50 // -121 - 10 - (6 * 7) - 50 = -223
+  const evalHealth5 = evalHealth6 - healthTierDifference - (healthStep * 3) // 27 - 10 - (6 * 3) = -1
+  const evalHealth4 = evalHealth5 - healthTierDifference - (healthStep * 4) // -1 - 10 - (6 * 4) = -35
+  const evalHealth3 = evalHealth4 - healthTierDifference - (healthStep * 5) // -35 - 10 - (6 * 5) = -75
+  const evalHealth2 = evalHealth3 - healthTierDifference - (healthStep * 6) // -75 - 10 - (6 * 6) = -121
+  const evalHealth1 = evalHealth2 - healthTierDifference - (healthStep * 7) - 50 // -121 - 10 - (6 * 7) - 50 = -223
   const evalHealth0 = evalHealth1
   let evaluation: HealthTier
 
@@ -1193,7 +1193,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     evalNoMe = evalNoMeStandard
   }
 
-  const haveWon: boolean = gameState.board.snakes.length === 1
+  const haveWon: boolean = (myself !== undefined) && gameState.board.snakes.length === 1
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
 
   const lookahead: number = thisGameData !== undefined? thisGameData.lookahead : 0
@@ -1212,6 +1212,10 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     firstEatTurn = undefined
   }
 
+  const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
+  const evalHealthStep = hazardDamage > 0? 6 : 3
+  const evalHealthTierDifference = 10
+
   if (gameState.board.snakes.length === 0) { // I have tied
     return determineEvalNoSnakes(gameState, gameState.you, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   } else if (myself === undefined) { // I have lost
@@ -1219,14 +1223,15 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     if (gameState.you.health <= 0) { // if I starved, return evalNoMe, this is certain death
       evaluationResult.noMe = evalNoMe
       return evaluationResult
-    } else if (priorKissStates.deathState !== KissOfDeathState.kissOfDeathNo) {
+    } else if (priorKissStates.deathState !== KissOfDeathState.kissOfDeathNo) { // fudge an evaluation result based on possible death
+      evaluationResult.base = evalBase
       const evalNoMeCertainty: number = 200 // value that being murdered is better than starving. Still highly likely, but slightly less likely than straight starvation
       const evalNoMeCertaintyMutual: number = 300 // value that being murdered by a tie snake is better than starving. Needs to be more than evalNoMeCertainty
       if ([KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual].includes(priorKissStates.deathState)) {
         if (priorKissStates.deathState === KissOfDeathState.kissOfDeathCertainty) {
           evaluationResult.noMe = evalNoMe + evalNoMeCertainty
         } else {
-          evaluationResult.noMe = evalNoMe + evalNoMeCertaintyMutual
+          evaluationResult.noMe = evalNoMe + evalNoMeCertaintyMutual // should never reach here, will reach the above if with 0 snakes
         }
         return evaluationResult // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
       } else {
@@ -1234,6 +1239,16 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
         if (otherSnake !== undefined) {
           let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEvalDuel(otherSnake)
           evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+        }
+        if (thisGameData) { // penalize snake for being in this state less if it had been starving
+          let startingHealth: number = thisGameData.startingGameState.you.health
+          let startingHealthTier: HealthTier = determineHealthEval(gameState, startingHealth, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
+
+          if (startingHealthTier.tier < 2) {
+            evaluationResult.priorKissOfDeath = evaluationResult.priorKissOfDeath / 3
+          } else if (startingHealthTier.tier < 3) {
+            evaluationResult.priorKissOfDeath = evaluationResult.priorKissOfDeath * (2/3)
+          }
         }
         return evaluationResult // Return the kissofDeath value that got me here (if applicable). This represents an uncertain death - though bad, it's not as bad as, say, starvation, which is a certainty.
       }
@@ -1262,10 +1277,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     }
   }
   let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
-
-  const evalHealthBase = 75 // evalHealth tiers should differ in severity based on how hungry I am
-  const evalHealthStep = hazardDamage > 0? 6 : 3
-  const evalHealthTierDifference = 10
 
   let evalLengthMult: number = 10 // larger values result in more food prioritization. Negative preference towards length in solo
   let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
@@ -1512,24 +1523,12 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     evaluationResult.health = healthTier.score
   }
 
-  if (thisGameData && evaluationResult.kissOfDeath !== 0) { // reduce kiss of death penalties if starving & in need of taking a risk to seek food or board control
-    let startingHealth: number = thisGameData.startingGameState.you.health
-    let startingHealthTier: HealthTier = determineHealthEval(gameState, startingHealth, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
-
-    if (startingHealthTier.tier < 2) {
-      evaluationResult.kissOfDeath = evaluationResult.kissOfDeath * (1/3)
-    } else if (startingHealthTier.tier < 3) {
-      evaluationResult.kissOfDeath = evaluationResult.kissOfDeath * (2/3)
-    }
-  }
-
   if (isConstrictor) {
     wantToEat = false // don't need to eat in constrictor
   } else if (haveWon) {
     wantToEat = true // always want to eat when no other snakes are around to disturb me. Another way to ensure I don't penalize snake for winning.
   }
 
-  let healingPoolStarvationSwitch: boolean = isHealingPools && (thisGameData !== undefined) && thisGameData.startingGameState.you.health < 40
   // Voronoi stuff
   if (originalTurn > 1) { // don't calculate on early turns, just get early food
     let useTailChase: boolean = true
@@ -1626,14 +1625,29 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     evaluationResult.food = foodCalc
   }
 
-  if (evaluationResult.food > 0 && evaluationResult.voronoiSelf < 0 && !healingPoolStarvationSwitch) { // try to penalize duel snake that wanted to eat with somewhat poor Voronoi score
-    let foodMult: number = getFoodModifier(evaluationResult.voronoiSelf)
-    evaluationResult.food = evaluationResult.food * foodMult
-    evaluationResult.foodEaten = evaluationResult.foodEaten * foodMult
-  }
+  if (thisGameData) { // reduce Voronoi, kiss of death penalties if starving & in need of taking a risk to seek food or board control
+    let startingHealth: number = thisGameData.startingGameState.you.health
+    let startingHealthTier: HealthTier = determineHealthEval(gameState, startingHealth, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalNoMe, haveWon)
 
-  if (healingPoolStarvationSwitch) { // if starving in healing pools, reduce Voronoi weight so health & food can take prominence
-    evaluationResult.voronoiSelf = evaluationResult.voronoiSelf * 0.5
+    if (startingHealthTier.tier < 2) {
+      evaluationResult.kissOfDeath = evaluationResult.kissOfDeath / 3
+      evaluationResult.voronoiSelf = evaluationResult.voronoiSelf / 3
+    } else if (startingHealthTier.tier < 3) {
+      evaluationResult.kissOfDeath = evaluationResult.kissOfDeath * (2/3)
+      evaluationResult.voronoiSelf = evaluationResult.voronoiSelf * (2/3)
+    }
+
+    let foodCutoffTier: number // below this health tier, will not penalize for seeking food in bad Voronoi states
+    if (isHealingPools) {
+      foodCutoffTier = 4
+    } else {
+      foodCutoffTier = 2
+    }
+    if (evaluationResult.food > 0 && evaluationResult.voronoiSelf < 0 && startingHealthTier.tier >= foodCutoffTier) { // try to penalize duel snake that wanted to eat with somewhat poor Voronoi score
+      let foodMult: number = getFoodModifier(evaluationResult.voronoiSelf)
+      evaluationResult.food = evaluationResult.food * foodMult
+      evaluationResult.foodEaten = evaluationResult.foodEaten * foodMult
+    }
   }
 
   if (tailChaseTurns !== undefined && tailChaseTurns.length > 0) {
