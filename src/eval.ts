@@ -13,7 +13,7 @@ export const evalNoMeStandard: number = -3400 // no me is the worst possible sta
 export const evalNoMeConstrictor: number = -6800 // constrictor noMe is considerably lower due to different Voronoi calq
 export const evalNoMeArcadeMaze: number = -5850 // arcadeMaze's standard 19x21 map, after accounting for hazards, is slightly larger & has lower potential Voronoi score
 
-const evalBase: number = 500
+const evalBase: number = 0
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
 
 const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
@@ -23,6 +23,7 @@ const evalHealthOthersnakeStarveReward = 50
 const evalVoronoiNegativeStep = 100
 const evalVoronoiPositiveStep = 4.5
 const evalVoronoiPreyStep = 100
+const evalVoronoiPreyCutoff = 100
 
 export const evalHaveWonTurnStep: number = 50
 
@@ -917,6 +918,22 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
             if (isOriginalSnake) {
               howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score
             }
+
+            // approximation of cutoff logic to give extra reward for cutting off prey snake
+            // for efficiency's sake this doesn't do much of the fancy logic the isCutoff function in utils does. The idea is that if we are already here assigning
+            // a prey score, preySnake is likely in a cutoff situation, so we'll simplify the logic & make some assumptions (no check for snake direction, etc.)
+            if (!isWrapped) { // cannot cut off in wrapped
+              if (preySnake.head.x === 0 && myself.head.x === 1) {
+                howBad = howBad + evalVoronoiPreyCutoff
+              } else if ((preySnake.head.x === gameState.board.width - 1) && myself.head.x === (gameState.board.width - 2)) {
+                howBad = howBad + evalVoronoiPreyCutoff
+              } else if (preySnake.head.y === 0 && myself.head.y === 1) {
+                howBad = howBad + evalVoronoiPreyCutoff
+              } else if ((preySnake.head.y === gameState.board.height - 1) && myself.head.y === (gameState.board.height - 2)) {
+                howBad = howBad + evalVoronoiPreyCutoff
+              }
+            }
+
             voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
           }
 
@@ -1542,23 +1559,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     } else if (otherSnake) { // only use delta, with tail chase & tail offset taken into account. otherSnake should always be defined here, else haveWon would have been true
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
-      let voronoiDelta: number
-      // if (isHealingPools && thisGameData && thisGameData.startingGameState.you.health < 40) {
-      //   healingPoolStarvationSwitch = true
-      //   function reduceScoreByHealthAverage(voronoiScore: number, voronoiResultsSnake: VoronoiResultsSnake, averageHealth?: number): number {
-      //     if (voronoiResultsSnake && voronoiResultsSnake.effectiveHealths.length > 0) {
-      //       const healthAverage: number = averageHealth !== undefined? averageHealth : voronoiResultsSnake.getAverageHealth() // is average health of snake in reachable cells
-      //       const healthRatio: number = healthAverage / 100 // is ratio of health average to max health
-      //       return voronoiScore * healthRatio // return voronoiScore reduced by average health ratio of reachable cells
-      //     } else {
-      //       return voronoiScore
-      //     }
-      //   }
-      //   voronoiSelf = reduceScoreByHealthAverage(voronoiSelf, voronoiResultsSelf, selfAverageHealth)
-      //   otherSnakeVoronoi = reduceScoreByHealthAverage(otherSnakeVoronoi, voronoiResults.snakeResults[otherSnake.id])
-      // }
-      
-      voronoiDelta = voronoiSelf - otherSnakeVoronoi // consider Voronoi delta after adjusting for tail & body chases
+      let voronoiDelta: number = voronoiSelf - otherSnakeVoronoi // consider Voronoi delta after adjusting for tail & body chases
       evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
     }
   }
