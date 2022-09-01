@@ -402,34 +402,41 @@ export class Board2d {
 
               for (const snakeId of voronoiKeys) { // propagate Voronoi out for each snake at this point. TieSnakes will end up sharing a lot of spaces. 
                 let voronoiSnake: VoronoiSnake | undefined = point?.voronoi[snakeId]
+                let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
                 if (voronoiSnake !== undefined) {
                   // in order to allow for tails, cells with snakeCells whose length would have removed the tail by this depth will be allowed
 
                   let isBodyCell: boolean = false // only true if neighbor contains a snakeCell which has not receded as a tail by this depth
                   let tailOffset: number | undefined = undefined // used to keep track of following otherSnake tail danger
+                  // logic to see if isBodyCell
                   if (neighbor.snakeCell !== undefined) {
-                    let neighborSnakeLength: number = neighbor.snakeCell.snake.length
-                    if (isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
-                      isBodyCell = true
+                    if (neighborVoronoiKeys.length !== 0) { // If another Voronoi key is already occupying neighbor, it cannot be a body cell - that snake would not be allowed in either
+                      isBodyCell = false
+                      tailOffset = neighbor.voronoi[neighborVoronoiKeys[0]].tailOffset // tailOffset for me will be same as tail offset for any other snake that got here
                     } else {
-                      let effectiveIndex: number
-                      let duplicatedTail: boolean = coordsEqual(neighbor.snakeCell.snake.body[neighborSnakeLength - 1], neighbor.snakeCell.snake.body[neighborSnakeLength - 2])
-                      // third condition handles special case of fakeMoveSnake where snake has not eaten, but has duplicated its tail. Its tail does not really exist
-                      if (neighbor.snakeCell.bodyIndex === (neighborSnakeLength - 1) && duplicatedTail && snakeHasEaten(neighbor.snakeCell.snake)) {
-                        effectiveIndex = neighbor.snakeCell.bodyIndex - 1 // this body index was replaced by its successor - decrement it again
+                      let neighborSnakeLength: number = neighbor.snakeCell.snake.length
+                      if (isConstrictor) { // every cell in constrictor is effectively a body cell, because it never shrinks
+                        isBodyCell = true
                       } else {
-                        effectiveIndex = neighbor.snakeCell.bodyIndex
+                        let effectiveIndex: number
+                        let duplicatedTail: boolean = coordsEqual(neighbor.snakeCell.snake.body[neighborSnakeLength - 1], neighbor.snakeCell.snake.body[neighborSnakeLength - 2])
+                        // third condition handles special case of fakeMoveSnake where snake has not eaten, but has duplicated its tail. Its tail does not really exist
+                        if (neighbor.snakeCell.bodyIndex === (neighborSnakeLength - 1) && duplicatedTail && snakeHasEaten(neighbor.snakeCell.snake)) {
+                          effectiveIndex = neighbor.snakeCell.bodyIndex - 1 // this body index was replaced by its successor - decrement it again
+                        } else {
+                          effectiveIndex = neighbor.snakeCell.bodyIndex
+                        }
+                        if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
+                          tailOffset = voronoiSnake.effectiveLength - effectiveIndex - depth
+                        } else {
+                          let neighborSnakeEffectiveLength: number = neighborSnakeLength + snakePossibleEats[neighbor.snakeCell.snake.id]
+                          tailOffset = neighborSnakeEffectiveLength - effectiveIndex - depth
+                        }
+                        if (duplicatedTail && !snakeHasEaten(neighbor.snakeCell.snake)) {
+                          tailOffset = tailOffset - 1 // this is a fakeMoveSnake, its tailOffset is always 1 less because its tail did not actually exist
+                        }
+                        isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                       }
-                      if (neighbor.snakeCell.snake.id === voronoiSnake.snake.id) { // if the snake in this cell is me, I can trust voronoiSnake.effectiveLength
-                        tailOffset = voronoiSnake.effectiveLength - effectiveIndex - depth
-                      } else {
-                        let neighborSnakeEffectiveLength: number = neighborSnakeLength + snakePossibleEats[neighbor.snakeCell.snake.id]
-                        tailOffset = neighborSnakeEffectiveLength - effectiveIndex - depth
-                      }
-                      if (duplicatedTail && !snakeHasEaten(neighbor.snakeCell.snake)) {
-                        tailOffset = tailOffset - 1 // this is a fakeMoveSnake, its tailOffset is always 1 less because its tail did not actually exist
-                      }
-                      isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
                     }
                   }
                   // so for a snake of length 5, at the tail, this means: (5 - 4) <= 1, or <= 2, 3, etc. This evaluates to true, which is correct - that's a tail cell, even at depth 1, it's valid
@@ -437,7 +444,6 @@ export class Board2d {
                   // for the same snake of length 5, if it may have eaten at depth 1, at index 2 (middle), this is only a tail if on depth 4 or greater. ((5 + 1) - 2) <= 4 
 
                   if (neighbor.snakeCell === undefined || !isBodyCell) {
-                    let neighborVoronoiKeys = Object.keys(neighbor.voronoi)
                     let isHazard: boolean
                     let isHazardDamage: number
                     if (isHealingPools && expansionRate !== undefined && (gameState.turn + depth) > (expansionRate * 2)) {

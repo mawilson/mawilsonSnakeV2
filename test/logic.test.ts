@@ -3571,6 +3571,11 @@ describe('duel tests', () => {
     const moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("right")
   })
+  it('duel11: does not allow itself to be penned in', () => { // flawed test as down is not actually certain death, but did help to fix a Board2d issue with effectiveLength
+    const gameState: GameState = {"game":{"id":"e9987c6b-1130-41df-b180-ffd7071c19b0","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"standard","timeout":500,"source":"testing"},"turn":204,"board":{"width":11,"height":11,"food":[{"x":0,"y":8},{"x":10,"y":6},{"x":1,"y":9},{"x":4,"y":10},{"x":6,"y":1},{"x":4,"y":2}],"hazards":[],"snakes":[{"id":"gs_gf7McQh8SxDGPtSvKb8hx6d8","name":"Jagwire","health":87,"body":[{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":4,"y":4},{"x":3,"y":4},{"x":2,"y":4},{"x":1,"y":4}],"latency":452,"head":{"x":7,"y":1},"length":12,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}},{"id":"gs_Sc7HWYMyY4MqYpRvrmK4m7JY","name":"Prüzze v2","health":84,"body":[{"x":3,"y":7},{"x":4,"y":7},{"x":5,"y":7},{"x":5,"y":6},{"x":4,"y":6},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":7,"y":5},{"x":7,"y":6},{"x":8,"y":6},{"x":8,"y":7},{"x":7,"y":7},{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":5,"y":9}],"latency":422,"head":{"x":3,"y":7},"length":17,"shout":", t=401","squad":"","customizations":{"color":"#c91f37","head":"gamer","tail":"coffee"}}]},"you":{"id":"gs_gf7McQh8SxDGPtSvKb8hx6d8","name":"Jagwire","health":87,"body":[{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":4,"y":4},{"x":3,"y":4},{"x":2,"y":4},{"x":1,"y":4}],"latency":452,"head":{"x":7,"y":1},"length":12,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).not.toBe("down") // down puts us on the bottom of the board with Pruzze positioned to close in, left or right allows an escape route & more board coverage
+  })
 })
 
 describe('healing pool tests', () => {

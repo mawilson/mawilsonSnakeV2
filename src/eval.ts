@@ -934,8 +934,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
               }
             }
 
-
-
             voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
           }
 
