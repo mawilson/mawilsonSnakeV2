@@ -114,7 +114,7 @@ export function gameStateIsRoyale(gameState: GameState): boolean {
 
 // gameMode functions
 export function gameStateIsWrapped(gameState: GameState): boolean {
-  return gameState.game.ruleset.name === "wrapped"
+  return gameState.game.ruleset.name === "wrapped" || gameState.game.ruleset.name === "wrapped-constrictor"
 }
 
 // no unique ruleset name yet, for now any game which is both wrapped & has hazard damage is Hazard Spiral
@@ -133,7 +133,7 @@ export function gameStateIsSolo(gameState: GameState): boolean {
 }
 
 export function gameStateIsConstrictor(gameState: GameState): boolean {
-  return gameState.game.ruleset.name === "constrictor"
+  return gameState.game.ruleset.name === "constrictor" || gameState.game.ruleset.name === "wrapped-constrictor"
 }
 
 export function gameStateIsArcadeMaze(gameState: GameState): boolean {
