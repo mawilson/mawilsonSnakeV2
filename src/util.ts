@@ -148,6 +148,10 @@ export function gameStateIsHealingPools(gameState: GameState): boolean {
   return gameState.game.map === "healing_pools"
 }
 
+export function gameStateIsHazardPits(gameState: GameState): boolean {
+  return gameState.game.map === "hz_hazard_pits"
+}
+
 // returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.
 export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
@@ -2635,5 +2639,27 @@ export function getFoodModifier(voronoi: number) {
     return 0
   } else { // for bad Voronoi scores, less than zero.
     return (7/4000) * voronoi + (7/20) // this is 0.35 for 0, down to 0 for -200
+  }
+}
+
+// returns how many hazard pits exist in a given coord. If coord unprovided, just returns how many hazard pits exist in any hazard cell for the given turn
+export function getHazardPitNumber(turn: number, _expansionRate: number | undefined, height: number, width: number, coord?: Coord): number {
+  let expansionRate: number = _expansionRate === undefined? 20 : _expansionRate // default expansion rate of 20, else use what was provided
+  if (!coord || (coord.x % 2 === 1 && coord.y % 2 === 1)) { // hazard pits only spawn on odd-odd cells
+    if (coord && coord.x === 1 && (coord.y === 1 || coord.y === height - 2)) { // corner-most cells never spawn hazard pits
+      return 0
+    } else if (coord && coord.y === 1 && (coord.x === 1 || coord.x === width - 2)) { // corner-most cells never spawn hazard pits
+      return 0
+    } else { // this cell can contain hazard, check turn to see whether it does
+      let phase: number = Math.floor((turn - 1)/ expansionRate) // for frequency=20, 0-20 will be phase 0, 21-40 will be phase 1, etc.
+      phase = phase % 7 // phase 7 wraps back around to phase 0
+      if (phase < 4) {
+        return phase // for phase 0, has no hazard; phase 1, has 1 hazard; 2, has 2; 3, has 3
+      } else {
+        return 4 // for phases 4, 5, & 6, all have a max of 4 hazards in a square
+      }
+    }
+  } else { // non odd-odd cells never contain hazard
+    return 0
   }
 }
