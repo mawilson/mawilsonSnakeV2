@@ -1349,35 +1349,43 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     return lookahead
   }
 
-  if (gameState.turn <= 1) {
-    lookahead = 0
-  } else if (gameState.turn < 11) {
-    lookahead = 2
+  if (gameStateIsConstrictor(gameState)) {
+    if (gameStateIsArcadeMaze(gameState)) {
+      lookahead = 15
+    } else {
+      lookahead = 9
+    }
   } else {
-    if (branchingFactor > 45) { // 46 & up
-      lookahead = 3
-    } else if (branchingFactor > 28) { // 29 & up
-      if (numSnakes > 2) {
-        if (branchingFactor > 40) {
-          lookahead = 3
+    if (gameState.turn <= 1) {
+      lookahead = 0
+    } else if (gameState.turn < 11) {
+      lookahead = 2
+    } else {
+      if (branchingFactor > 45) { // 46 & up
+        lookahead = 3
+      } else if (branchingFactor > 28) { // 29 & up
+        if (numSnakes > 2) {
+          if (branchingFactor > 40) {
+            lookahead = 3
+          } else {
+            lookahead = 4
+          }
         } else {
           lookahead = 4
         }
-      } else {
-        lookahead = 4
-      }
-    } else if (branchingFactor > 17) { // 18 & up
-      if (numSnakes > 2) {
-        lookahead = 4
-      } else {
+      } else if (branchingFactor > 17) { // 18 & up
+        if (numSnakes > 2) {
+          lookahead = 4
+        } else {
+          lookahead = 5
+        }
+      } else { // 17 & below
         lookahead = 5
       }
-    } else { // 17 & below
-      lookahead = 5
-    }
 
-    if (gameStateIsArcadeMaze(gameState)) { // arcade maze has much smaller search trees & we can search much deeper
-      lookahead = lookahead * 2
+      if (gameStateIsArcadeMaze(gameState)) { // arcade maze has much smaller search trees & we can search much deeper
+        lookahead = lookahead * 2
+      }
     }
   }
 
@@ -1396,26 +1404,34 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
 export function lookaheadDeterminatorDeepening(gameState: GameState, board2d: Board2d): number {
   let futureSight: number
   let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 3)
-  if (gameState.turn <= 1) {
-    futureSight = 0
-  } else if (gameState.turn < 10) {
-    futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
-  } else if (gameState.turn < 20) {
-    futureSight = 5 // as above, but ramping up
-  } else {
+  if (gameStateIsConstrictor(gameState)) {
     if (gameStateIsArcadeMaze(gameState)) {
-      if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
-        futureSight = 15
-      } else {
-        futureSight = 12
-      }
+      futureSight = 15
     } else {
-      if (branchingFactor > 40) {
-        futureSight = 7
-      } else if (branchingFactor > 28) {
-        futureSight = 8
-      } else { // 28 & below
-        futureSight = 9
+      futureSight = 9
+    }
+  } else {
+    if (gameState.turn <= 1) {
+      futureSight = 0
+    } else if (gameState.turn < 10) {
+      futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
+    } else if (gameState.turn < 20) {
+      futureSight = 5 // as above, but ramping up
+    } else {
+      if (gameStateIsArcadeMaze(gameState)) {
+        if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
+          futureSight = 15
+        } else {
+          futureSight = 12
+        }
+      } else {
+        if (branchingFactor > 40) {
+          futureSight = 7
+        } else if (branchingFactor > 28) {
+          futureSight = 8
+        } else { // 28 & below
+          futureSight = 9
+        }
       }
     }
   }
