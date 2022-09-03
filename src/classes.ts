@@ -470,17 +470,17 @@ export class Board2d {
                       isHazard = false
                       isHazardDamage = 0
                     } else if (isHazardSpiral && hazardSpiral !== undefined) { // if we're in hazard spiral, hazard can be determined at any depth using HazardSpiral
+                      let turn: number = gameState.turn + depth - 1 // -1 so as not to consider the turn the hazard appears as hazard
                       let hazardSpiralCell = hazardSpiral.getCell(neighbor.coord)
-                      isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < (gameState.turn + depth) : neighbor.hazard > 0 // gameState turn + depth is effective turn
-                      // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
+                      isHazard = hazardSpiralCell? hazardSpiralCell.turnIsHazard < turn : neighbor.hazard > 0 // gameState turn + depth is effective turn
                       isHazardDamage = isHazard? self.hazardDamage : 0
                     } else if (isSinkhole && sinkholeLatestSpawnTurn !== undefined && gameState.turn < sinkholeLatestSpawnTurn) { // only need to predict future spawning sinkholes before latest turn they can spawn
-                      let turn: number = gameState.turn + depth
+                      let turn: number = gameState.turn + depth - 1 // -1 so as not to consider the turn the hazard appears as hazard
                       let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn, expansionRate)
                       isHazard = hazardNumber > 0
                       isHazardDamage = hazardNumber * self.hazardDamage
                     } else if (isHazardPits) {
-                      let turn: number = gameState.turn + depth
+                      let turn: number = gameState.turn + depth - 1 // -1 so as not to consider the turn the hazard appears as hazard
                       let hazardNumber: number = getHazardPitNumber(turn, expansionRate, this.height, this.width, neighbor.coord)
                       isHazard = hazardNumber > 0
                       isHazardDamage = hazardNumber * self.hazardDamage
