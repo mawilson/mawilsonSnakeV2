@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, gameStateIsHazardPits, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber, getHazardPitNumber } from "./util"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -279,6 +279,7 @@ export class Board2d {
     let isHealingPools: boolean = gameStateIsHealingPools(gameState)
     let sinkholeLatestSpawnTurn: number | undefined = (isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
       (2 + expansionRate * 4) : undefined // sinkhole map only works on 11x11 boards, & only if shrink turns are provided
+    let isHazardPits:boolean = gameStateIsHazardPits(gameState)
     this.cells = new Array(this.width * this.height);
     let self : Board2d = this
 
@@ -371,6 +372,25 @@ export class Board2d {
           board2dCell.hazard = board2dCell.hazard + 1;
         }
       }
+    } else if (isHazardPits && expansionRate !== undefined) {
+      let hazardNumber: number = getHazardPitNumber(gameState.turn, expansionRate, gameState.board.height, gameState.board.width)
+      for (let i: number = 1; i < gameState.board.width; i = i + 2) { // for every odd-numbered width
+        for (let j: number = 1; j < gameState.board.height; j = j + 2) { // for every odd-numbered height
+          if (i === 1) {
+            if (j === 1 || j === (gameState.board.height - 2)) { // ignore the four corners - {1,1}, {1,9}
+              continue
+            }
+          } else if (i === (gameState.board.width - 2)) {
+            if (j === 1 || j === (gameState.board.height - 2)) { // ignore the four corners - {9,1}, {9,9}
+              continue
+            }
+          }
+          let board2dCell = self.getCell({x: i, y: j})
+          if (board2dCell instanceof BoardCell) {
+            board2dCell.hazard = hazardNumber
+          }
+        }
+      }
     } else {
       for (const coord of gameState.board.hazards) {
         let board2dCell = self.getCell(coord)
@@ -457,6 +477,11 @@ export class Board2d {
                     } else if (isSinkhole && sinkholeLatestSpawnTurn !== undefined && gameState.turn < sinkholeLatestSpawnTurn) { // only need to predict future spawning sinkholes before latest turn they can spawn
                       let turn: number = gameState.turn + depth
                       let hazardNumber: number = getSinkholeNumber(neighbor.coord, turn, expansionRate)
+                      isHazard = hazardNumber > 0
+                      isHazardDamage = hazardNumber * self.hazardDamage
+                    } else if (isHazardPits) {
+                      let turn: number = gameState.turn + depth
+                      let hazardNumber: number = getHazardPitNumber(turn, expansionRate, this.height, this.width, neighbor.coord)
                       isHazard = hazardNumber > 0
                       isHazardDamage = hazardNumber * self.hazardDamage
                     } else {
