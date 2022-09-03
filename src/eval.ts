@@ -538,13 +538,19 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
   let board2d: Board2d
   let calculateVoronoi: boolean
-  if (haveWon || originalTurn <= 1) {
+  if (haveWon) {
+    board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
+    calculateVoronoi = false
+  } else if (isConstrictor) { // constrictor games aren't expensive to compute on any turn, & early turns are very important
+    board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
+    calculateVoronoi = true
+  } else if (originalTurn <= 1) {
     board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
     calculateVoronoi = false
   } else {
     board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
     calculateVoronoi = true
-  } 
+  }
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
@@ -1312,13 +1318,19 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
   let board2d: Board2d
   let calculateVoronoi: boolean
-  if (haveWon || originalTurn <= 1) {
+  if (haveWon) {
+    board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
+    calculateVoronoi = false
+  } else if (isConstrictor) { // constrictor games aren't expensive to compute on any turn, & early turns are very important
+    board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
+    calculateVoronoi = true
+  } else if (originalTurn <= 1) {
     board2d = new Board2d(gameState) // don't build the full graph in this case, just build the cheap one & fudge the VoronoiResults
     calculateVoronoi = false
   } else {
     board2d = new Board2d(gameState, true) // important to do this after the instant-returns above because it's expensive
     calculateVoronoi = true
-  } 
+  }
 
   // penalize spaces that ARE hazard
   let myCell = board2d.getCell(myself.head)
