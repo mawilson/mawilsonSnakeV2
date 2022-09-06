@@ -943,7 +943,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
             voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
           }
 
-          if (hazardDamage > 0) { // additional reward for starving out prey snake
+          if (!isOriginalSnake && hazardDamage > 0) { // additional reward for starving out prey snake
             const validHazardTurns = Math.floor(preySnake.health / (hazardDamage + 1))
             const preySnakeFoodKeys = Object.keys(preySnakeResults.food)
             if (preySnakeFoodKeys.length === 0) { // if prey snake cannot reach any food in this state, & is starving, give additional starvation reward
