@@ -22,6 +22,9 @@ const evalHealthOthersnakeStarveReward = 50
 
 const evalVoronoiNegativeStep = 100
 const evalVoronoiPositiveStep = 4.5
+
+const evalVoronoiNegativeStepDuel = 30
+
 const evalVoronoiPreyStep = 100
 const evalVoronoiPreyCutoff = 100
 
@@ -1559,20 +1562,40 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   }
 
   // Voronoi stuff
-  if (originalTurn > 1) { // don't calculate on early turns, just get early food
+  if (isConstrictor || originalTurn > 1) { // don't calculate on early turns, just get early food
     let useTailChase: boolean = true
     let useTailOffset: boolean = false
 
+    // function which returns a Voronoi score based on how 'good' or 'bad' voronoiSelf is, adjusted for health scores in wrapped games
+    function getVoronoiSelfAdjusted(incomingValue: number) : number {
+      // this function is only called when incomingValue is <= 0, so voronoiSelf is always 0 or negative, voronoiSelf becomes a penalty
+      return incomingValue * evalVoronoiNegativeStepDuel
+    }
+
     let voronoiSelf: number
     let voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
+    let voronoiScore: number | undefined = undefined
     if (haveWon) {
       voronoiSelf = voronoiResults.totalReachableCells // in the event of winning, consider voronoiSelf to be the max, regardless of the truth.
       evaluationResult.voronoiSelf = voronoiSelf * voronoiDeltaStep
     } else if (otherSnake) { // only use delta, with tail chase & tail offset taken into account. otherSnake should always be defined here, else haveWon would have been true
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
-      let voronoiDelta: number = voronoiSelf - otherSnakeVoronoi // consider Voronoi delta after adjusting for tail & body chases
-      evaluationResult.voronoiSelf = voronoiDelta * voronoiDeltaStep
+      let voronoiDelta: number = (voronoiSelf - otherSnakeVoronoi) * voronoiDeltaStep // consider Voronoi delta after adjusting for tail & body chases
+      if (voronoiDelta < 0) { // if delta is bad, consisider both how bad the delta is, & how bad the overall score is.
+        // A score of 18<->5 is much worse than a score of 60<->30, but pure delta will prioritize the former
+        let voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults)
+        let voronoiSelfMinusBaseGood: number = voronoiSelf - voronoiBaseGood
+        if (voronoiSelfMinusBaseGood < 0) { // if voronoiSelf is worse than an arbitrary base 'good' score
+          let voronoiSelfAdjusted: number = getVoronoiSelfAdjusted(voronoiSelfMinusBaseGood)
+          voronoiScore = Math.min(voronoiSelfAdjusted, voronoiDelta)
+        }
+      }
+      if (voronoiScore === undefined) { // either voronoiDelta was not < 0, or voronoiSelf was not worse than voronoiBaseGood
+        voronoiScore = voronoiDelta
+      }
+      
+      evaluationResult.voronoiSelf = voronoiScore
     }
   }
 
