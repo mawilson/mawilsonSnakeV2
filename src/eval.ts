@@ -1323,8 +1323,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
 
   const evalAvailableMoves0Moves = -400
 
-  const evalSoloCenter = -1
-
   evaluationResult.base = evalBase // important to do this after the instant-returns above because we don't want the base included in those values
   let board2d: Board2d
   let calculateVoronoi: boolean
@@ -1596,7 +1594,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
       let voronoiDelta: number = (voronoiSelf - otherSnakeVoronoi) * voronoiDeltaStep // consider Voronoi delta after adjusting for tail & body chases
-      if (voronoiDelta < 0) { // if delta is bad, consisider both how bad the delta is, & how bad the overall score is.
+      if (voronoiDelta < 0 && !isConstrictor) { // if delta is bad, consisider both how bad the delta is, & how bad the overall score is.
         // A score of 18<->5 is much worse than a score of 60<->30, but pure delta will prioritize the former
         let voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults)
         let voronoiSelfMinusBaseGood: number = voronoiSelf - voronoiBaseGood
@@ -1716,14 +1714,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
   if (availableMoves.validMoves().length === 0 && evaluationResult.voronoiSelf < 0) {
     evaluationResult.selfMoves = evalAvailableMoves0Moves
-  }
-
-  if (isConstrictor) {
-    let centers = calculateCenterWithHazard(gameState, hazardWalls)
-    const xDiff = Math.abs(myself.head.x - centers.centerX)
-    const yDiff = Math.abs(myself.head.y - centers.centerY)
-
-    evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
   }
 
   if (haveWon) {
