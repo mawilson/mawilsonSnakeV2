@@ -310,20 +310,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const hazardWalls: HazardWalls = thisGameData !== undefined? thisGameData.hazardWalls : new HazardWalls()
   const originalTurn: number = thisGameData !== undefined? thisGameData.startingGameState.turn : gameState.turn
   const lookaheadDepth: number = gameState.turn - 1 - originalTurn // lookahead begins 2 turns after originalTurn - first turn is 0 lookahead. Note this will be negative for originalTurn
-  const turnsOfLookaheadLeft: number = lookahead - lookaheadDepth // how many turns into lookahead we are. Used by minimax to reward winning earlier
+  const turnsOfLookaheadLeft: number = isOriginalSnake? lookahead - lookaheadDepth : 0 // how many turns into lookahead we are
 
   let preySnake: Battlesnake | undefined = undefined
   if (!isOriginalSnake && originalSnake) {
     preySnake = originalSnake // due to paranoia, assume all otherSnakes are out to get originalSnake
-  } else { // it's originalSnake. If duel, prey is duel opponent, if not duel, look for prey in gameData
-    if (isDuel) {
-      preySnake = otherSnakes[0]
-    } else {
-      // if (gameState.game.source !== "testing") {
-      //   preySnake = thisGameData?.prey
-      // }
-    }
-  }
+  } // completely remove preySnake from originalSnake calq. Let minimax handle it once it's actually a duel, rather than a MaxN projected duel.
 
   // returns the evaluation value associated with the given kissOfDeathState
   function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState): number {
