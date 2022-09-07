@@ -678,7 +678,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   let foodSearchDepth: number
-  if (originalTurn <= 1) {
+  if (isConstrictor) {
+    foodSearchDepth = 0
+  } else if (originalTurn <= 1) {
     foodSearchDepth = 2 // for turns 0 & 1, only want to consider starting food right next to us
   } else {
     foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
@@ -743,32 +745,37 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     delta = delta - 1
   }
 
-  if (haveWon) { // set food val to max so as not to penalize winning states
-    evalFoodVal = 4
-  } else if (originalTurn <= 1) {
-    evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (isDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
-    evalFoodVal = 2
-  } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
-    evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
-  } else if (delta > 6) { // If I am more than 6 bigger, want food less
-    evalFoodVal = 2
-  }
-  if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
-    if (delta > 3) { // if I am 4 or more greater
-      evalEatingMultiplier = 1 
-    } else if (delta > 2) { // if I am 3 greater
-      evalEatingMultiplier = 2
-    } else if (delta > 1) { // if I am 2 greater
-      evalEatingMultiplier = 3
-    }
+  if (isConstrictor) {
+    evalFoodVal = 0
+    evalEatingMultiplier = 0
   } else {
-    if (delta > 8) { // if already larger, prioritize eating immediately less
-      evalEatingMultiplier = 1
-    } else if (delta > 5) {
-      evalEatingMultiplier = 1.75
-    } else if (delta > 3) {
-      evalEatingMultiplier = 2.5
+    if (haveWon) { // set food val to max so as not to penalize winning states
+      evalFoodVal = 4
+    } else if (originalTurn <= 1) {
+      evalFoodVal = 50 // simply, should always want to get the starting food
+    } else if (isDuel && delta < -4) { // care a bit less about food due to already being substantially smaller
+      evalFoodVal = 2
+    } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
+      evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
+    } else if (delta > 6) { // If I am more than 6 bigger, want food less
+      evalFoodVal = 2
+    }
+    if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
+      if (delta > 3) { // if I am 4 or more greater
+        evalEatingMultiplier = 1 
+      } else if (delta > 2) { // if I am 3 greater
+        evalEatingMultiplier = 2
+      } else if (delta > 1) { // if I am 2 greater
+        evalEatingMultiplier = 3
+      }
+    } else {
+      if (delta > 8) { // if already larger, prioritize eating immediately less
+        evalEatingMultiplier = 1
+      } else if (delta > 5) {
+        evalEatingMultiplier = 1.75
+      } else if (delta > 3) {
+        evalEatingMultiplier = 2.5
+      }
     }
   }
   if (thisGameData) {
@@ -839,7 +846,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
   let healthAverageSelf: number | undefined
   // Voronoi stuff
-  if (originalTurn > 1) { // don't calculate on early turns, just get early food
+  if (isConstrictor || originalTurn > 1) { // don't calculate on early turns, just get early food
     let useTailChase: boolean = isOriginalSnake
     //let useTailOffset: boolean = isOriginalSnake && gameState.game.ruleset.settings.foodSpawnChance > 2 // healing pools sets food spawn chance very low, tail offset means less
     let useTailOffset: boolean = false
@@ -1055,7 +1062,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
   }
 
-  if (isWrapped) { // metric is useful outside of duel but minimax is smarter than it in duel 
+  if (isWrapped && !isConstrictor) { // metric is useful outside of duel but minimax is smarter than it in duel 
     if (haveWon) { // don't penalize snake for winning
       evaluationResult.flipFlop = evalWrappedFlipFlopStep
     } else if (originalTurn > 1) { // ignore this on early turns, just get starting food
@@ -1424,7 +1431,9 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   evaluationResult.priorKissOfMurder = priorKissOfMurderValue
 
   let foodSearchDepth: number
-  if (originalTurn <= 1) {
+  if (isConstrictor) {
+    foodSearchDepth = 0
+  } else if (originalTurn <= 1) {
     foodSearchDepth = 2 // for turns 0 & 1, only want to consider starting food right next to us
   } else {
     foodSearchDepth = calculateFoodSearchDepth(gameState, myself, board2d)
@@ -1480,32 +1489,37 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     delta = delta - 1
   }
 
-  if (haveWon) { // set food val to max so as not to penalize winning states
-    evalFoodVal = 4
-  } else if (originalTurn <= 1) {
-    evalFoodVal = 50 // simply, should always want to get the starting food
-  } else if (delta < -4) { // care a bit less about food due to already being substantially smaller
-    evalFoodVal = 2
-  } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
-    evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
-  } else if (delta > 6) { // If I am more than 6 bigger, want food less
-    evalFoodVal = 2
-  }
-  if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
-    if (delta > 3) { // if I am 4 or more greater
-      evalEatingMultiplier = 1 
-    } else if (delta > 2) { // if I am 3 greater
-      evalEatingMultiplier = 2
-    } else if (delta > 1) { // if I am 2 greater
-      evalEatingMultiplier = 3
-    }
+  if (isConstrictor) {
+    evalFoodVal = 0
+    evalEatingMultiplier = 0
   } else {
-    if (delta > 8) { // if already larger, prioritize eating immediately less
-      evalEatingMultiplier = 1
-    } else if (delta > 5) {
-      evalEatingMultiplier = 1.75
-    } else if (delta > 3) {
-      evalEatingMultiplier = 2.5
+    if (haveWon) { // set food val to max so as not to penalize winning states
+      evalFoodVal = 4
+    } else if (originalTurn <= 1) {
+      evalFoodVal = 50 // simply, should always want to get the starting food
+    } else if (delta < -4) { // care a bit less about food due to already being substantially smaller
+      evalFoodVal = 2
+    } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
+      evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
+    } else if (delta > 6) { // If I am more than 6 bigger, want food less
+      evalFoodVal = 2
+    }
+    if (isWrapped) { // wrapped eating is less important, deprioritize food when I am already larger
+      if (delta > 3) { // if I am 4 or more greater
+        evalEatingMultiplier = 1 
+      } else if (delta > 2) { // if I am 3 greater
+        evalEatingMultiplier = 2
+      } else if (delta > 1) { // if I am 2 greater
+        evalEatingMultiplier = 3
+      }
+    } else {
+      if (delta > 8) { // if already larger, prioritize eating immediately less
+        evalEatingMultiplier = 1
+      } else if (delta > 5) {
+        evalEatingMultiplier = 1.75
+      } else if (delta > 3) {
+        evalEatingMultiplier = 2.5
+      }
     }
   }
   if (thisGameData) {
