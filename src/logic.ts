@@ -1,10 +1,10 @@
-export const version: string = "1.6.15" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.16" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole } from "./util"
-import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalNoMeStandard, evalNoMeConstrictor, evalNoMeArcadeMaze, evalHaveWonTurnStep } from "./eval"
+import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
@@ -113,12 +113,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let movesShortCircuited: number = 0
 
   let noMe: number
-  if (gameStateIsConstrictor(gameState)) {
-    noMe = evalNoMeConstrictor
-  } else if (gameStateIsArcadeMaze(gameState)) {
-    noMe = evalNoMeArcadeMaze
+  if (thisGameData && thisGameData.evalNoMe !== undefined) {
+    noMe = thisGameData.evalNoMe
   } else {
-    noMe = evalNoMeStandard
+    noMe = getDefaultEvalNoMe(gameState)
   }
 
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _eatTurns?: number[]): MoveWithEval {
@@ -759,6 +757,8 @@ export function move(gameState: GameState): MoveResponse {
     thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
   }
   thisGameData.isDuel = gameState.board.snakes.length === 2
+
+  thisGameData.evalNoMe = determineEvalNoMe(gameState)
 
   // logic to seek out a prey snake
   if (gameState.turn > 25 && gameState.board.snakes.length > 2) { // now that the game has shaken out some, start predating on the largest snake

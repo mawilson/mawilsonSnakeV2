@@ -1659,6 +1659,7 @@ export class GameData {
   timeouts: number
   priorDeepeningMoves: MoveWithEval[]
   lastMoveTime: number
+  evalNoMe: number | undefined
 
   constructor(gameState: GameState) {
     this.startingGameState = gameState
@@ -1672,6 +1673,7 @@ export class GameData {
     this.timeouts = 0
     this.priorDeepeningMoves = []
     this.lastMoveTime = Date.now()
+    this.evalNoMe = undefined
   }
 }
 
@@ -1824,8 +1826,16 @@ export class EvaluationResult {
     this.myself = myself
   }
 
-  sum(minimum?: number): number {
+  sum(_minimum?: number): number {
     let sum: number = 0
+    let minimum: number | undefined
+    if (_minimum !== undefined) {
+      if (this.winValue < 0) {
+        minimum = _minimum + this.winValue // winValue should not affect minimum, so decrease minimum by the same value
+      } else {
+        minimum = _minimum
+      }
+    }
     for (const property in this) {
       let val: any = this[property]
       if (typeof val === "number") { // as of writing only 'myself' is a non-number. For now, any other number in here we want to add to sum.
