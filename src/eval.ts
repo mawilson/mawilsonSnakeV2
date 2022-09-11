@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults, HealthTier } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -15,7 +15,6 @@ const evalBase: number = 0
 const evalTieFactor: number = -50 // penalty for a tie state. Tweak this to tweak Jaguar's Duel Tie preference - smaller means fewer ties, larger means more. 0 is neutral.
 
 const evalHealthOthersnakeStep = -2 // penalty for each point of health otherSnakes have
-const evalHealthOthersnakeDuelStep = -3
 const evalHealthOthersnakeStarveReward = 50
 
 // Voronoi values
@@ -43,7 +42,14 @@ const evalHealthStarvationPenalty: number = 100 // additional penalty for reachi
 let evalInitialEatingMultiplier = 5 // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
 
 // for a given snake, hazard damage, health step, & health tier difference, return an evaluation score for this snake's health
-function determineHealthEval(gameState: GameState, _snakeHealth: number, hazardDamage: number, healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): HealthTier {
+function determineHealthEval(gameState: GameState, _snakeHealth: number, hazardDamage: number, _healthStep: number, healthTierDifference: number, healthBase: number, starvationPenalty: number, haveWon: boolean): HealthTier {
+  let healthStep: number
+  if (gameStateIsHazardPits(gameState)) {
+    healthStep = _healthStep * 2
+  } else {
+    healthStep = _healthStep
+  }
+  
   if (hazardDamage < 0 || hazardDamage >= 100) { // use arcadeMaze health evaluater for healing pools or walls (arcade maze)
     return determineHealthEvalArcadeMaze(_snakeHealth, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
   } else if (gameStateIsSinkhole(gameState)) {
@@ -163,20 +169,11 @@ function determineHealthEvalArcadeMaze(_snakeHealth: number, healthStep: number,
 }
 
 function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[]): number {
-    let otherSnakeHealthPenalty: number = 0
-    let otherSnakesSortedByHealth: Battlesnake[] = otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sorts by health in descending order
-      return b.health - a.health
-    })
-    for (let idx: number = 0; idx < otherSnakesSortedByHealth.length; idx++) {
-      let snake: Battlesnake = otherSnakesSortedByHealth[idx]
-      if (idx === 0) { // give the largest remaining snake a larger penalty for health - better to try to starve the largest snake
-        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeDuelStep
-      } else { // give remaining snakes a smaller penalty for health
-        otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
-      }
-    }
-
-    return otherSnakeHealthPenalty
+  let otherSnakeHealthPenalty: number = 0
+  for (const snake of otherSnakes) {
+    otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
+  }
+  return otherSnakeHealthPenalty
 }
 
 function determineOtherSnakeHealthEvalDuel(otherSnake: Battlesnake): number {
@@ -667,7 +664,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes)
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }
-
+  
   let moves: Moves = getAvailableMoves(gameState, myself, board2d)
 
   // look for kiss of death & murder cells in this current configuration
@@ -803,7 +800,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
     wantToEat = true
   }
-  if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
+  // only disqualify deathState moves done by originalSnake, since otherSnakes get to rechoose if they die
+  if (isOriginalSnake && deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
     safeToEat = false
     wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
   } else if (voronoiMyself <= 5 || canBeCutoffHazardBySnake) { // eating this food puts me into a box I likely can't get out of, that's not safe
@@ -1021,6 +1019,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
       } else if (preySnake !== undefined) {
         let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
+        let preySnakeHealthTier: HealthTier = determineHealthEval(gameState, preySnakeResults.getAverageHealth(), hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, false)
+
         if (preySnakeResults !== undefined) {
           let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, true, false, voronoiBaseGood) // will only reach here for preys of originalSnake, so provide 'true' for tail params
           if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
@@ -1050,16 +1050,10 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
             voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
           }
 
-          if (!isOriginalSnake && hazardDamage > 0) { // additional reward for starving out prey snake
-            const validHazardTurns = Math.floor(preySnake.health / (hazardDamage + 1))
-            const preySnakeFoodKeys = Object.keys(preySnakeResults.food)
-            if (preySnakeFoodKeys.length === 0) { // if prey snake cannot reach any food in this state, & is starving, give additional starvation reward
-              if (validHazardTurns === 1) {
-                evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward
-              } else if (validHazardTurns === 0) {
-                evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3
-              }
-            }
+          if (preySnakeHealthTier.tier < 2) {
+            evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3
+          } else if (preySnakeHealthTier.tier < 3) {
+            evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward
           }
         }
       }
