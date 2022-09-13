@@ -519,6 +519,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
+    let newGameStates: {[key: number]: GameState} = {}
     if (lookahead === startLookahead && thisGameData && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
       thisGameData.priorDeepeningMoves.sort((a: MoveWithEval, b: MoveWithEval) => {
         if (a.direction !== undefined && a.score !== undefined && b.direction !== undefined && b.score !== undefined) {
@@ -552,15 +553,49 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         }
       }
       thisGameData.priorDeepeningMoves = [] // clear this so next level can repopulate it
-    } else { // shuffle availableMoves array so snake doesn't prefer one direction
-      shuffle(availableMoves)
+    } else { // do what we can in as little time as possible to sort moves on likelihood of good
+      for (const move of availableMoves) {
+        let newGameState: GameState = cloneGameState(gameState)
+        let newSelf: Battlesnake = newGameState.you
+        moveSnake(newGameState, newSelf, board2d, move)
+        newGameStates[move] = newGameState
+      }
+
+      availableMoves.sort((moveA: Direction, moveB: Direction): number => {
+        let stateA: GameState = newGameStates[moveA]
+        let stateB: GameState = newGameStates[moveB]
+        if (stateA && stateB) {
+          // let availableMovesA: Moves = getAvailableMoves(stateA, stateA.you, new Board2d(stateA, false))
+          // let availableMovesB: Moves = getAvailableMoves(stateB, stateB.you, new Board2d(stateB, false))
+          // let validMovesALength: number = availableMovesA.validMoves().length
+          // let validMovesBLength: number = availableMovesB.validMoves().length
+          // if (validMovesALength > validMovesBLength) {
+          //   return -1
+          // } else if (validMovesALength < validMovesBLength) {
+          //   return 1
+          // } else {
+          //   return 0
+          // }
+          let stateAHealth: number = stateA.you.health
+          let stateBHealth: number = stateB.you.health
+          if (stateAHealth > stateBHealth) {
+            return -1
+          } else if (stateAHealth < stateBHealth) {
+            return 1
+          } else {
+            return 0
+          }
+        } else {
+          return 0
+        }
+      })
     }
 
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
       if (iterativeDeepening && !checkTime(startTime, gameState)) { return new MoveWithEval(undefined, undefined) }
-      let newGameState: GameState = cloneGameState(gameState)
+      let newGameState: GameState = newGameStates[move] || cloneGameState(gameState)
       let newSelf: Battlesnake | undefined,
           newOtherSnake: Battlesnake | undefined
       for (const snake of newGameState.board.snakes) {
@@ -581,7 +616,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       let worstOriginalSnakeScore: MoveWithEval = new MoveWithEval(undefined, undefined)
       if (newSelf !== undefined && newOtherSnake !== undefined) {
-        moveSnake(newGameState, newSelf, board2d, move)
+        if (!newGameStates[move]) { // if newGameState came from newGameStates, we have already moved ourself
+          moveSnake(newGameState, newSelf, board2d, move)
+        }
 
         let evaluationResult: EvaluationResult | undefined = undefined
         let evalState: MoveWithEval
@@ -592,10 +629,36 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         // shuffle otherSnakeValidMoves array so snake doesn't prefer one direction
         shuffle(otherSnakeValidMoves)
 
+        let otherNewGameStates: {[key: number]: GameState} = {}
+        for (const move of otherSnakeValidMoves) {
+          let otherNewGameState: GameState = cloneGameState(newGameState)
+          let newOtherself: Battlesnake = otherNewGameState.board.snakes.find(snake => snake.id !== otherNewGameState.you.id)
+          moveSnake(otherNewGameState, newOtherself, board2d, move)
+          otherNewGameStates[move] = otherNewGameState
+        }
+
+        otherSnakeValidMoves.sort((moveA: Direction, moveB: Direction): number => {
+          let stateA: GameState = otherNewGameStates[moveA]
+          let stateB: GameState = otherNewGameStates[moveB]
+          if (stateA && stateB) {
+            let stateAHealth: number = stateA.you.health
+            let stateBHealth: number = stateB.you.health
+            if (stateAHealth > stateBHealth) {
+              return -1
+            } else if (stateAHealth < stateBHealth) {
+              return 1
+            } else {
+              return 0
+            }
+          } else {
+            return 0
+          }
+        })
+
         // then, move otherSnake in each possible direction
         for (let j: number = 0; j < otherSnakeValidMoves.length; j++) {
           let otherMove: Direction = otherSnakeValidMoves[j]
-          let otherNewGameState: GameState = cloneGameState(newGameState)
+          let otherNewGameState: GameState = otherNewGameStates[otherMove] || cloneGameState(newGameState)
           let newOtherself: Battlesnake | undefined,
               newOriginalSnake: Battlesnake | undefined
 
@@ -610,7 +673,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           // then, base case & recursive case: if we've hit our lookahead, we want to evaluate each move for newOriginalSnke's score, then choose the worst one for them
           // else, we want to call decideMove again, & move again, & assign that return value to this state's value
           if (newOtherself !== undefined && newOriginalSnake !== undefined) {
-            moveSnake(otherNewGameState, newOtherself, board2d, otherMove)
+            if (!otherNewGameStates[otherMove]) {
+              moveSnake(otherNewGameState, newOtherself, board2d, otherMove)
+            }
             updateGameStateAfterMove(otherNewGameState)
 
             let tailChaseTurns: number[] = []
