@@ -1660,6 +1660,7 @@ export class GameData {
   priorDeepeningMoves: MoveWithEval[]
   lastMoveTime: number
   evalNoMe: number | undefined
+  evalNoMeEvaluationResult: EvaluationResult | undefined
 
   constructor(gameState: GameState) {
     this.startingGameState = gameState
@@ -1674,6 +1675,7 @@ export class GameData {
     this.priorDeepeningMoves = []
     this.lastMoveTime = Date.now()
     this.evalNoMe = undefined
+    this.evalNoMeEvaluationResult = undefined
   }
 }
 
