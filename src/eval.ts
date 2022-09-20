@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults, HealthTier } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits, getLongestOtherSnake } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -191,14 +191,16 @@ function determineEvalNoSnakesConstrictor(gameState: GameState, myself: Battlesn
   return evaluationResult
 }
 
-export function getDefaultEvalNoMe(gameState: GameState): number {
+export function getDefaultEvalNoMe(gameState: GameState): EvaluationResult {
+  let result: EvaluationResult = new EvaluationResult(gameState.you)
   if (gameStateIsConstrictor(gameState)) {
-    return -6800
+    result.noMe = -6800
   } else if (gameStateIsArcadeMaze(gameState)) {
-    return -5850
+    result.noMe = -5850
   } else {
-    return -3400
+    result.noMe = -3400
   }
+  return result
 }
 
 // normal evalNoSnakes must distinguish between self & otherSnakes due to difference in how Voronoi is awarded
@@ -212,12 +214,6 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   const evalHealthStep = hazardDamage > 0? evalHealthStepHazard : evalHealthStepNoHazard
 
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
-  let evalNoMe: number
-  if (thisGameData && thisGameData.evalNoMe !== undefined) {
-    evalNoMe = thisGameData.evalNoMe
-  } else {
-    evalNoMe = getDefaultEvalNoMe(gameState)
-  }
 
   let averageHealth: number = myself.health * (2/3) // health eval is now an average health, which is likely a bit lower than the current health
   evaluationResult.health = determineHealthEval(gameState, averageHealth, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, false).score
@@ -279,7 +275,7 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
   return evaluationResult
 }
 
-export function determineEvalNoMe(_gameState: GameState): number {
+export function determineEvalNoMe(_gameState: GameState): EvaluationResult {
   const thisGameData = gameData? gameData[createGameDataId(_gameState)] : undefined
   if (!thisGameData) {
     return getDefaultEvalNoMe(_gameState)
@@ -325,11 +321,17 @@ export function determineEvalNoMe(_gameState: GameState): number {
   let healthTier: HealthTier = determineHealthEval(gameState, 0, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, false)
   health = healthTier.score
 
-  let total: number = voronoiSelf + othersnakeHealth + health + kissOfDeath + priorKissOfDeath
-  return total
+  let result: EvaluationResult = new EvaluationResult(gameState.you)
+  result.voronoiSelf = voronoiSelf
+  result.otherSnakeHealth = othersnakeHealth
+  result.health = health
+  result.kissOfDeath = kissOfDeath
+  result.priorKissOfDeath = priorKissOfDeath
+
+  return result
 }
 
-function determineEvalNoMeConstrictor(gameState: GameState) : number {
+function determineEvalNoMeConstrictor(gameState: GameState) : EvaluationResult {
   let othersnakes: Battlesnake[] = []
   let othersnakeHealth: number = -100
   let hazardDamage: number = getHazardDamage(gameState)
@@ -363,8 +365,36 @@ function determineEvalNoMeConstrictor(gameState: GameState) : number {
   
   kissOfDeath = evalKissOfDeathCertainty // as a minimum value, need to include possibility of this very bad value
 
-  let total: number = voronoiSelf + othersnakeHealth + kissOfDeath + priorKissOfDeath
-  return total
+  //let total: number = voronoiSelf + othersnakeHealth + kissOfDeath + priorKissOfDeath
+  let result: EvaluationResult = new EvaluationResult(gameState.you)
+  result.voronoiSelf = voronoiSelf
+  result.otherSnakeHealth = othersnakeHealth
+  result.kissOfDeath = kissOfDeath
+  result.priorKissOfDeath = priorKissOfDeath
+  
+  return result
+}
+
+function determineDeltaScore(delta: number, evalLengthMult: number, evalLengthMaxDelta: number): number {
+  if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
+    let penalty: number = delta * evalLengthMult // straight penalty for each length I am smaller than otherSnakes
+    return penalty
+  } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
+    let award: number = 0
+    let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
+    for (let i: number = 1; i <= cap; i++) {
+      if (i === 1) {
+        award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
+      } else if (i === 2) {
+        award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
+      } else {
+        award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
+      }
+    }
+    return award
+  } else {
+    return 0
+  }
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
@@ -409,10 +439,13 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   let isDuel: boolean = (gameState.board.snakes.length === 2) && (myself !== undefined) // don't consider duels I'm not a part of
 
   let evalNoMe: number
-  if (thisGameData && thisGameData.evalNoMe !== undefined) {
+  let evalNoMeEvaluationResult: EvaluationResult
+  if (thisGameData && thisGameData.evalNoMe !== undefined && thisGameData.evalNoMeEvaluationResult !== undefined) {
+    evalNoMeEvaluationResult = thisGameData.evalNoMeEvaluationResult
     evalNoMe = thisGameData.evalNoMe
   } else {
-    evalNoMe = getDefaultEvalNoMe(gameState)
+    evalNoMeEvaluationResult = getDefaultEvalNoMe(gameState)
+    evalNoMe = evalNoMeEvaluationResult.sum()
   }
 
   const lookahead: number = thisGameData !== undefined && isOriginalSnake? thisGameData.lookahead : 0 // originalSnake uses gameData lookahead, otherSnakes use 0
@@ -422,21 +455,39 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const turnsOfLookaheadLeft: number = isOriginalSnake? lookahead - lookaheadDepth : 0 // how many turns into lookahead we are
 
   let preySnake: Battlesnake | undefined = undefined
-  if (!isOriginalSnake && originalSnake) {
-    preySnake = originalSnake // due to paranoia, assume all otherSnakes are out to get originalSnake
+  if (!isOriginalSnake) {
+    preySnake = originalSnake || gameState.you // due to paranoia, assume all otherSnakes are out to get originalSnake
+    // if originalSnake has died, use the prior reference in gameState.you
   } // completely remove preySnake from originalSnake calq. Let minimax handle it once it's actually a duel, rather than a MaxN projected duel.
 
   // returns the evaluation value associated with the given kissOfDeathState
-  function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState): number {
+  function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState, evalNoMeEvaluationResult: EvaluationResult): number {
+    let voronoiSelf: number = evalNoMeEvaluationResult.voronoiSelf // use to give back a priorKissOfDeath value that is relative to an evalNoMe minimum Voronoi score
     switch (kissOfDeathState) {
       case KissOfDeathState.kissOfDeathCertainty:
-        return evalPriorKissOfDeathCertainty
+        if (evalPriorKissOfDeathCertainty < 0 && voronoiSelf < 0) {
+          return voronoiSelf * (9/10) // almost full negative for walking into a certain death
+        } else {
+          return evalPriorKissOfDeathCertainty
+        }
       case KissOfDeathState.kissOfDeathCertaintyMutual:
-        return evalPriorKissOfDeathCertaintyMutual
+        if (evalPriorKissOfDeathCertaintyMutual < 0 && voronoiSelf < 0) {
+          return voronoiSelf * (6/10) // more than half negative for walking into a tie certain death
+        } else {
+          return evalPriorKissOfDeathCertaintyMutual
+        }
       case KissOfDeathState.kissOfDeathMaybe:
-        return evalPriorKissOfDeathMaybe
+        if (evalPriorKissOfDeathMaybe < 0 && voronoiSelf < 0) {
+          return voronoiSelf * (5/10) // half negative for walking into a maybe death
+        } else {
+          return evalPriorKissOfDeathMaybe
+        }
       case KissOfDeathState.kissOfDeathMaybeMutual:
-        return evalPriorKissOfDeathMaybeMutual
+        if (evalPriorKissOfDeathMaybeMutual < 0 && voronoiSelf < 0) {
+          return voronoiSelf * (5/10) // half negative for walking into a maybe mutual death
+        } else {
+          return evalPriorKissOfDeathMaybeMutual
+        }
       case KissOfDeathState.kissOfDeath3To1Avoidance:
         return evalPriorKissOfDeath3To1Avoidance
       case KissOfDeathState.kissOfDeath3To2Avoidance:
@@ -508,7 +559,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (isDuel || gameState.board.snakes.length === 0) { // if it's a duel (or it was a duel before we rushed into eachother), we don't want to penalize snake for moving here if it's the best tile
     evalPriorKissOfDeathCertaintyMutual = 0
   } else if (!isOriginalSnake && priorKissStates.predator?.id === gameState.you.id) {
-    evalPriorKissOfDeathCertaintyMutual = 100 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
+    evalPriorKissOfDeathCertaintyMutual = 250 // tell otherSnakes to kamikaze into me so that my snake is less inclined to go there - they can always rechoose if this forces us into the same square
   } else { // it's not a duel & it's original snake or another snake not vs me, give penalty for seeking a tile that likely wouldn't kill me, but might
     evalPriorKissOfDeathCertaintyMutual = _evalPriorKissOfDeathCertaintyMutual
   }
@@ -616,9 +667,26 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
         return evaluationResult // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
       } else {
-        evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState)
-        let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakes)
+        evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState, evalNoMeEvaluationResult)
+
+        let otherSnakesPlusVictim: Battlesnake[]
+        if (preySnake && !originalSnake) { // if originalSnake died getting here, add it back for comparison against a state where it wasn't dead
+          otherSnakesPlusVictim = otherSnakes.concat(preySnake)
+        } else {
+          otherSnakesPlusVictim = otherSnakes
+        }
+        let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakesPlusVictim)
         evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
+        let longestOtherSnake: Battlesnake | undefined = getLongestOtherSnake(_myself, gameState)
+        let delta: number
+        if (longestOtherSnake) {
+          delta = _myself.length - longestOtherSnake.length
+        } else {
+          delta = -evalLengthMaxDelta // give max delta to account for possible eats
+        }
+        evaluationResult.delta = determineDeltaScore(delta, evalLengthMult, evalLengthMaxDelta) 
+        evaluationResult.health = determineHealthEval(gameState, gameState.you.health, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, haveWon).score
+        
         if (!isOriginalSnake && !originalSnake) { // reward otherSnakes for tie-killing originalSnake
           evaluationResult.base = evalBase
         }
@@ -753,7 +821,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
   
-  let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState)
+  let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState, evalNoMeEvaluationResult)
   evaluationResult.priorKissOfDeath = priorKissOfDeathValue
 
   let priorKissOfMurderValue = getPriorKissOfMurderValue(priorKissStates.murderState)
@@ -890,30 +958,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
   }
 
-  if (!isConstrictor) { // constrictor snake length is irrelevant
-    if (isSolo) { // Penalize solo snake for being larger
-      let penalty: number = myself.length * evalLengthMult // straight penalty for each length I am larger
-      evaluationResult.delta = penalty
-    } else if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
-      let penalty: number = delta * evalLengthMult // straight penalty for each length I am smaller than otherSnakes
-      evaluationResult.delta = penalty
-    } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
-      let award: number = 0
-      let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
-      for (let i: number = 1; i <= cap; i++) {
-        if (i === 1) {
-          award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
-        } else if (i === 2) {
-          award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
-        } else {
-          award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
-        }
-      }
-      evaluationResult.delta = award
-    } else { // I am same length as otherSnakes, give penalty/reward accordingly
-      if (otherSnakes.length > 1) { // small penalty for being the same length as otherSnakes in a non-duel
-        evaluationResult.delta = -evalLengthMult
-      } // no penalty in duel, we love ties
+  if (isSolo) { // Penalize solo snake for being larger
+    let penalty: number = myself.length * evalLengthMult // straight penalty for each length I am larger
+    evaluationResult.delta = penalty
+  } else if (!isConstrictor) { // constrictor snake length is irrelevant
+    if (delta === 0) { // small penalty for being the same length as otherSnakes in a non-duel
+      evaluationResult.delta = determineDeltaScore(-1, evalLengthMult, evalLengthMaxDelta)
+    } else {
+      evaluationResult.delta = determineDeltaScore(delta, evalLengthMult, evalLengthMaxDelta)
     }
   }
 
@@ -1249,14 +1301,23 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   const evalKissOfMurderAvoidance = 10 // we can kill a snake, but they have an escape route (3to2, 3to1, or 2to1 avoidance)
   
   // returns the evaluation value associated with the given kissOfDeathState
-  function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState): number {
+  function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState, evalNoMeEvaluationResult: EvaluationResult): number {
+    let voronoiSelf: number = evalNoMeEvaluationResult.voronoiSelf // use to give back a priorKissOfDeath value that is relative to an evalNoMe minimum Voronoi score
     switch (kissOfDeathState) {
       case KissOfDeathState.kissOfDeathCertainty:
-        return _evalPriorKissOfDeathCertainty
+        if (voronoiSelf < 0) {
+          return voronoiSelf * (9/10) // almost full penalty for walking into a certain death
+        } else {
+          return _evalPriorKissOfDeathCertainty
+        }
       case KissOfDeathState.kissOfDeathCertaintyMutual:
         return evalPriorKissOfDeathCertaintyMutual
       case KissOfDeathState.kissOfDeathMaybe:
-        return evalPriorKissOfDeathMaybe
+        if (voronoiSelf < 0) {
+          return voronoiSelf * (5/10) // half penalty for walking into a maybe death
+        } else {
+          return evalPriorKissOfDeathMaybe
+        }
       case KissOfDeathState.kissOfDeathMaybeMutual:
         return evalPriorKissOfDeathMaybeMutual
       case KissOfDeathState.kissOfDeath3To1Avoidance:
@@ -1310,11 +1371,14 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   const haveWon: boolean = (myself !== undefined) && gameState.board.snakes.length === 1
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
 
+  let evalNoMeEvaluationResult: EvaluationResult
   let evalNoMe: number
-  if (thisGameData && thisGameData.evalNoMe !== undefined) {
+  if (thisGameData && thisGameData.evalNoMe !== undefined && thisGameData.evalNoMeEvaluationResult !== undefined) {
+    evalNoMeEvaluationResult = thisGameData.evalNoMeEvaluationResult
     evalNoMe = thisGameData.evalNoMe
   } else {
-    evalNoMe = getDefaultEvalNoMe(gameState)
+    evalNoMeEvaluationResult = getDefaultEvalNoMe(gameState)
+    evalNoMe = evalNoMeEvaluationResult.sum()
   }
 
   let evalHealthStep: number = hazardDamage > 0 ? evalHealthStepHazard : evalHealthStepNoHazard
@@ -1335,6 +1399,9 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     firstEatTurn = undefined
   }
 
+  let evalLengthMult: number = 10 // larger values result in more food prioritization. Negative preference towards length in solo
+  let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
+
   if (gameState.board.snakes.length === 0) { // I have tied
     return determineEvalNoSnakes(gameState, gameState.you, priorKissStates.predator, firstEatTurn) // if no snakes are left, I am dead, but so are the others. It's better than just me being dead, at least
   } else if (myself === undefined) { // I have lost
@@ -1354,11 +1421,13 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
         }
         return evaluationResult // I am dead here if another snake chooses to kill me, but it's not a 100% sure thing
       } else {
-        evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState)
+        evaluationResult.priorKissOfDeath = getPriorKissOfDeathValue(priorKissStates.deathState, evalNoMeEvaluationResult)
         if (otherSnake !== undefined) {
           let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEvalDuel(otherSnake)
           evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
         }
+        evaluationResult.delta = determineDeltaScore(-evalLengthMaxDelta, evalLengthMult, evalLengthMaxDelta) // give max delta to account for possible eats
+        evaluationResult.health = determineHealthEval(gameState, gameState.you.health, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, haveWon).score
         if (thisGameData) { // penalize snake for being in this state less if it had been starving
           let startingHealth: number = thisGameData.startingGameState.you.health
           let startingHealthTier: HealthTier = determineHealthEval(gameState, startingHealth, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, haveWon)
@@ -1396,9 +1465,6 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     }
   }
   let evalHazardPenalty: number = -(hazardDamage + 5) // in addition to health considerations & hazard wall calqs, make it slightly worse in general to hang around inside of the sauce
-
-  let evalLengthMult: number = 10 // larger values result in more food prioritization. Negative preference towards length in solo
-  let evalLengthMaxDelta: number = 6 // largest size difference that evaluation continues rewarding
 
   let evalFoodVal = 3
   let evalEatingMultiplier = evalInitialEatingMultiplier // this is effectively Jaguar's 'hunger' immediacy - multiplies food factor directly after eating
@@ -1504,7 +1570,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     }
   } // no kisses of murder nearby, not bothering to set value
   
-  let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState)
+  let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState, evalNoMeEvaluationResult)
   evaluationResult.priorKissOfDeath = priorKissOfDeathValue
 
   let priorKissOfMurderValue = getPriorKissOfMurderValue(priorKissStates.murderState)
@@ -1622,23 +1688,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
   }
 
   if (!isConstrictor) { // constrictor snake length is irrelevant
-    if (delta < 0) { // I am smaller than otherSnakes, give penalty accordingly.
-      let penalty: number = delta * evalLengthMult // straight penalty for each length I am smaller than otherSnakes
-      evaluationResult.delta = penalty
-    } else if (delta > 0) { // I am larger than otherSnakes, give reward accordingly
-      let award: number = 0
-      let cap: number = delta > evalLengthMaxDelta? evalLengthMaxDelta : delta // only award snake for up to 'cap' length greater than otherSnakes
-      for (let i: number = 1; i <= cap; i++) {
-        if (i === 1) {
-          award = award + evalLengthMult * 5 // large reward for first positive delta - it's very valuable to be just slightly larger than opponent
-        } else if (i === 2) {
-          award = award + evalLengthMult * 3 // smaller reward for second positive delta - it's valuable to have that buffer
-        } else {
-          award = award + evalLengthMult * 1 // smallest reward for subsequent positive deltas
-        }
-      }
-      evaluationResult.delta = award
-    }
+    evaluationResult.delta = determineDeltaScore(delta, evalLengthMult, evalLengthMaxDelta)
   }
 
   let selfAverageHealth: number = voronoiResultsSelf? voronoiResultsSelf.getAverageHealth() : myself.health

@@ -258,11 +258,10 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
   return kingOfTheSnakes
 }
 
-// finds the longest snake on the board and, in the event of a tie, returns the one closest to me. Returns undefined if only snake on board
+// finds the longest snake on the board. Returns undefined if only snake on board
 export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Battlesnake | undefined {
   let longestSnakeIndex : number = 0
   let len : number = 0
-  let distToMe : number = 0
 
   if (gameState.board.snakes.length === 0) {
     return undefined
@@ -275,13 +274,6 @@ export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Ba
       if (snake.length > len) {
         len = snake.length
         longestSnakeIndex = idx
-        distToMe = getDistance(me.head, snake.head, gameState)
-      } else if (snake.length === len) {
-        let newDistToMe = getDistance(me.head, snake.head, gameState)
-        if (newDistToMe < distToMe) { // if it's a tie & this one is closer
-          longestSnakeIndex = idx
-          distToMe = newDistToMe
-        }
       }
     }
   }

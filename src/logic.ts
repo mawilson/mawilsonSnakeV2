@@ -1,4 +1,4 @@
-export const version: string = "1.6.17" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.18" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -116,7 +116,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   if (thisGameData && thisGameData.evalNoMe !== undefined) {
     noMe = thisGameData.evalNoMe
   } else {
-    noMe = getDefaultEvalNoMe(gameState)
+    noMe = getDefaultEvalNoMe(gameState).sum()
   }
 
   function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _eatTurns?: number[]): MoveWithEval {
@@ -758,7 +758,8 @@ export function move(gameState: GameState): MoveResponse {
   }
   thisGameData.isDuel = gameState.board.snakes.length === 2
 
-  thisGameData.evalNoMe = determineEvalNoMe(gameState)
+  thisGameData.evalNoMeEvaluationResult = determineEvalNoMe(gameState)
+  thisGameData.evalNoMe = thisGameData.evalNoMeEvaluationResult.sum()
 
   // logic to seek out a prey snake
   if (gameState.turn > 25 && gameState.board.snakes.length > 2) { // now that the game has shaken out some, start predating on the largest snake
