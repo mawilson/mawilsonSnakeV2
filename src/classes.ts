@@ -220,13 +220,23 @@ export class VoronoiResultsSnakeTailOffset {
   }
 }
 
+export class EffectiveHealthData {
+  health: number
+  voronoiValue: number // should be number between 0 & 1, indicating how much weight to give health when calculating average health
+
+  constructor(health: number, voronoi: number) {
+    this.health = health
+    this.voronoiValue = voronoi
+  }
+}
+
 export class VoronoiResultsSnake {
   reachableCells: number
   food: {[key: number] : Coord[]}
   tailOffsets: {[key: string]: {[key: number]: VoronoiResultsSnakeTailOffset[] }} // when occupying a space that used to be a snake, this represents the distance from that snake's tail. Keep track of snake ID whose body we are occupying too.
   // the first key is by snake ID, for grouping by whose body this was. The second key is by depth, for grouping by the depth this body part was found. Finally within is an array, as there can be multiple body parts per depth
   tailChases: number[]
-  effectiveHealths: number[]
+  effectiveHealths: EffectiveHealthData[]
 
   constructor() {
     this.reachableCells = 0
@@ -238,13 +248,24 @@ export class VoronoiResultsSnake {
 
   getAverageHealth(): number {
     if (this.effectiveHealths.length > 0) {
-      const healthSum: number = this.effectiveHealths.reduce((sum: number, health: number) => { return sum + health}, 0)
-      return healthSum / this.effectiveHealths.length // is average health of snake in reachable cells
+      let healthSum: number = 0
+      let healthSumNoWeight: number = 0
+      let denominator: number = 0
+
+      for (const healthData of this.effectiveHealths) {
+        healthSum += healthData.health * healthData.voronoiValue
+        healthSumNoWeight += healthData.health
+        denominator += healthData.voronoiValue
+      }
+      if (denominator === 0) { // don't divide by zero
+        return healthSumNoWeight / this.effectiveHealths.length
+      } else {
+        return healthSum / denominator // is average health of snake in reachable cells
+      }
     } else {
       return 0 // if no effective healths are present, treat as if snake is dead with 0 health
     }
   }
-
 }
 
 export class VoronoiResults {

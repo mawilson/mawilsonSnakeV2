@@ -1,5 +1,5 @@
 import { GameState } from "./types"
-import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, VoronoiResultsSnake, VoronoiResults, HealthTier } from "./classes"
+import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, EffectiveHealthData, VoronoiResultsSnake, VoronoiResults, HealthTier } from "./classes"
 import { createWriteStream } from "fs"
 import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits, getLongestOtherSnake } from "./util"
 import { gameData, isDevelopment } from "./logic"
@@ -68,6 +68,8 @@ function determineHealthEval(gameState: GameState, _snakeHealth: number, hazardD
   const evalHealthStarved = evalHealth0 - starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evaluation: HealthTier
 
+  let remainder: number = validHazardTurns % 1
+
   if (snakeHealth <= 0) {
     evaluation = new HealthTier(evalHealthStarved, -1)
   } else if (hazardDamage <= 0 && snakeHealth < 10) { // in a non-hazard game, we still need to prioritize food at some point
@@ -75,15 +77,20 @@ function determineHealthEval(gameState: GameState, _snakeHealth: number, hazardD
   } else if (validHazardTurns > 6) {
     evaluation = new HealthTier(evalHealth7, 7)
   } else if (validHazardTurns > 5) {
-    evaluation = new HealthTier(evalHealth6, 6)
+    let tierDiff: number = evalHealth7 - evalHealth6
+    evaluation = new HealthTier(evalHealth6 + remainder * tierDiff, 6)
   } else if (validHazardTurns > 4) {
-    evaluation = new HealthTier(evalHealth5, 5)
+    let tierDiff: number = evalHealth6 - evalHealth5
+    evaluation = new HealthTier(evalHealth5 + remainder * tierDiff, 5)
   } else if (validHazardTurns > 3) {
-    evaluation = new HealthTier(evalHealth4, 4)
+    let tierDiff: number = evalHealth5 - evalHealth4
+    evaluation = new HealthTier(evalHealth4 + remainder * tierDiff, 4)
   } else if (validHazardTurns > 2) {
-    evaluation = new HealthTier(evalHealth3, 3)
+    let tierDiff: number = evalHealth4 - evalHealth3
+    evaluation = new HealthTier(evalHealth3 + remainder * tierDiff, 3)
   } else if (validHazardTurns > 1) {
-    evaluation = new HealthTier(evalHealth2, 2)
+    let tierDiff: number = evalHealth3 - evalHealth2
+    evaluation = new HealthTier(evalHealth2 + remainder * tierDiff, 2)
   } else { // (validHazardTurns > 0)
     evaluation = new HealthTier(evalHealth1, 1)
   } // validHazardTurns will never be <= 0, as that is starvation & would match the top if
@@ -107,26 +114,35 @@ function determineHealthEvalSinkhole(_snakeHealth: number, hazardDamage: number,
   const evalHealthStarved = evalHealth0 - starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
   let evaluation: HealthTier
 
+  let remainder: number = validHazardTurns % 1
+
   if (snakeHealth <= 0) {
     evaluation = new HealthTier(evalHealthStarved, -1)
-  } else if (hazardDamage <= 0 && snakeHealth < 10) { // in a non-hazard game, we still need to prioritize food at some point
+  } else if (hazardDamage <= 0 && snakeHealth < 10) { // in a non-hazard game, we still need to prioritize food at some point    
     evaluation = new HealthTier(evalHealth0, 0)
   } else if (validHazardTurns > 8) {
     evaluation = new HealthTier(evalHealth9, 9)
   } else if (validHazardTurns > 7) {
-    evaluation = new HealthTier(evalHealth8, 8)
+    let tierDiff: number = evalHealth9 - evalHealth8
+    evaluation = new HealthTier(evalHealth8 + remainder * tierDiff, 8)
   } else if (validHazardTurns > 6) {
-    evaluation = new HealthTier(evalHealth7, 7)
+    let tierDiff: number = evalHealth8 - evalHealth7
+    evaluation = new HealthTier(evalHealth7 + remainder * tierDiff, 7)
   } else if (validHazardTurns > 5) {
-    evaluation = new HealthTier(evalHealth6, 6)
+    let tierDiff: number = evalHealth7 - evalHealth6
+    evaluation = new HealthTier(evalHealth6 + remainder * tierDiff, 6)
   } else if (validHazardTurns > 4) {
-    evaluation = new HealthTier(evalHealth5, 5)
+    let tierDiff: number = evalHealth6 - evalHealth5
+    evaluation = new HealthTier(evalHealth5 + remainder * tierDiff, 5)
   } else if (validHazardTurns > 3) {
-    evaluation = new HealthTier(evalHealth4, 4)
+    let tierDiff: number = evalHealth5 - evalHealth4
+    evaluation = new HealthTier(evalHealth4 + remainder * tierDiff, 4)
   } else if (validHazardTurns > 2) {
-    evaluation = new HealthTier(evalHealth3, 3)    
+    let tierDiff: number = evalHealth4 - evalHealth3
+    evaluation = new HealthTier(evalHealth3 + remainder * tierDiff, 3)    
   } else if (validHazardTurns > 1) {
-    evaluation = new HealthTier(evalHealth2, 2) 
+    let tierDiff: number = evalHealth3 - evalHealth2
+    evaluation = new HealthTier(evalHealth2 + remainder * tierDiff, 2) 
   } else { // (validHazardTurns > 0)
     evaluation = new HealthTier(evalHealth1, 1)
   } // validHazardTurns will never be <= 0, as that is starvation & would match the top if
@@ -431,6 +447,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   const isConstrictor = gameStateIsConstrictor(gameState)
   const isArcadeMaze = gameStateIsArcadeMaze(gameState)
   const isHealingPools: boolean = gameStateIsHealingPools(gameState)
+  const isHazardPits: boolean = gameStateIsHazardPits(gameState)
 
   const isSolo: boolean = gameStateIsSolo(gameState)
   const haveWon: boolean = !isSolo && otherSnakes.length === 0 // cannot win in a solo game. Otherwise, have won when no snakes remain.
@@ -685,7 +702,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
           delta = -evalLengthMaxDelta // give max delta to account for possible eats
         }
         evaluationResult.delta = determineDeltaScore(delta, evalLengthMult, evalLengthMaxDelta) 
-        evaluationResult.health = determineHealthEval(gameState, gameState.you.health, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, haveWon).score
+        evaluationResult.health = determineHealthEval(gameState, _myself.health, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, haveWon).score
         
         if (!isOriginalSnake && !originalSnake) { // reward otherSnakes for tie-killing originalSnake
           evaluationResult.base = evalBase
@@ -822,7 +839,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
   
   let priorKissOfDeathValue = getPriorKissOfDeathValue(priorKissStates.deathState, evalNoMeEvaluationResult)
-  evaluationResult.priorKissOfDeath = priorKissOfDeathValue
+  if (priorKissOfDeathValue < 0) { // positive kissOfDeath values are rewards for otherSnakes suiciding into originalSnake. This clause prevents us
+    evaluationResult.priorKissOfDeath = priorKissOfDeathValue // from also rewarding the other option in a kissOfDeathMaybe that did not kill originalSnake
+  }
 
   let priorKissOfMurderValue = getPriorKissOfMurderValue(priorKissStates.murderState)
   evaluationResult.priorKissOfMurder = priorKissOfMurderValue
@@ -850,7 +869,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     voronoiResults = new VoronoiResults()
     voronoiResults.snakeResults[myself.id] = new VoronoiResultsSnake()
     if (hazardDamage > 0) {
-      voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
+      voronoiResults.snakeResults[myself.id].effectiveHealths = [new EffectiveHealthData(myself.health / 2, 1)] // for health ratio, average health will just be my health over 2
     }
     voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
     const hazardValue: number = determineVoronoiHazardValue(gameState, board2d.numHazards)
@@ -972,7 +991,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   let selfAverageHealth: number = myself.health
   // health considerations, which are effectively hazard considerations
   if (!isSolo && !isConstrictor) {
-    if (voronoiResultsSelf) {
+    // hazard pit MaxN in particular doesn't behave well with average health. Not sure what it is
+    if (voronoiResultsSelf && !isHazardPits) {
       selfAverageHealth = voronoiResultsSelf.getAverageHealth()
     }
     let healthTier: HealthTier = determineHealthEval(gameState, selfAverageHealth, hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, haveWon)
@@ -1589,7 +1609,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     voronoiResults = new VoronoiResults()
     voronoiResults.snakeResults[myself.id] = new VoronoiResultsSnake()
     if (hazardDamage > 0) {
-      voronoiResults.snakeResults[myself.id].effectiveHealths = [myself.health / 2] // for health ratio, average health will just be my health over 2
+      voronoiResults.snakeResults[myself.id].effectiveHealths = [new EffectiveHealthData(myself.health / 2, 1)] // for health ratio, average health will just be my health over 2
     }
     voronoiResults.snakeResults[myself.id].food = findFood(foodSearchDepth, gameState.board.food, myself.head, gameState) // food finder that doesn't use Voronoi graph
     const hazardValue: number = determineVoronoiHazardValue(gameState, board2d.numHazards)
