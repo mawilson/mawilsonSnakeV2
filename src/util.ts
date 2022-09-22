@@ -1,7 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral } from "./classes"
-import { evaluate } from "./eval"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral } from "./classes"
 import { gameData, isDevelopment, version } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -2258,7 +2257,9 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
           // note this won't consider the turn the hazard appears to be hazard, since it won't damage our snake like it was hazard on that turn
         } else {
           isHazard = cell.hazard > 0
-          isHazardValue = hazardValue / cell.hazard // hazard value is divided by number of hazards in a cell
+          if (isHazard) { // if hazard, isHazardValue is hazardValue divided by the number of hazards in the cell
+            isHazardValue = hazardValue / cell.hazard // hazard value is divided by number of hazards in a cell
+          } // otherwise don't divide by zero
         }
         for (const snakeId of voronoiKeys) { // for each voronoiSnake in cell.voronoi, increment the total of that snake in the cellTotals object
           let voronoiSnake: VoronoiSnake | undefined = cell?.voronoi[snakeId]
@@ -2315,7 +2316,23 @@ export function calculateReachableCells(gameState: GameState, board2d: Board2d):
               }
             }
 
-            voronoiResults.snakeResults[snakeId].effectiveHealths.push(voronoiSnake.effectiveHealth)
+            let effectiveHealth: EffectiveHealthData
+            if (isHazard) {
+              if (cell.food) {
+                effectiveHealth = new EffectiveHealthData(voronoiSnake.effectiveHealth, hazardFoodValue)
+              } else {
+                let effectiveHealthVoronoiValue: number
+                if (isHazardValue <= (1/3)) { // for very low hazard scores (as with stacked or spicy hazard), don't let hazard squares weigh down average health score by giving them 0 weight
+                  effectiveHealthVoronoiValue = 0
+                } else {
+                  effectiveHealthVoronoiValue = isHazardValue
+                }
+                effectiveHealth = new EffectiveHealthData(voronoiSnake.effectiveHealth, effectiveHealthVoronoiValue)
+              }
+            } else {
+              effectiveHealth = new EffectiveHealthData(voronoiSnake.effectiveHealth, 1) // if not hazard, voronoi value for the cell is simply full value of 1
+            }
+            voronoiResults.snakeResults[snakeId].effectiveHealths.push(effectiveHealth)
           }
         }
 
