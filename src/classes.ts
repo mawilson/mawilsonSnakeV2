@@ -1682,6 +1682,7 @@ export class GameData {
   lastMoveTime: number
   evalNoMe: number | undefined
   evalNoMeEvaluationResult: EvaluationResult | undefined
+  cachedEvaluations: {[key: number]: {[key: string]: number}} // cached evaluations store by turn, & inside of that, by hash
   maxLookaheads: number[]
 
   constructor(gameState: GameState) {
@@ -1698,6 +1699,7 @@ export class GameData {
     this.lastMoveTime = Date.now()
     this.evalNoMe = undefined
     this.evalNoMeEvaluationResult = undefined
+    this.cachedEvaluations = {}
     this.maxLookaheads = []
   }
 }

@@ -3,7 +3,7 @@ export const version: string = "1.6.21" // need to declare this before imports s
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash } from "./util"
 import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -535,21 +535,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         }
       })
       for (let i: number = 0; i < thisGameData.priorDeepeningMoves.length; i++) {
-        switch (thisGameData.priorDeepeningMoves[i].direction) {
-          case Direction.Up:
-            availableMoves[i] = Direction.Up
-            break
-          case Direction.Down:
-            availableMoves[i] = Direction.Down
-            break
-          case Direction.Left:
-            availableMoves[i] = Direction.Left
-            break
-          case Direction.Right:
-            availableMoves[i] = Direction.Right
-            break
-          default: // if move is undefined or AlreadyMoved, don't do anything with it
-            break
+        let dir = thisGameData.priorDeepeningMoves[i].direction
+        if (dir !== undefined) {
+          availableMoves[i] = dir
         }
       }
       thisGameData.priorDeepeningMoves = [] // clear this so next level can repopulate it
@@ -564,30 +552,23 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       availableMoves.sort((moveA: Direction, moveB: Direction): number => {
         let stateA: GameState = newGameStates[moveA]
         let stateB: GameState = newGameStates[moveB]
-        if (stateA && stateB) {
-          // let availableMovesA: Moves = getAvailableMoves(stateA, stateA.you, new Board2d(stateA, false))
-          // let availableMovesB: Moves = getAvailableMoves(stateB, stateB.you, new Board2d(stateB, false))
-          // let validMovesALength: number = availableMovesA.validMoves().length
-          // let validMovesBLength: number = availableMovesB.validMoves().length
-          // if (validMovesALength > validMovesBLength) {
-          //   return -1
-          // } else if (validMovesALength < validMovesBLength) {
-          //   return 1
-          // } else {
-          //   return 0
-          // }
-          let stateAHealth: number = stateA.you.health
-          let stateBHealth: number = stateB.you.health
-          if (stateAHealth > stateBHealth) {
-            return -1
-          } else if (stateAHealth < stateBHealth) {
-            return 1
-          } else {
-            return 0
+        if (thisGameData && stateA && stateB) {
+          let stateAHash: string = buildGameStateHash(stateA)
+          let stateBHash: string = buildGameStateHash(stateB)
+          let hashForTurn = thisGameData.cachedEvaluations[stateA.turn]
+          if (hashForTurn) {
+            let stateAScore: number = hashForTurn[stateAHash]
+            let stateBScore: number = hashForTurn[stateBHash]
+            if (stateAScore !== undefined && stateBScore !== undefined) {
+              if (stateAScore > stateBScore) {
+                return -1
+              } else if (stateAScore < stateBScore) {
+                return 1
+              }
+            }
           }
-        } else {
-          return 0
         }
+        return 0
       })
     }
 
@@ -640,19 +621,23 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         otherSnakeValidMoves.sort((moveA: Direction, moveB: Direction): number => {
           let stateA: GameState = otherNewGameStates[moveA]
           let stateB: GameState = otherNewGameStates[moveB]
-          if (stateA && stateB) {
-            let stateAHealth: number = stateA.you.health
-            let stateBHealth: number = stateB.you.health
-            if (stateAHealth > stateBHealth) {
-              return -1
-            } else if (stateAHealth < stateBHealth) {
-              return 1
-            } else {
-              return 0
+          if (thisGameData && stateA && stateB) {
+            let stateAHash: string = buildGameStateHash(stateA)
+            let stateBHash: string = buildGameStateHash(stateB)
+            let hashForTurn = thisGameData.cachedEvaluations[stateA.turn]
+            if (hashForTurn) {
+              let stateAScore: number = hashForTurn[stateAHash]
+              let stateBScore: number = hashForTurn[stateBHash]
+              if (stateAScore !== undefined && stateBScore !== undefined) {
+                if (stateAScore < stateBScore) {
+                  return -1
+                } else if (stateAScore > stateBScore) {
+                  return 1
+                }
+              }
             }
-          } else {
-            return 0
           }
+          return 0
         })
 
         // then, move otherSnake in each possible direction
@@ -699,6 +684,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             if (lookahead <= 0) { // base case, start returning
               evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns, tailChaseTurns)
               evalState = new MoveWithEval(move, evaluationResult.sum(), evaluationResult)
+
+              if (thisGameData && evalState.score !== undefined) {
+                let hashForThem: string = buildGameStateHash(otherNewGameState)
+                if (!thisGameData.cachedEvaluations[otherNewGameState.turn]) { thisGameData.cachedEvaluations[otherNewGameState.turn] = {} }
+                thisGameData.cachedEvaluations[otherNewGameState.turn][hashForThem] = evalState.score
+              }
             } else {
               evalState = _decideMoveMinMax(otherNewGameState, lookahead - 1, tailChaseTurns, kissArgs, minAlpha, minBeta, eatTurns)
             }
@@ -726,6 +717,12 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             }
           }
         }
+      }
+
+      if (thisGameData && worstOriginalSnakeScore.score !== undefined && lookahead <= 0) {
+        let hashForMe: string = buildGameStateHash(newGameState)
+        if (!thisGameData.cachedEvaluations[newGameState.turn]) { thisGameData.cachedEvaluations[newGameState.turn] = {} }
+        thisGameData.cachedEvaluations[newGameState.turn][hashForMe] = worstOriginalSnakeScore.score
       }
 
       if (bestMove.score === undefined) {
@@ -825,7 +822,7 @@ export function move(gameState: GameState): MoveResponse {
   }
 
   thisGameData.hazardWalls = hazardWalls // replace gameData hazard walls with latest copy
-  thisGameData.startingGameState.turn = gameState.turn
+  thisGameData.startingGameState = gameState
   if (gameStateIsHazardSpiral(gameState) && thisGameData.hazardSpiral === undefined && gameState.board.hazards.length === 1) {
     thisGameData.hazardSpiral = new HazardSpiral(gameState, 3)
   }
@@ -833,6 +830,10 @@ export function move(gameState: GameState): MoveResponse {
 
   thisGameData.evalNoMeEvaluationResult = determineEvalNoMe(gameState)
   thisGameData.evalNoMe = thisGameData.evalNoMeEvaluationResult.sum()
+
+  if (thisGameData.cachedEvaluations[gameState.turn - 1]) { // clear old cachedEvaluations that can no longer be relevant
+    delete thisGameData.cachedEvaluations[gameState.turn - 1]
+  }
 
   // logic to seek out a prey snake
   if (gameState.turn > 25 && gameState.board.snakes.length > 2) { // now that the game has shaken out some, start predating on the largest snake

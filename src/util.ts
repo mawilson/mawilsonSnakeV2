@@ -2671,3 +2671,24 @@ export function getHazardPitNumber(turn: number, _expansionRate: number | undefi
     return 0
   }
 }
+
+// generates a string representing a stripped down view of the gameState: just snake IDs with snake bodies.
+export function buildGameStateHash(gameState: GameState): string {
+  let str: string = ""
+  let delimiter: string = ";"
+  let bodyStrings: string[] = []
+  for (const snake of gameState.board.snakes) {
+    let bodyStr: string = ""
+    for (const bodyPart of snake.body) {
+      bodyStr += `(${bodyPart.x},${bodyPart.y})`
+    }
+    bodyStrings.push(`${snake.id}:${bodyStr}${delimiter}`)
+  }
+
+  bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us
+  for (const bodyStr of bodyStrings) {
+    str += bodyStr
+  }
+
+  return str
+}
