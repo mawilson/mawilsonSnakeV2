@@ -1,4 +1,4 @@
-export const version: string = "1.6.21" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.22" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -523,12 +523,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       let hash: string = buildGameStateHash(gameState, gameState.you.head)
       let cachedEvals = thisGameData?.cachedEvaluations[gameState.turn]
-      if (cachedEvals) {
-        let cachedEvaluationResult = cachedEvals[hash]
-        if (cachedEvaluationResult) {
-          return new MoveWithEval(defaultDir, cachedEvaluationResult)
-        }
-      }
 
       if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
         // custom build an EvaluationResult here without calling evaluate. Wants noMe provided & winValue provided.
