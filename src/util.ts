@@ -2673,7 +2673,8 @@ export function getHazardPitNumber(turn: number, _expansionRate: number | undefi
 }
 
 // generates a string representing a stripped down view of the gameState: just snake IDs with snake bodies.
-export function buildGameStateHash(gameState: GameState): string {
+// optional boolean for distinguishing between originalSnake & otherSnake evals in MaxN
+export function buildGameStateHash(gameState: GameState, head: Coord, originalSnake?: boolean): string {
   let str: string = ""
   let delimiter: string = ";"
   let bodyStrings: string[] = []
@@ -2684,6 +2685,10 @@ export function buildGameStateHash(gameState: GameState): string {
     }
     bodyStrings.push(`${snake.id}:${bodyStr}${delimiter}`)
   }
+  if (originalSnake !== undefined) {
+    str += originalSnake + delimiter // gameStates are scored differently for originalSnake & otherSnakes, so need to save those scores separately
+  }
+  str += `(${head.x},${head.y})${delimiter}` // store head x & y to differentiate snake deaths that used determineEvalNoMe
 
   bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us
   for (const bodyStr of bodyStrings) {
