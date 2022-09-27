@@ -2531,8 +2531,7 @@ function determineVoronoiHazardFoodValue(gameState: GameState, numHazards: numbe
 }
 
 // takes a GameState & a VoronoiResults & returns the threshold at which a reachableCells total is considered 'good'
-export function determineVoronoiBaseGood(gameState: GameState, voronoiResults: VoronoiResults): number {
-  const numSnakes: number = gameState.board.snakes.length
+export function determineVoronoiBaseGood(gameState: GameState, voronoiResults: VoronoiResults, numSnakes: number): number {
   const total: number = voronoiResults.totalReachableCells
   if (gameStateIsSolo(gameState)) {
     return total / 2 // in a solo game we generally should be able to reach most of the cells on the board
