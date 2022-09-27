@@ -1682,6 +1682,7 @@ export class GameData {
   lastMoveTime: number
   evalNoMe: number | undefined
   evalNoMeEvaluationResult: EvaluationResult | undefined
+  maxLookaheads: number[]
 
   constructor(gameState: GameState) {
     this.startingGameState = gameState
@@ -1697,6 +1698,7 @@ export class GameData {
     this.lastMoveTime = Date.now()
     this.evalNoMe = undefined
     this.evalNoMeEvaluationResult = undefined
+    this.maxLookaheads = []
   }
 }
 
@@ -1732,8 +1734,9 @@ export class TimingData {
   map: string
   snakeLength: number
   numTimeouts: number
+  averageMaxLookahead: number | undefined
 
-  constructor(timingStats: TimingStats | undefined, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number) {
+  constructor(timingStats: TimingStats | undefined, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number, averageMaxLookahead: number | undefined) {
     this.average = timingStats?.average
     this.max = timingStats?.max
     this.populationStandardDeviaton = timingStats?.populationStandardDeviation
@@ -1749,6 +1752,7 @@ export class TimingData {
     this.map = map !== undefined? map : ""
     this.snakeLength = snakeLength
     this.numTimeouts = numTimeouts
+    this.averageMaxLookahead = averageMaxLookahead
   }
 }
 
