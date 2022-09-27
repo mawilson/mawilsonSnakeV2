@@ -55,7 +55,7 @@ export async function start(gameState: GameState): Promise<void> {
 
 export async function end(gameState: GameState): Promise<void> {
   let gameDataId = createGameDataId(gameState)
-  let thisGameData = gameData? gameData[gameDataId] : undefined
+  let thisGameData = gameData? gameData[gameDataId] : undefined // may be undefined if gameData has already been cleaned up before game ended
 
   let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
     return snake.id === gameState.you.id
@@ -114,14 +114,14 @@ export async function end(gameState: GameState): Promise<void> {
 
 export function decideMove(gameState: GameState, myself: Battlesnake, startTime: number, _startLookahead: number, startingBoard2d: Board2d, iterativeDeepening: boolean): MoveWithEval {
   let gameDataString = createGameDataId(gameState)
-  let thisGameData: GameData | undefined = gameData[gameDataString]
+  let thisGameData: GameData = gameData[gameDataString] || new GameData(gameState) // should always exist from move(), things will be wonky if we have to use a new GameData
   const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
   const startLookahead: number = gameState.you.id === myself.id ? _startLookahead : 0 // otherSnakes always use lookahead of 0
 
   let movesShortCircuited: number = 0
 
   let noMe: number
-  if (thisGameData && thisGameData.evalNoMe !== undefined) {
+  if (thisGameData.evalNoMe !== undefined) {
     noMe = thisGameData.evalNoMe
   } else {
     noMe = getDefaultEvalNoMe(gameState).sum()
@@ -139,7 +139,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let isDuel: boolean = stateContainsMe && (gameState.board.snakes.length === 2)
     
     let board2d: Board2d
-    if (originalSnake && thisGameData && gameState.turn === thisGameData.startingGameState.turn) { // only originalSnake can use startingBoard2d, as otherSnakes may be rechoosing moves here after dying
+    if (originalSnake && gameState.turn === thisGameData.startingGameState.turn) { // only originalSnake can use startingBoard2d, as otherSnakes may be rechoosing moves here after dying
       board2d = startingBoard2d
     } else {
       board2d = new Board2d(gameState, false)
@@ -149,23 +149,21 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let evalThisState: number | undefined = undefined
 
     // non-originalSnakes never need evalThisState (they only care about availableMoves scores, since they can't look ahead)
-    if (originalSnake && thisGameData && gameState.turn !== thisGameData.startingGameState.turn) { // originalSnake does not need evalThisState for the initial turn, since that won't be returned to another _decideMove
+    if (originalSnake && gameState.turn !== thisGameData.startingGameState.turn) { // originalSnake does not need evalThisState for the initial turn, since that won't be returned to another _decideMove
       let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
       
       let hash: string = buildGameStateHash(gameState, myself.head, originalSnake)
-      if (thisGameData && thisGameData.cachedEvaluations[gameState.turn] && thisGameData.cachedEvaluations[gameState.turn][hash]) {
+      if (thisGameData.cachedEvaluations[gameState.turn] && thisGameData.cachedEvaluations[gameState.turn][hash]) {
         evalThisState = thisGameData.cachedEvaluations[gameState.turn][hash]
       } else {
         _evalThisState = evaluate(gameState, myself, evaluateKisses, _eatTurns)
         evalThisState = _evalThisState.sum(noMe)
-        if (thisGameData) {
-          if (thisGameData.cachedEvaluations[gameState.turn]) {
-            thisGameData.cachedEvaluations[gameState.turn][hash] = evalThisState
-          } else {
-            thisGameData.cachedEvaluations[gameState.turn] = {hash: evalThisState}
-          }
+        if (thisGameData.cachedEvaluations[gameState.turn]) {
+          thisGameData.cachedEvaluations[gameState.turn][hash] = evalThisState
+        } else {
+          thisGameData.cachedEvaluations[gameState.turn] = {hash: evalThisState}
         }
       }
     }
@@ -234,13 +232,13 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let averageMoveScore: number | undefined = evaluationsForMachineLearning[snakeScoreHash]
     let doneEvaluating: boolean = false
 
-    if (thisGameData && !thisGameData.cachedEvaluations[gameState.turn + 1]) { thisGameData.cachedEvaluations[gameState.turn + 1] = {} } // instantiate cached evaluations for this turn
-    let cachedEvaluations = thisGameData?.cachedEvaluations[gameState.turn + 1]
+    if (!thisGameData.cachedEvaluations[gameState.turn + 1]) { thisGameData.cachedEvaluations[gameState.turn + 1] = {} } // instantiate cached evaluations for this turn
+    let cachedEvaluations = thisGameData.cachedEvaluations[gameState.turn + 1]
 
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
       if (iterativeDeepening && !checkTime(startTime, gameState)) { return new MoveWithEval(undefined, undefined) }
-      if (thisGameData && bestMove && (bestMove.score !== undefined) && amUsingMachineData && originalSnake) { // machine learning check! Only do for self
+      if (bestMove && (bestMove.score !== undefined) && amUsingMachineData && originalSnake) { // machine learning check! Only do for self
         if (averageMoveScore !== undefined) { // if an average move score exists for this game state
           if (averageMoveScore > 0 && bestMove.score >= (averageMoveScore * 1.1)) { // if the average move score isn't objectively bad, & bestMove is appreciably better than it
             doneEvaluating = true
@@ -436,7 +434,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
     let canLearn: boolean = averageMoveScore === undefined || averageMoveScore < 0 // can still learn if we didn't have data for this move, or the only data we had was worthless
     if ((amMachineLearning || canLearn) && originalSnake && (bestMove.score !== undefined) && !finishEvaluatingNow) { // only add machine learning data for my own moves, & only consider moves that weren't defaults
-      if (thisGameData !== undefined && thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
+      if (thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
         let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
         let foodCountTier = getFoodCountTier(gameState.board.food.length)
         let hazardCountTier = getHazardCountTier(board2d.numHazards)
@@ -480,7 +478,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let numMinPrunes: number = 0
 
     let board2d: Board2d
-    if (thisGameData && gameState.turn === thisGameData.startingGameState.turn) {
+    if (gameState.turn === thisGameData.startingGameState.turn) {
       board2d = startingBoard2d
     } else {
       board2d = new Board2d(gameState, false)
@@ -522,7 +520,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, gameState.you, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
 
       let hash: string = buildGameStateHash(gameState, gameState.you.head)
-      let cachedEvals = thisGameData?.cachedEvaluations[gameState.turn]
+      let cachedEvals = thisGameData.cachedEvaluations[gameState.turn]
 
       if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
         // custom build an EvaluationResult here without calling evaluate. Wants noMe provided & winValue provided.
@@ -534,12 +532,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       } else {
         _evalThisState = evaluateMinimax(gameState, evaluateKisses, _eatTurns, _tailChaseTurns)
         evalThisState = _evalThisState.sum()
-        if (thisGameData) {
-          if (cachedEvals) {
-            cachedEvals[hash] = evalThisState
-          } else {
-            thisGameData.cachedEvaluations[gameState.turn] = {hash: evalThisState}
-          }
+        if (cachedEvals) {
+          cachedEvals[hash] = evalThisState
+        } else {
+          thisGameData.cachedEvaluations[gameState.turn] = {hash: evalThisState}
         }
       }
     
@@ -559,7 +555,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
     let newGameStates: {[key: number]: GameState} = {}
-    if (lookahead === startLookahead && thisGameData && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
+    if (lookahead === startLookahead && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
       thisGameData.priorDeepeningMoves.sort((a: MoveWithEval, b: MoveWithEval) => {
         if (a.direction !== undefined && a.score !== undefined && b.direction !== undefined && b.score !== undefined) {
           if (floatsEqual(a.score, b.score)) { // if element scores are equal, don't change order
@@ -591,7 +587,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       availableMoves.sort((moveA: Direction, moveB: Direction): number => {
         let stateA: GameState = newGameStates[moveA]
         let stateB: GameState = newGameStates[moveB]
-        if (thisGameData && stateA && stateB) {
+        if (stateA && stateB) {
           let stateAHash: string = buildGameStateHash(stateA, stateA.you.head)
           let stateBHash: string = buildGameStateHash(stateB, stateB.you.head)
           let hashForTurn = thisGameData.cachedEvaluations[stateA.turn]
@@ -660,7 +656,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         otherSnakeValidMoves.sort((moveA: Direction, moveB: Direction): number => {
           let stateA: GameState = otherNewGameStates[moveA]
           let stateB: GameState = otherNewGameStates[moveB]
-          if (thisGameData && stateA && stateB) {
+          if (stateA && stateB) {
             let stateAHash: string = buildGameStateHash(stateA, stateA.you.head)
             let stateBHash: string = buildGameStateHash(stateB, stateB.you.head)
             let hashForTurn = thisGameData.cachedEvaluations[stateA.turn]
@@ -724,7 +720,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns, tailChaseTurns)
               evalState = new MoveWithEval(move, evaluationResult.sum(), evaluationResult)
 
-              if (thisGameData && evalState.score !== undefined) {
+              if (evalState.score !== undefined) {
                 let hashForThem: string = buildGameStateHash(otherNewGameState, otherNewGameState.you.head)
                 if (!thisGameData.cachedEvaluations[otherNewGameState.turn]) { thisGameData.cachedEvaluations[otherNewGameState.turn] = {} }
                 thisGameData.cachedEvaluations[otherNewGameState.turn][hashForThem] = evalState.score
@@ -758,7 +754,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         }
       }
 
-      if (thisGameData && worstOriginalSnakeScore.score !== undefined && lookahead <= 0) {
+      if (worstOriginalSnakeScore.score !== undefined && lookahead <= 0) {
         let hashForMe: string = buildGameStateHash(newGameState, newGameState.you.head)
         if (!thisGameData.cachedEvaluations[newGameState.turn]) { thisGameData.cachedEvaluations[newGameState.turn] = {} }
         thisGameData.cachedEvaluations[newGameState.turn][hashForMe] = worstOriginalSnakeScore.score
@@ -777,7 +773,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
         }
       }
-      if (thisGameData && lookahead === startLookahead) { // save the top-level moves for each startLookahead, for iterative deepening move sorting
+      if (lookahead === startLookahead) { // save the top-level moves for each startLookahead, for iterative deepening move sorting
         thisGameData.priorDeepeningMoves.push(new MoveWithEval(move, worstOriginalSnakeScore.score))
       }
 
@@ -854,9 +850,7 @@ export function move(gameState: GameState): MoveResponse {
     let suicidalMove: Direction = getSuicidalMove(gameState, gameState.you)
     let suicidalMoveStr: string = directionToString(suicidalMove) || "up"
     console.log(`another league game already running, moving towards neck with ${suicidalMoveStr}`)
-    if (thisGameData !== undefined) { // clean up game-specific data, helps the league game know that it does in fact have time to think
-      delete gameData[thisGameDataId]
-    }
+    delete gameData[thisGameDataId] // clean up game-specific data, helps the league game know that it does in fact have time to think
     return {move: suicidalMoveStr}
   }
 
@@ -935,17 +929,15 @@ export function move(gameState: GameState): MoveResponse {
   
   let chosenMoveDirection : Direction = chosenMove.direction !== undefined ? chosenMove.direction : getDefaultMove(gameState, gameState.you, board2d) // if decideMove has somehow not decided up on a move, get a default direction to go in
   
-  if (thisGameData !== undefined) {
-    let now: number = Date.now()
-    let timeTaken: number = now - timeBeginning
-    let timesTaken = thisGameData.timesTaken
-    timesTaken.push(timeTaken)
-    if (timeTaken > gameState.game.timeout) {
-      thisGameData.timeouts = thisGameData.timeouts + 1
-    }
-    thisGameData.priorDeepeningMoves = []
-    thisGameData.lastMoveTime = now
+  let now: number = Date.now()
+  let timeTaken: number = now - timeBeginning
+  let timesTaken = thisGameData.timesTaken
+  timesTaken.push(timeTaken)
+  if (timeTaken > gameState.game.timeout) {
+    thisGameData.timeouts = thisGameData.timeouts + 1
   }
+  thisGameData.priorDeepeningMoves = []
+  thisGameData.lastMoveTime = now
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
 }
