@@ -326,7 +326,7 @@ export function determineEvalNoMe(_gameState: GameState): EvaluationResult {
   } else {
     let voronoiResults = new VoronoiResults()
     voronoiResults.totalReachableCells = totalReachableCells // determineVoronoiBaseGood just needs totalReachableCells defined
-    let voronoiBaseGood: number = determineVoronoiBaseGood(gameState, voronoiResults)
+    let voronoiBaseGood: number = determineVoronoiBaseGood(gameState, voronoiResults, gameState.board.snakes.length)
     voronoiSelf = -(voronoiBaseGood * evalVoronoiNegativeStep) // smallest possible Voronoi score is full negation of voronoiBaseGood score, times step
     othersnakeHealth = determineOtherSnakeHealthEval(gameState.board.snakes)
   }
@@ -1036,7 +1036,12 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
     let voronoiSelf: number
     let voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
-    let voronoiBaseGood: number = determineVoronoiBaseGood(gameState, voronoiResults)
+    let voronoiBaseGood: number
+    if (thisGameData) {
+      voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults, thisGameData.startingGameState.board.snakes.length)
+    } else {
+      voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults, gameState.board.snakes.length)
+    }
     if (haveWon) {
       voronoiSelf = voronoiResults.totalReachableCells // in the event of winning, consider voronoiSelf to be the max, regardless of the truth.
       evaluationResult.voronoiSelf = voronoiSelf * voronoiDeltaStep
@@ -1748,7 +1753,7 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
       let voronoiDelta: number = (voronoiSelf - otherSnakeVoronoi) * voronoiDeltaStep // consider Voronoi delta after adjusting for tail & body chases
       if (voronoiDelta < 0 && !isConstrictor) { // if delta is bad, consisider both how bad the delta is, & how bad the overall score is.
         // A score of 18<->5 is much worse than a score of 60<->30, but pure delta will prioritize the former
-        let voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults)
+        let voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults, 2)
         let voronoiSelfMinusBaseGood: number = voronoiSelf - voronoiBaseGood
         if (voronoiSelfMinusBaseGood < 0) { // if voronoiSelf is worse than an arbitrary base 'good' score
           let voronoiSelfAdjusted: number = getVoronoiSelfAdjusted(voronoiSelfMinusBaseGood)
