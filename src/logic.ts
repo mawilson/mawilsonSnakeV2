@@ -1,4 +1,4 @@
-export const version: string = "1.6.20" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.21" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -74,7 +74,15 @@ export async function end(gameState: GameState): Promise<void> {
   }
   let hazardDamage: number = getHazardDamage(gameState)
   let timeouts: number = thisGameData? thisGameData.timeouts : 0
-  let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts)
+  let averageMaxLookahead: number | undefined = undefined
+  if (thisGameData && thisGameData.maxLookaheads.length > 0) {
+    let sum: number = 0
+    for (const maxLookahead of thisGameData.maxLookaheads) {
+      sum += maxLookahead
+    }
+    averageMaxLookahead = sum / thisGameData.maxLookaheads.length
+  }
+  let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookahead)
 
   const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -813,6 +821,7 @@ export function move(gameState: GameState): MoveResponse {
       } 
     }
     logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
+    thisGameData.maxLookaheads.push(i - 1)
   } else {
     futureSight = lookaheadDeterminator(gameState, board2d)
     thisGameData.lookahead = futureSight
