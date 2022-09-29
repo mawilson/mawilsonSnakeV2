@@ -237,49 +237,46 @@ export function determineEvalNoSnakes(gameState: GameState, myself: Battlesnake,
     let otherSnakeHealthPenalty: number = thisGameData?.startingGameState.board.snakes.length === 2 ? determineOtherSnakeHealthEvalDuel(tieSnake) : determineOtherSnakeHealthEval([tieSnake])
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }
-  if (gameState.you.id === myself.id) {
-    if (hazardDamage > 0) { // hazard Voronoi calqs have smaller totalReachableCells & a healthRatio in wrapped
-      let numHazards: number
-      if (gameStateIsSinkhole(gameState)) { // sinkhole games or other game modes with stacked hazards must get # of hazards thru board2d
-        let board2d: Board2d = new Board2d(gameState, false) // no need for voronoi
-        numHazards = board2d.numHazards
-      } else { // in non-stacked hazard modes, can simply count hazard array length
-        numHazards = gameState.board.hazards.length
+  if (!thisGameData || !thisGameData.isDuel) { // for non-minimax games. Minimax duels can generally consider a Voronoi score of 0 to be a neutral score
+    if (gameState.you.id === myself.id) {
+      if (hazardDamage > 0) { // hazard Voronoi calqs have smaller totalReachableCells & a healthRatio in wrapped
+        let numHazards: number
+        if (gameStateIsSinkhole(gameState)) { // sinkhole games or other game modes with stacked hazards must get # of hazards thru board2d
+          let board2d: Board2d = new Board2d(gameState, false) // no need for voronoi
+          numHazards = board2d.numHazards
+        } else { // in non-stacked hazard modes, can simply count hazard array length
+          numHazards = gameState.board.hazards.length
+        }
+        const hazardValue = determineVoronoiHazardValue(gameState, numHazards)
+        const boardSize: number = gameState.board.height * gameState.board.width
+        const totalReachableCells: number = (boardSize - numHazards) + numHazards * hazardValue
+        const myReachableCells: number = totalReachableCells / 2
+        const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
+        let voronoiSelf: number = myReachableCells - voronoiBaseGood // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
+        if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+          voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+        } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+          voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
+        }
+        if (gameStateIsWrapped(gameState)) {
+          const healthRatio = (myself.health / 2) / 100 // say average health is half of current health
+          voronoiSelf = voronoiSelf * healthRatio
+        }
+        evaluationResult.voronoiSelf = voronoiSelf
+      } else {
+        const totalReachableCells: number = gameState.board.height * gameState.board.width
+        const myReachableCells: number = totalReachableCells / 2
+        const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
+        let voronoiSelf: number = myReachableCells - voronoiBaseGood // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
+        if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
+          voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
+        } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
+          voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
+        }
+        evaluationResult.voronoiSelf = voronoiSelf
       }
-      const hazardValue = determineVoronoiHazardValue(gameState, numHazards)
-      const boardSize: number = gameState.board.height * gameState.board.width
-      const totalReachableCells: number = (boardSize - numHazards) + numHazards * hazardValue
-      const myReachableCells: number = totalReachableCells / 2
-      const hazardRatio = numHazards / boardSize
-      // penalty in hazard games for following tails that can't spawn food. Roughly every body cell receives this penalty, & this penalty falls between 0.5 & 0.
-      // penalty is applied based on the Voronoi value of the cell, so apply self.length * 2 * hazardValue * hazardRatio penalties for hazard squares, &
-      // self.length * 2 * 1 * (1 - hazardRatio) for non-hazard squares, where the first 1 is just a full, non-hazard Voronoi reward
-      let tailOffsetPenalty: number = (myself.length * 2 * hazardRatio * 0.2 * hazardValue) + (myself.length * 2 * (1 - hazardRatio) * 0.2)
-      const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
-      let voronoiSelf: number = myReachableCells - voronoiBaseGood - tailOffsetPenalty // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
-      if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
-        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
-      } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
-        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
-      }
-      if (gameStateIsWrapped(gameState)) {
-        const healthRatio = (myself.health / 2) / 100 // say average health is half of current health
-        voronoiSelf = voronoiSelf * healthRatio
-      }
-      evaluationResult.voronoiSelf = voronoiSelf
-    } else {
-      const totalReachableCells: number = gameState.board.height * gameState.board.width
-      const myReachableCells: number = totalReachableCells / 2
-      const voronoiBaseGood: number = totalReachableCells / 6 // see determineVoronoiBaseGood - in a duel it's the total reachable cells / 6
-      let voronoiSelf: number = myReachableCells - voronoiBaseGood // see determineVoronoiSelf - without tail chases, it's just voronoiSelf - voronoiBaseGood
-      if (voronoiSelf > 0) { // voronoiSelf is positive, voronoiSelf is a reward
-        voronoiSelf = voronoiSelf * evalVoronoiPositiveStep
-      } else { // voronoiSelf is 0 or negative, voronoiSelf becomes a penalty
-        voronoiSelf = voronoiSelf * evalVoronoiNegativeStep
-      }
-      evaluationResult.voronoiSelf = voronoiSelf
-    }
-  } // otherSnakes in duel use Voronoi delta, & Voronoi scores here should be identical, so can skip that entirely
+    } // otherSnakes in duel use Voronoi delta, & Voronoi scores here should be identical, so can skip that entirely
+  }
   if (firstEatTurn) {
     const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
     const lookahead: number = thisGameData !== undefined? thisGameData.lookahead : 0
@@ -414,7 +411,7 @@ function determineDeltaScore(delta: number, evalLengthMult: number, evalLengthMa
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, _eatTurns?: number[], tailChaseTurns?: number[]) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, _eatTurns?: number[]) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -1197,19 +1194,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
 
     evaluationResult.food = foodCalc
-  }
-
-  if (tailChaseTurns !== undefined && tailChaseTurns.length > 0) {
-    let tailChasePenalty: number = 0
-    let turnsIntoLookahead: number
-    for (const turn of tailChaseTurns) {
-      turnsIntoLookahead = turn -(originalTurn + 1) // ex: original 30, turn 34: 34 - (30 + 1) = 3
-
-      if (turnsIntoLookahead > 2) { // don't penalize snake for tail chasing at depths 0, 1, or 2. 0 is impossible to hurt us, 1 is impossible out of wrapped, & 2 is unlikely
-        tailChasePenalty = tailChasePenalty + ((turnsIntoLookahead - 2) * -10) // higher penalty for deeper depths at which we relied on a tail chase
-      }
-    }
-    evaluationResult.tailChasePenalty = tailChasePenalty
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
