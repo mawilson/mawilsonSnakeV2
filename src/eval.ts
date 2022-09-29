@@ -414,7 +414,7 @@ function determineDeltaScore(delta: number, evalLengthMult: number, evalLengthMa
 }
 
 // the big one. This function evaluates the state of the board & spits out a number indicating how good it is for input snake, higher numbers being better
-export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, _eatTurns?: number[], tailChaseTurns?: number[]) : EvaluationResult {
+export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissStates?: KissStatesForEvaluate, _eatTurns?: number[]) : EvaluationResult {
   let myself: Battlesnake | undefined
   let otherSnakes: Battlesnake[] = []
   let originalSnake: Battlesnake | undefined
@@ -1197,19 +1197,6 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     }
 
     evaluationResult.food = foodCalc
-  }
-
-  if (tailChaseTurns !== undefined && tailChaseTurns.length > 0) {
-    let tailChasePenalty: number = 0
-    let turnsIntoLookahead: number
-    for (const turn of tailChaseTurns) {
-      turnsIntoLookahead = turn -(originalTurn + 1) // ex: original 30, turn 34: 34 - (30 + 1) = 3
-
-      if (turnsIntoLookahead > 2) { // don't penalize snake for tail chasing at depths 0, 1, or 2. 0 is impossible to hurt us, 1 is impossible out of wrapped, & 2 is unlikely
-        tailChasePenalty = tailChasePenalty + ((turnsIntoLookahead - 2) * -10) // higher penalty for deeper depths at which we relied on a tail chase
-      }
-    }
-    evaluationResult.tailChasePenalty = tailChasePenalty
   }
 
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
