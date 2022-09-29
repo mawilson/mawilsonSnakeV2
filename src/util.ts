@@ -2683,7 +2683,7 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
     for (const bodyPart of snake.body) {
       bodyStr += `(${bodyPart.x},${bodyPart.y})`
     }
-    bodyStrings.push(`${snake.id}:${bodyStr}${delimiter}`)
+    bodyStrings.push(`${snake.id}:${snake.health}:${snake.length}${bodyStr}${delimiter}`)
   }
   if (originalSnake !== undefined) {
     str += originalSnake + delimiter // gameStates are scored differently for originalSnake & otherSnakes, so need to save those scores separately
@@ -2724,10 +2724,16 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
 
   str += tailChaseString
 
+  //str += JSON.stringify(gameState) // just plop the whole gameState string, JSONified, in
   bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us
   for (const bodyStr of bodyStrings) {
     str += bodyStr
   }
+
+  for (const food of gameState.board.food) {
+    str += `(${food.x},${food.y})`
+  }
+  str += delimiter
 
   return str
 }
