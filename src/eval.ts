@@ -184,16 +184,24 @@ function determineHealthEvalArcadeMaze(_snakeHealth: number, healthStep: number,
   return evaluation
 }
 
-function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[]): number {
+function determineOtherSnakeHealthEval(otherSnakes: Battlesnake[], max?: boolean): number {
   let otherSnakeHealthPenalty: number = 0
   for (const snake of otherSnakes) {
-    otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
+    if (max) {
+      otherSnakeHealthPenalty = otherSnakeHealthPenalty + 100 * evalHealthOthersnakeStep
+    } else {
+      otherSnakeHealthPenalty = otherSnakeHealthPenalty + snake.health * evalHealthOthersnakeStep
+    }
   }
   return otherSnakeHealthPenalty
 }
 
-function determineOtherSnakeHealthEvalDuel(otherSnake: Battlesnake): number {
-  return otherSnake.health * -1 // otherSnake health penalty is simply its health, negated
+function determineOtherSnakeHealthEvalDuel(otherSnake: Battlesnake, max?: boolean): number {
+  if (max) {
+    return 100 * -1
+  } else {
+    return otherSnake.health * -1 // otherSnake health penalty is simply its health, negated
+  }
 }
 
 // constrictor evalNoSnakes is very simple - just Base - otherSnakeHealth
@@ -319,13 +327,13 @@ export function determineEvalNoMe(_gameState: GameState): EvaluationResult {
   if (isDuel) {
     let othersnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== gameState.you.id)
     voronoiSelf = -(totalReachableCells * evalVoronoiDeltaStepDuel) // smallest possible Voronoi score is delta of entire board, times step
-    othersnakeHealth = determineOtherSnakeHealthEvalDuel(othersnake)
+    othersnakeHealth = determineOtherSnakeHealthEvalDuel(othersnake, true)
   } else {
     let voronoiResults = new VoronoiResults()
     voronoiResults.totalReachableCells = totalReachableCells // determineVoronoiBaseGood just needs totalReachableCells defined
     let voronoiBaseGood: number = determineVoronoiBaseGood(gameState, voronoiResults, gameState.board.snakes.length)
     voronoiSelf = -(voronoiBaseGood * evalVoronoiNegativeStep) // smallest possible Voronoi score is full negation of voronoiBaseGood score, times step
-    othersnakeHealth = determineOtherSnakeHealthEval(gameState.board.snakes)
+    othersnakeHealth = determineOtherSnakeHealthEval(gameState.board.snakes, true)
   }
   kissOfDeath = evalKissOfDeathCertainty // as a minimum value, need to include possibility of this very bad value
   priorKissOfDeath = _evalPriorKissOfDeathCertainty

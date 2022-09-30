@@ -2715,14 +2715,14 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
     eatTurnString += `${eatTurn}${arrDelimiter}`
   }
 
-  str += eatTurnString
+  str += `${eatTurnString}${delimiter}`
 
   let tailChaseString: string = ""
   for (const tailChase of tailChases) {
     tailChaseString += `${tailChase}${arrDelimiter}`
   }
 
-  str += tailChaseString
+  str += `${tailChaseString}${delimiter}`
 
   //str += JSON.stringify(gameState) // just plop the whole gameState string, JSONified, in
   bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us
@@ -2732,6 +2732,11 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
 
   for (const food of gameState.board.food) {
     str += `(${food.x},${food.y})`
+  }
+  str += delimiter
+
+  for (const hazard of gameState.board.hazards) {
+    str += `(${hazard.x},${hazard.y})`
   }
   str += delimiter
 
