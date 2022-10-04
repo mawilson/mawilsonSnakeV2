@@ -22,6 +22,7 @@ const evalVoronoiNegativeStep = 100
 const evalVoronoiPositiveStep = 4.5
 
 const evalVoronoiNegativeStepDuel = 30
+const evalVoronoiPreyStepDuel = -30
 
 const evalVoronoiDeltaStepConstrictor = 50
 const evalVoronoiDeltaStepDuel = 5
@@ -1736,20 +1737,28 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
     let voronoiSelf: number
     let voronoiDeltaStep = isConstrictor? evalVoronoiDeltaStepConstrictor : evalVoronoiDeltaStepDuel
     let voronoiScore: number | undefined = undefined
+    let voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults, 2)
     if (haveWon) {
       voronoiSelf = voronoiResults.totalReachableCells // in the event of winning, consider voronoiSelf to be the max, regardless of the truth.
       evaluationResult.voronoiSelf = voronoiSelf * voronoiDeltaStep
+      evaluationResult.voronoiPredator = voronoiBaseGood * -evalVoronoiPreyStepDuel
     } else if (otherSnake) { // only use delta, with tail chase & tail offset taken into account. otherSnake should always be defined here, else haveWon would have been true
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
       let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
       let voronoiDelta: number = (voronoiSelf - otherSnakeVoronoi) * voronoiDeltaStep // consider Voronoi delta after adjusting for tail & body chases
       if (voronoiDelta < 0 && !isConstrictor) { // if delta is bad, consisider both how bad the delta is, & how bad the overall score is.
         // A score of 18<->5 is much worse than a score of 60<->30, but pure delta will prioritize the former
-        let voronoiBaseGood = determineVoronoiBaseGood(gameState, voronoiResults, 2)
         let voronoiSelfMinusBaseGood: number = voronoiSelf - voronoiBaseGood
         if (voronoiSelfMinusBaseGood < 0) { // if voronoiSelf is worse than an arbitrary base 'good' score
           let voronoiSelfAdjusted: number = getVoronoiSelfAdjusted(voronoiSelfMinusBaseGood)
           voronoiScore = Math.min(voronoiSelfAdjusted, voronoiDelta)
+        }
+      } else if (voronoiDelta > 0 && !isConstrictor) { // if delta is good, & otherSnake Voronoi is bad, give extra reward for pinning it down
+        // A score of 18<->14 is worse than a score of 6<->4, by virtue of winning sooner & limiting otherSnakes' ability to come back
+        let otherSnakeVoronoiMinusBaseGood: number = otherSnakeVoronoi - voronoiBaseGood
+        if (otherSnakeVoronoiMinusBaseGood < 0) { // if otherSnakeVoronoi is worse than a base 'good' score, give additional predator reward
+          voronoiScore = voronoiDelta
+          evaluationResult.voronoiPredator = otherSnakeVoronoiMinusBaseGood * evalVoronoiPreyStepDuel // small additional award for each level of bad otherSnake is in
         }
       }
       if (voronoiScore === undefined) { // either voronoiDelta was not < 0, or voronoiSelf was not worse than voronoiBaseGood

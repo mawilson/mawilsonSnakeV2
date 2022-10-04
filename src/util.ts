@@ -1436,7 +1436,7 @@ export function lookaheadDeterminatorDeepening(gameState: GameState, board2d: Bo
       }
       return futureSight
     } else {
-      return 100 // deepening will finish when it runs out of time, no need to set a cap
+      return 50 // deepening will finish when it runs out of time, no need to set a cap
     }
   }
 }
