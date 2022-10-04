@@ -1397,40 +1397,48 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
 }
 
 export function lookaheadDeterminatorDeepening(gameState: GameState, board2d: Board2d): number {
-  let futureSight: number
-  let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 3)
-  if (gameStateIsConstrictor(gameState)) {
-    if (gameStateIsArcadeMaze(gameState)) {
-      futureSight = 15
-    } else {
-      futureSight = 9
-    }
+  if (gameState.turn <= 1) { // only don't want to deepen on starting turns so as to get starting food
+    return 0
   } else {
-    if (gameState.turn <= 1) {
-      futureSight = 0
-    } else if (gameState.turn < 10) {
-      futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
-    } else if (gameState.turn < 20) {
-      futureSight = 5 // as above, but ramping up
-    } else {
-      if (gameStateIsArcadeMaze(gameState)) {
-        if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
+    if (isDevelopment && (gameState.game.source === "testing" || gameState.game.source === "testingDeepening")) { // in testing games, deepening tests still need to conclude at a reasonable point
+      let futureSight: number
+      let branchingFactor: number = calculateReachableCellsAtDepth(board2d, 3)
+      if (gameStateIsConstrictor(gameState)) {
+        if (gameStateIsArcadeMaze(gameState)) {
           futureSight = 15
         } else {
-          futureSight = 12
-        }
-      } else {
-        if (branchingFactor > 40) {
-          futureSight = 7
-        } else if (branchingFactor > 28) {
-          futureSight = 8
-        } else { // 28 & below
           futureSight = 9
         }
+      } else {
+        if (gameState.turn <= 1) {
+          futureSight = 0
+        } else if (gameState.turn < 10) {
+          futureSight = 3 // don't need a crazy amount of lookahead early anyway, & likely can't afford it this early
+        } else if (gameState.turn < 20) {
+          futureSight = 5 // as above, but ramping up
+        } else {
+          if (gameStateIsArcadeMaze(gameState)) {
+            if (gameState.board.snakes.length === 2) { // using minmax algorithm, can look ahead more
+              futureSight = 15
+            } else {
+              futureSight = 12
+            }
+          } else {
+            if (branchingFactor > 40) {
+              futureSight = 7
+            } else if (branchingFactor > 28) {
+              futureSight = 8
+            } else { // 28 & below
+              futureSight = 9
+            }
+          }
+        }
       }
+      return futureSight
+    } else {
+      return 100 // deepening will finish when it runs out of time, no need to set a cap
     }
   }
-  return futureSight
 }
 
 // returns true if 'myself' is in position to cut off 'snake' at an edge
@@ -2735,8 +2743,11 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
   }
   str += delimiter
 
-  for (const hazard of gameState.board.hazards) {
-    str += `(${hazard.x},${hazard.y})`
+  // only need to pass hazards along in games where hazard location is neither static nor predictable
+  if (gameStateIsRoyale(gameState)) {
+    for (const hazard of gameState.board.hazards) {
+      str += `(${hazard.x},${hazard.y})`
+    }
   }
   str += delimiter
 

@@ -101,11 +101,13 @@ export class MoveWithEval {
   direction: Direction | undefined
   score: number | undefined
   evaluationResult: EvaluationResult | undefined
+  instantReturn: boolean
 
-  constructor(direction: Direction | undefined, score: number | undefined, evaluationResult?: EvaluationResult) {
+  constructor(direction: Direction | undefined, score: number | undefined, evaluationResult?: EvaluationResult, instantReturn?: boolean) {
     this.direction = direction
     this.score = score
     this.evaluationResult = evaluationResult
+    this.instantReturn = instantReturn || false
   }
 
   toString() : string {
