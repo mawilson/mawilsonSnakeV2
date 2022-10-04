@@ -1,4 +1,4 @@
-export const version: string = "1.6.24" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.25" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -544,7 +544,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         cachedEvaluationsThisTurn[hash] = evalThisState
       }
     
-      return new MoveWithEval(defaultDir, evalThisState, _evalThisState)
+      return new MoveWithEval(defaultDir, evalThisState, _evalThisState, true)
     }
     
     let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== gameState.you.id)
@@ -933,7 +933,7 @@ export function move(gameState: GameState): MoveResponse {
         break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
       } 
     }
-    if (!chosenMove.instantReturn) { // don't bother logging max lookahead if it was an instant return
+    if (!chosenMove.instantReturn && (i < 30)) { // don't bother logging max lookahead if it was an instant return, & don't bother logging turns where no meaningful choices were made
       logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
       thisGameData.maxLookaheads.push(i - 1)
     }
