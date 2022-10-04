@@ -1,4 +1,4 @@
-export const version: string = "1.6.23" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.24" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -807,9 +807,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let validMoves = availableMoves.validMoves()
   // before jumping into recursion, first check to see if I have any choices to make
   if (validMoves.length === 1) { // if I only have one valid move, return that
-    return new MoveWithEval(validMoves[0], undefined)
+    return new MoveWithEval(validMoves[0], undefined, undefined, true)
   } else if (validMoves.length === 0) { // if I have no valid moves, return the default move
-    return new MoveWithEval(getDefaultMove(gameState, myself, startingBoard2d), undefined)
+    return new MoveWithEval(getDefaultMove(gameState, myself, startingBoard2d), undefined, undefined, true)
   } else { // otherwise, start deciding
     let myselfMove: MoveWithEval
     if (gameState.board.snakes.length === 2) {
@@ -922,7 +922,7 @@ export function move(gameState: GameState): MoveResponse {
 
     let i: number = 1
     let newMove: MoveWithEval
-    while(checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
+    while(!chosenMove.instantReturn && checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
       thisGameData.lookahead = i
       thisGameData.cachedEvaluations[gameState.turn + i + 1] = thisGameData.cachedEvaluations[gameState.turn + i + 1] || {} // instantiate cached evaluations for this level of lookahead
       newMove = decideMove(gameState, gameState.you, timeBeginning, i, board2d, true) // choose another move with increased lookahead depth
@@ -933,8 +933,10 @@ export function move(gameState: GameState): MoveResponse {
         break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
       } 
     }
-    logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
-    thisGameData.maxLookaheads.push(i - 1)
+    if (!chosenMove.instantReturn) { // don't bother logging max lookahead if it was an instant return
+      logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
+      thisGameData.maxLookaheads.push(i - 1)
+    }
   } else {
     futureSight = lookaheadDeterminator(gameState, board2d)
     thisGameData.lookahead = futureSight
