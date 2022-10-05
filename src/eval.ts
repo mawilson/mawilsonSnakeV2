@@ -1743,8 +1743,14 @@ export function evaluateMinimax(gameState: GameState, _priorKissStates?: KissSta
       evaluationResult.voronoiSelf = voronoiSelf * voronoiDeltaStep
       evaluationResult.voronoiPredator = voronoiBaseGood * -evalVoronoiPreyStepDuel
     } else if (otherSnake) { // only use delta, with tail chase & tail offset taken into account. otherSnake should always be defined here, else haveWon would have been true
+      let voronoiResultsOtherSnake: VoronoiResultsSnake = voronoiResults.snakeResults[otherSnake.id]
       voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
-      let otherSnakeVoronoi: number = determineVoronoiSelf(otherSnake, voronoiResults.snakeResults[otherSnake.id], useTailChase, useTailOffset)
+      let otherSnakeVoronoi: number
+      if (voronoiResultsSelf.reachableCells < voronoiResultsOtherSnake.reachableCells) { // don't penalize otherSnake for chasing my tail if I am likely to die because of it
+        otherSnakeVoronoi = determineVoronoiSelf(otherSnake, voronoiResultsOtherSnake, false, useTailOffset)
+      } else {
+        otherSnakeVoronoi = determineVoronoiSelf(otherSnake, voronoiResultsOtherSnake, useTailChase, useTailOffset)
+      }
       let voronoiDelta: number = (voronoiSelf - otherSnakeVoronoi) * voronoiDeltaStep // consider Voronoi delta after adjusting for tail & body chases
       if (voronoiDelta < 0 && !isConstrictor) { // if delta is bad, consisider both how bad the delta is, & how bad the overall score is.
         // A score of 18<->5 is much worse than a score of 60<->30, but pure delta will prioritize the former
