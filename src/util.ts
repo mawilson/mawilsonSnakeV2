@@ -833,11 +833,11 @@ export function findKissDeathMoves(kissMoves: MoveNeighbors) : Direction[] {
   return deathMoves
 }
 
-export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
+export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake) : number {
   const isSolo: boolean = gameStateIsSolo(gameState)
   if (isSolo) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
-      return board2d.height + board2d.width
+      return gameState.board.height + gameState.board.width
     } else {
       return 0
     }
@@ -846,7 +846,7 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
   } else if (gameState.turn === 1) { // on turn 1, we should be 1 away from our starting food, only look for that
     return 1
   } else {
-    return board2d.height + board2d.width // unless otherwise specified, we're always hungry
+    return gameState.board.height + gameState.board.width // unless otherwise specified, we're always hungry
   }
 }
 
@@ -2682,7 +2682,7 @@ export function getHazardPitNumber(turn: number, _expansionRate: number | undefi
 
 // generates a string representing a stripped down view of the gameState: just snake IDs with snake bodies.
 // optional boolean for distinguishing between originalSnake & otherSnake evals in MaxN
-export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number[], tailChases: number[], originalSnake?: boolean): string {
+export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number[], originalSnake?: boolean): string {
   let str: string = ""
   let delimiter: string = ";"
   let bodyStrings: string[] = []
@@ -2724,13 +2724,6 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
   }
 
   str += `${eatTurnString}${delimiter}`
-
-  let tailChaseString: string = ""
-  for (const tailChase of tailChases) {
-    tailChaseString += `${tailChase}${arrDelimiter}`
-  }
-
-  str += `${tailChaseString}${delimiter}`
 
   //str += JSON.stringify(gameState) // just plop the whole gameState string, JSONified, in
   bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us
