@@ -108,7 +108,7 @@ export function getDistance(c1: Coord, c2: Coord, gameState: GameState) : number
 }
 
 export function gameStateIsRoyale(gameState: GameState): boolean {
-  return gameState.game.ruleset.name === "royale"
+  return gameState.game.map === "royale"
 }
 
 // gameMode functions
@@ -2682,7 +2682,7 @@ export function getHazardPitNumber(turn: number, _expansionRate: number | undefi
 
 // generates a string representing a stripped down view of the gameState: just snake IDs with snake bodies.
 // optional boolean for distinguishing between originalSnake & otherSnake evals in MaxN
-export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number[], originalSnake?: boolean): string {
+export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number, originalSnake?: boolean): string {
   let str: string = ""
   let delimiter: string = ";"
   let bodyStrings: string[] = []
@@ -2716,14 +2716,8 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
     str += `${KissOfDeathState.kissOfDeathNo}${delimiter}`
     str += `${KissOfMurderState.kissOfMurderNo}${delimiter}`
   }
-  
-  let arrDelimiter = "-"
-  let eatTurnString: string = ""
-  for (const eatTurn of eatTurns) {
-    eatTurnString += `${eatTurn}${arrDelimiter}`
-  }
 
-  str += `${eatTurnString}${delimiter}`
+  str += `${eatTurns}${delimiter}`
 
   //str += JSON.stringify(gameState) // just plop the whole gameState string, JSONified, in
   bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us

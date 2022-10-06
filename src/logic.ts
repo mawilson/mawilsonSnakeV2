@@ -4,7 +4,7 @@ import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats } from "./classes"
 import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash } from "./util"
-import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe, evaluateTailChasePenalty, evaluateFoodEaten, evaluateWinValue } from "./eval"
+import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe, evaluateTailChasePenalty, evaluateWinValue } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
 import { WriteStream } from 'fs'
@@ -127,7 +127,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     noMe = getDefaultEvalNoMe(gameState).sum()
   }
 
-  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _eatTurns?: number[]): MoveWithEval {
+  function _decideMove(gameState: GameState, myself: Battlesnake, lookahead?: number, kisses?: KissStatesForEvaluate, _otherSnakeMoves?: {[key: string]: Direction}, _eatTurns?: number): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
     const originalSnake: boolean = myself.id === gameState.you.id
@@ -157,7 +157,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
       
-      let hash: string = buildGameStateHash(gameState, myself, evaluateKisses, _eatTurns || [], originalSnake)
+      let hash: string = buildGameStateHash(gameState, myself, evaluateKisses, _eatTurns || 0, originalSnake)
       let cache = cachedEvaluationsThisTurn[hash]
       if (cache !== undefined) {
         evalThisState = cache
@@ -386,14 +386,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
           }
 
-          let eatTurns: number[] = []
-          if (_eatTurns && _eatTurns.length > 0) { // clone _eatTurns so I have my own copy to pass down to my children
-            for (const eatTurn of _eatTurns) {
-              eatTurns.push(eatTurn)
-            }
-          }
+          let eatTurns: number = _eatTurns || 0
           if (snakeHasEaten(newSelf)) {
-            eatTurns.push(newGameState.turn)
+            eatTurns += 1
           }
           
           if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
@@ -472,7 +467,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   }
 
   // for duels, will only work properly with exactly two snakes
-  function _decideMoveMinMax(gameState: GameState, lookahead: number, _tailChaseTurns: number[], kisses?: KissStatesForEvaluate, _alpha?: number, _beta?: number, _eatTurns?: number[]): MoveWithEval {
+  function _decideMoveMinMax(gameState: GameState, lookahead: number, _tailChaseTurns: number[], kisses?: KissStatesForEvaluate, _alpha?: number, _beta?: number, _eatTurns?: number): MoveWithEval {
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
@@ -529,7 +524,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       let defaultDir = availableMoves.length < 1? getDefaultMove(gameState, gameState.you, board2d) : availableMoves[0] // if we ran out of time, we can at least choose one of the availableMoves
 
-      let hash: string = buildGameStateHash(gameState, gameState.you, evaluateKisses, _eatTurns || [])
+      let hash: string = buildGameStateHash(gameState, gameState.you, evaluateKisses, _eatTurns || 0)
 
       if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
         // custom build an EvaluationResult here without calling evaluate. Wants noMe provided & winValue provided.
@@ -539,7 +534,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         _evalThisState = evaluationResult
         evalThisState = _evalThisState.sum()
       } else {
-        let eatTurns: number = _eatTurns === undefined? 0 : _eatTurns.length
+        let eatTurns: number = _eatTurns || 0
         if (snakeHasEaten(gameState.you)) {
           eatTurns += 1
         }
@@ -549,8 +544,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         // after saving in cache, incorporate gameData dependent evaluation components
         _evalThisState.tailChasePenalty = evaluateTailChasePenalty(_tailChaseTurns, thisGameData.startingGameState.turn)
         evalThisState += _evalThisState.tailChasePenalty
-        _evalThisState.foodEaten = evaluateFoodEaten(gameState.you, gameState, evaluateKisses, _eatTurns || [], thisGameData.lookahead, thisGameData.startingGameState.turn, thisGameData.startingGameState.you.health)
-        evalThisState += _evalThisState.foodEaten
         _evalThisState.winValue = evaluateWinValue(gameState.you, gameState, thisGameData.lookahead, thisGameData.startingGameState.turn)
         evalThisState += _evalThisState.winValue
       }
@@ -605,8 +598,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           let stateA: GameState = newGameStates[moveA]
           let stateB: GameState = newGameStates[moveB]
           if (stateA && stateB) {
-            let stateAHash: string = buildGameStateHash(stateA, stateA.you, undefined, _eatTurns || []) // skipping kissStates for performance reasons
-            let stateBHash: string = buildGameStateHash(stateB, stateB.you, undefined, _eatTurns || [])
+            let stateAHash: string = buildGameStateHash(stateA, stateA.you, undefined, _eatTurns || 0) // skipping kissStates for performance reasons
+            let stateBHash: string = buildGameStateHash(stateB, stateB.you, undefined, _eatTurns || 0)
             let stateAScore: number = cachedEvaluationsThisTurn[stateAHash]
             let stateBScore: number = cachedEvaluationsThisTurn[stateBHash]
             if (stateAScore !== undefined && stateBScore !== undefined) {
@@ -673,8 +666,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             let stateA: GameState = otherNewGameStates[moveA]
             let stateB: GameState = otherNewGameStates[moveB]
             if (stateA && stateB) {
-              let stateAHash: string = buildGameStateHash(stateA, stateA.you, undefined, _eatTurns || []) // skipping kissStates for performance reasons
-              let stateBHash: string = buildGameStateHash(stateB, stateB.you, undefined, _eatTurns || [])
+              let stateAHash: string = buildGameStateHash(stateA, stateA.you, undefined, _eatTurns || 0) // skipping kissStates for performance reasons
+              let stateBHash: string = buildGameStateHash(stateB, stateB.you, undefined, _eatTurns || 0)
               let stateAScore: number = cachedEvaluationsThisTurn[stateAHash]
               let stateBScore: number = cachedEvaluationsThisTurn[stateBHash]
               if (stateAScore !== undefined && stateBScore !== undefined) {
@@ -720,14 +713,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               tailChaseTurns.push(otherNewGameState.turn)
             }
 
-            let eatTurns: number[] = []
-            if (_eatTurns && _eatTurns.length > 0) { // clone _eatTurns so I have my own copy to pass down to my children
-              for (const eatTurn of _eatTurns) {
-                eatTurns.push(eatTurn)
-              }
-            }
+            let eatTurns: number = _eatTurns || 0
             if (snakeHasEaten(newOriginalSnake)) {
-              eatTurns.push(otherNewGameState.turn)
+              eatTurns += 1
             }
 
             if (lookahead <= 0) { // base case, start returning
@@ -737,20 +725,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 evalState = new MoveWithEval(move, cache)
                 // below lines are useful when testing to catch where gameStateHash isn't adequately distinguishing different game states
                 // even when not iterative deepening, some tie & death states will hit the cache, but their scores should always be equivalent!!
-                evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns.length)
+                evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns)
                 if (!floatsEqual(cache, evaluationResult.sum())) {
                   debugger
                 }
               } else {
-                evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns.length)
+                evaluationResult = evaluateMinimax(otherNewGameState, kissArgs, eatTurns)
                 evalState = new MoveWithEval(move, evaluationResult.sum(), evaluationResult)
                 if (evalState.score !== undefined) {
                   cachedEvaluationsThisTurn[hashForThem] = evalState.score
                   // after saving in cache, incorporate gameData dependent evaluation components
                   evaluationResult.tailChasePenalty = evaluateTailChasePenalty(_tailChaseTurns, thisGameData.startingGameState.turn)
                   evalState.score += evaluationResult.tailChasePenalty
-                  evaluationResult.foodEaten = evaluateFoodEaten(otherNewGameState.you, otherNewGameState, kissArgs, eatTurns, thisGameData.lookahead, thisGameData.startingGameState.turn, thisGameData.startingGameState.you.health)
-                  evalState.score += evaluationResult.foodEaten
                   evaluationResult.winValue = evaluateWinValue(otherNewGameState.you, otherNewGameState, thisGameData.lookahead, thisGameData.startingGameState.turn)
                   evalState.score += evaluationResult.winValue
                 }
@@ -785,7 +771,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       }
 
       if (worstOriginalSnakeScore.score !== undefined && lookahead <= 0) {
-        let hashForMe: string = buildGameStateHash(newGameState, newGameState.you, kissArgs, _eatTurns || [])
+        let hashForMe: string = buildGameStateHash(newGameState, newGameState.you, kissArgs, _eatTurns || 0)
         cachedEvaluationsThisTurn[hashForMe] = worstOriginalSnakeScore.score
       }
 
