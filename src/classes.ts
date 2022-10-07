@@ -1677,7 +1677,6 @@ export class GameData {
   lookahead: number
   timesTaken: number[]
   evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
-  prey: Battlesnake | undefined
   isDuel: boolean
   timeouts: number
   priorDeepeningMoves: MoveWithEval[]
@@ -1694,7 +1693,6 @@ export class GameData {
     this.lookahead = 0
     this.timesTaken = []
     this.evaluationsForLookaheads = []
-    this.prey = undefined
     this.isDuel = false
     this.timeouts = 0
     this.priorDeepeningMoves = []

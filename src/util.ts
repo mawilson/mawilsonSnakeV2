@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, KissStatesForEvaluate } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, KissStatesForEvaluate, HealthTier } from "./classes"
 import { gameData, isDevelopment, version } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -2682,7 +2682,7 @@ export function getHazardPitNumber(turn: number, _expansionRate: number | undefi
 
 // generates a string representing a stripped down view of the gameState: just snake IDs with snake bodies.
 // optional boolean for distinguishing between originalSnake & otherSnake evals in MaxN
-export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number, originalSnake?: boolean): string {
+export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number, originalSnake: boolean | undefined, startingHealthTier: number | undefined): string {
   let str: string = ""
   let delimiter: string = ";"
   let bodyStrings: string[] = []
@@ -2696,19 +2696,30 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
   if (originalSnake !== undefined) {
     str += originalSnake + delimiter // gameStates are scored differently for originalSnake & otherSnakes, so need to save those scores separately
   }
+  if (startingHealthTier !== undefined) {
+    str += startingHealthTier + delimiter
+  } else {
+    str += delimiter
+  }
   // if the evaluating snake is no longer in game, we lose info on what its body looked like before dying. In that case, we want to save a few key pieces of info
   // that may change how that state is evaluated. Currently, that is the head position (before it was removed from game), the health, & the length
   str += `(${snake.head.x},${snake.head.y})${delimiter}` // store head x & y to differentiate snake deaths that used determineEvalNoMe
   str += `${snake.health}${delimiter}`
   str += `${snake.length}${delimiter}`
 
-  // we also must include the three optional evaluate args: (prior) kissStates (deathState, murderState, & predator health), eatTurns, & tailChases
+  // we also must include the three optional evaluate args: (prior) kissStates (deathState, murderState, & predator & prey ID, head, & health), eatTurns, & tailChases
   // these can impact an evaluate score independent of the gameState, therefore must be included
   if (kissArgs) {
     str += `${kissArgs.deathState}${delimiter}`
     str += `${kissArgs.murderState}${delimiter}`
+    let kissArgDelimiter = "-";
     if (kissArgs.predator) {
-      str += `${kissArgs.predator.health}${delimiter}`
+      str += `${kissArgs.predator.id}${kissArgDelimiter}(${kissArgs.predator.head.x},${kissArgs.predator.head.y})${kissArgDelimiter}${kissArgs.predator.health}${delimiter}`
+    } else {
+      str += delimiter
+    }
+    if (kissArgs.prey) {
+      str += `${kissArgs.prey.id}${kissArgDelimiter}(${kissArgs.prey.head.x},${kissArgs.prey.head.y})${kissArgDelimiter}${kissArgs.prey.health}${delimiter}`
     } else {
       str += delimiter
     }
