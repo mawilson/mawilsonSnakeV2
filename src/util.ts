@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, KissStatesForEvaluate } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, KissStatesForEvaluate, HealthTier } from "./classes"
 import { gameData, isDevelopment, version } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -108,7 +108,7 @@ export function getDistance(c1: Coord, c2: Coord, gameState: GameState) : number
 }
 
 export function gameStateIsRoyale(gameState: GameState): boolean {
-  return gameState.game.ruleset.name === "royale"
+  return gameState.game.map === "royale"
 }
 
 // gameMode functions
@@ -833,11 +833,11 @@ export function findKissDeathMoves(kissMoves: MoveNeighbors) : Direction[] {
   return deathMoves
 }
 
-export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, board2d: Board2d) : number {
+export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake) : number {
   const isSolo: boolean = gameStateIsSolo(gameState)
   if (isSolo) { // solo game, deprioritize food unless I'm dying
     if (me.health < 10) {
-      return board2d.height + board2d.width
+      return gameState.board.height + gameState.board.width
     } else {
       return 0
     }
@@ -846,7 +846,7 @@ export function calculateFoodSearchDepth(gameState: GameState, me: Battlesnake, 
   } else if (gameState.turn === 1) { // on turn 1, we should be 1 away from our starting food, only look for that
     return 1
   } else {
-    return board2d.height + board2d.width // unless otherwise specified, we're always hungry
+    return gameState.board.height + gameState.board.width // unless otherwise specified, we're always hungry
   }
 }
 
@@ -2682,7 +2682,7 @@ export function getHazardPitNumber(turn: number, _expansionRate: number | undefi
 
 // generates a string representing a stripped down view of the gameState: just snake IDs with snake bodies.
 // optional boolean for distinguishing between originalSnake & otherSnake evals in MaxN
-export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number[], tailChases: number[], originalSnake?: boolean): string {
+export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kissArgs: KissStatesForEvaluate | undefined, eatTurns: number, originalSnake: boolean | undefined, startingHealthTier: number | undefined): string {
   let str: string = ""
   let delimiter: string = ";"
   let bodyStrings: string[] = []
@@ -2696,19 +2696,30 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
   if (originalSnake !== undefined) {
     str += originalSnake + delimiter // gameStates are scored differently for originalSnake & otherSnakes, so need to save those scores separately
   }
+  if (startingHealthTier !== undefined) {
+    str += startingHealthTier + delimiter
+  } else {
+    str += delimiter
+  }
   // if the evaluating snake is no longer in game, we lose info on what its body looked like before dying. In that case, we want to save a few key pieces of info
   // that may change how that state is evaluated. Currently, that is the head position (before it was removed from game), the health, & the length
   str += `(${snake.head.x},${snake.head.y})${delimiter}` // store head x & y to differentiate snake deaths that used determineEvalNoMe
   str += `${snake.health}${delimiter}`
   str += `${snake.length}${delimiter}`
 
-  // we also must include the three optional evaluate args: (prior) kissStates (deathState, murderState, & predator health), eatTurns, & tailChases
+  // we also must include the three optional evaluate args: (prior) kissStates (deathState, murderState, & predator & prey ID, head, & health), eatTurns, & tailChases
   // these can impact an evaluate score independent of the gameState, therefore must be included
   if (kissArgs) {
     str += `${kissArgs.deathState}${delimiter}`
     str += `${kissArgs.murderState}${delimiter}`
+    let kissArgDelimiter = "-";
     if (kissArgs.predator) {
-      str += `${kissArgs.predator.health}${delimiter}`
+      str += `${kissArgs.predator.id}${kissArgDelimiter}(${kissArgs.predator.head.x},${kissArgs.predator.head.y})${kissArgDelimiter}${kissArgs.predator.health}${delimiter}`
+    } else {
+      str += delimiter
+    }
+    if (kissArgs.prey) {
+      str += `${kissArgs.prey.id}${kissArgDelimiter}(${kissArgs.prey.head.x},${kissArgs.prey.head.y})${kissArgDelimiter}${kissArgs.prey.health}${delimiter}`
     } else {
       str += delimiter
     }
@@ -2716,21 +2727,8 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
     str += `${KissOfDeathState.kissOfDeathNo}${delimiter}`
     str += `${KissOfMurderState.kissOfMurderNo}${delimiter}`
   }
-  
-  let arrDelimiter = "-"
-  let eatTurnString: string = ""
-  for (const eatTurn of eatTurns) {
-    eatTurnString += `${eatTurn}${arrDelimiter}`
-  }
 
-  str += `${eatTurnString}${delimiter}`
-
-  let tailChaseString: string = ""
-  for (const tailChase of tailChases) {
-    tailChaseString += `${tailChase}${arrDelimiter}`
-  }
-
-  str += `${tailChaseString}${delimiter}`
+  str += `${eatTurns}${delimiter}`
 
   //str += JSON.stringify(gameState) // just plop the whole gameState string, JSONified, in
   bodyStrings.sort() // bodyStrings lead with ID, so this will effectively sort by ID, which is good enough for us
