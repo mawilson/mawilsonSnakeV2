@@ -1055,13 +1055,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         let lastVoronoiReward: number = (evalVoronoiNegativeMax - evalAvailableMoves0Moves) / 2 // otherSnake beat me but still needs to beat another snake, haveWon is still false
         voronoiPredatorBonus = lastVoronoiReward
         evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
+        if (evaluationResult.voronoiSelf < 0) { evaluationResult.voronoiSelf = 0 }
       } else if (preySnake !== undefined) {
         let preySnakeResults: VoronoiResultsSnake = voronoiResults.snakeResults[preySnake.id]
         let preySnakeHealthTier: HealthTier = determineHealthEval(gameState, preySnakeResults.getAverageHealth(), hazardDamage, evalHealthStep, evalHealthTierDifference, evalHealthBase, evalHealthStarvationPenalty, false)
 
         if (preySnakeResults !== undefined) {
           let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, true, false, voronoiBaseGood) // will only reach here for preys of originalSnake, so provide 'true' for tail params
-          if (preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
+          if ((preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) || (!isConstrictor && preySnakeVoronoi < -5)) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
             let howBad: number = -preySnakeVoronoi * evalVoronoiPreyStep // preySnakeVoronoi is negative so need to negate this
             if (preySnakeResults.reachableCells <= 1) { // prey has 0 moves left, & will die next turn. This will also give us better Voronoi coverage once it dies!
               howBad = howBad - evalAvailableMoves0Moves // evalAvailableMoves0Moves is negative, but here we negate it as a reward
@@ -1086,6 +1087,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
             }
 
             voronoiPredatorBonus = voronoiPredatorBonus + howBad // add how bad preySnake's score is to our own evaluation
+            if (evaluationResult.voronoiSelf < 0) { evaluationResult.voronoiSelf = 0 } // null out Voronoi score, our priority is now predator score
           }
 
           if (preySnakeHealthTier.tier < 2) {
@@ -1477,9 +1479,6 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
     evaluationResult.hazard = evalHazardPenalty * myCell.hazard // penalty is multiplied for how many stacks of hazard live here
   }
 
-  // let wantToEat: boolean = true // condition for whether we currently want food
-  // let safeToEat: boolean = true // condition for whether it was safe to eat a food in our current cell
-
   if (isAdjacentToHazard(myself.head, hazardWalls, gameState)) {
     evaluationResult.hazardWall = evalHazardWallPenalty
   }
@@ -1577,14 +1576,6 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
   let voronoiResultsSelf: VoronoiResultsSnake = voronoiResults.snakeResults[myself.id]
   let nearbyFood: {[key: number]: Coord[]} = voronoiResultsSelf.food
   let foodToHunt : Coord[] = []
-  let deathStates = [KissOfDeathState.kissOfDeathCertainty, KissOfDeathState.kissOfDeathCertaintyMutual, KissOfDeathState.kissOfDeathMaybe, KissOfDeathState.kissOfDeathMaybeMutual]
-  // if (hazardDamage > 0 && (myself.health < (1 + (hazardDamage + 1) * 2))) { // if hazard damage exists & two turns of it would kill me, want food
-  //   wantToEat = true
-  // }
-  // if (deathStates.includes(priorKissStates.deathState)) { // eating this food had a likelihood of causing my death, that's not safe
-  //   safeToEat = false
-  //   wantToEat = false // also shouldn't reward this snake for being closer to food, it put itself in a situation where it won't reach said food to do so
-  // }
 
   let selfPossibleLength: number = myself.length // not sure if I want to do this, or just consider myself.length
   let longestSnakePossibleLength: number = 0
