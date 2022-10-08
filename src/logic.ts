@@ -1,4 +1,4 @@
-export const version: string = "1.6.27" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.28" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -165,7 +165,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         // even when not iterative deepening, some tie & death states will hit the cache, but their scores should always be equivalent!!
         // _evalThisState = evaluate(gameState, myself, evaluateKisses, _eatTurns)
         // if (!floatsEqual(cache, _evalThisState.sum())) {
-        //   debugger 
+        //   debugger
         // }
       } else {
         _evalThisState = evaluate(gameState, myself, evaluateKisses, _eatTurns)
