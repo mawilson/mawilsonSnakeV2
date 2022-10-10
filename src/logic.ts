@@ -2,8 +2,8 @@ export const version: string = "1.6.28" // need to declare this before imports s
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash } from "./util"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance } from "./util"
 import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe, evaluateTailChasePenalty, evaluateWinValue, determineHealthTier } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -225,6 +225,20 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
+    let otherSnakeSortInfo: { [key: string]: SortInfo} = {}
+    if (originalSnake) {
+      for (const snake of gameState.board.snakes) {
+        if (snake.id !== myself.id) { // no need to sort self
+          let otherSnakeMoves: Moves = getAvailableMoves(gameState, snake, board2d)
+          let otherSnakeMoveNeighbors = findMoveNeighbors(gameState, snake, board2d, otherSnakeMoves)
+          let otherSnakeKissOfDeathMoves = findKissDeathMoves(otherSnakeMoveNeighbors, myself.id)
+          let canBeMurdered: boolean = otherSnakeKissOfDeathMoves.length > 0 // if any of the snake's moves result in maybe being murdered
+          let distanceToMe: number = getDistance(snake.head, myself.head, gameState)
+          otherSnakeSortInfo[snake.id] = new SortInfo(distanceToMe, canBeMurdered)
+        }
+      }
+    }
+
     // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
     let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)
 
@@ -269,9 +283,19 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
 
           let eatTurns: number = _eatTurns || 0
-          if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place        
+          if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place
             otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
-              return b.length - a.length
+              let aSortInfo: SortInfo = otherSnakeSortInfo[a.id]
+              let bSortInfo: SortInfo = otherSnakeSortInfo[b.id]
+              if (aSortInfo && bSortInfo) {
+                if (aSortInfo.canBeMurdered || bSortInfo.canBeMurdered) { // if either snake is in danger of a kiss of death, sort by length so the smaller can avoid it
+                  return b.length - a.length
+                } else { // if neither snake can be murdered, sort them by distance to me, so the closer one with more potential to harm my Voronoi chooses first
+                  return aSortInfo.distanceToMe - bSortInfo.distanceToMe
+                }
+              } else { // if I somehow don't have sort info for either snake, do the default length sort
+                return b.length - a.length
+              }
             })
 
             let otherSnakeMoves: {[key: string]: Direction} = {[myself.id]: move}

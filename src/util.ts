@@ -757,7 +757,7 @@ export function checkTime(timeBeginning: number, gameState: GameState, logTime?:
   //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
   let myLatency = isDevelopment? 30 : 30
   // comfort margin represents the time we want to leave ourselves to finish up calculations & return a value.
-  let comfortMargin: number = 40 // gameState.game.timeout / 10, or myLatency - not sure what's best
+  let comfortMargin: number = 60 // gameState.game.timeout / 10, or myLatency - not sure what's best
   let timeLeft = gameState.game.timeout - timeElapsed - myLatency
   let timeGood = timeLeft > comfortMargin
   if (!timeGood && logTime) {
@@ -816,19 +816,35 @@ export function findKissMurderMoves(kissMoves: MoveNeighbors) : Direction[] {
   return murderMoves
 }
 
-export function findKissDeathMoves(kissMoves: MoveNeighbors) : Direction[] {
+// if ignorePredator is provided, don't consider kissOfDeathMoves where the predator is that snake
+export function findKissDeathMoves(kissMoves: MoveNeighbors, ignorePredator?: string) : Direction[] {
   let deathMoves : Direction[] = []
   if (kissMoves.huntedAtUp) {
-    deathMoves.push(Direction.Up)
+    if (!ignorePredator) {
+      deathMoves.push(Direction.Up)
+    } else if (ignorePredator && kissMoves.upPredator?.id !== ignorePredator) { // if ignorePredator was provided & the predator for this direction is that snake, don't add it
+      deathMoves.push(Direction.Up)
+    }
   }
   if (kissMoves.huntedAtDown) {
-    deathMoves.push(Direction.Down)
+    if (!ignorePredator) {
+      deathMoves.push(Direction.Down)
+    } else if (ignorePredator && kissMoves.downPredator?.id !== ignorePredator) { // if ignorePredator was provided & the predator for this direction is that snake, don't add it
+      deathMoves.push(Direction.Down)
+    }
   }
   if (kissMoves.huntedAtLeft) {
-    deathMoves.push(Direction.Left)
-  }
+    if (!ignorePredator) {
+      deathMoves.push(Direction.Left)
+    } else if (ignorePredator && kissMoves.leftPredator?.id !== ignorePredator) { // if ignorePredator was provided & the predator for this direction is that snake, don't add it
+      deathMoves.push(Direction.Left)
+    }  }
   if (kissMoves.huntedAtRight) {
-    deathMoves.push(Direction.Right)
+    if (!ignorePredator) {
+      deathMoves.push(Direction.Right)
+    } else if (ignorePredator && kissMoves.rightPredator?.id !== ignorePredator) { // if ignorePredator was provided & the predator for this direction is that snake, don't add it
+      deathMoves.push(Direction.Right)
+    }
   }
   return deathMoves
 }
