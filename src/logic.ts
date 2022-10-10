@@ -283,7 +283,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
 
           let eatTurns: number = _eatTurns || 0
-          if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place                   
+          if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place
             otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
               let aSortInfo: SortInfo = otherSnakeSortInfo[a.id]
               let bSortInfo: SortInfo = otherSnakeSortInfo[b.id]
