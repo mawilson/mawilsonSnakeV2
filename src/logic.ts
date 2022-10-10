@@ -940,7 +940,6 @@ export function move(gameState: GameState): MoveResponse {
 
   if (gameDataIds.length === 1 && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
     futureSight = lookaheadDeterminatorDeepening(gameState, board2d)
-    futureSight = 7
     thisGameData.lookahead = 0
     thisGameData.cachedEvaluations[gameState.turn] = thisGameData.cachedEvaluations[gameState.turn] || {} // instantiate cached evaluations for base level of lookahead
     thisGameData.cachedEvaluations[gameState.turn + 1] = thisGameData.cachedEvaluations[gameState.turn + 1] || {} // ^^
