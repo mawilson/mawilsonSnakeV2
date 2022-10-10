@@ -1645,7 +1645,11 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
       evaluationResult.voronoiPredator = voronoiBaseGood * -evalVoronoiPreyStepDuel
     } else if (otherSnake) { // only use delta, with tail chase & tail offset taken into account. otherSnake should always be defined here, else haveWon would have been true
       let voronoiResultsOtherSnake: VoronoiResultsSnake = voronoiResults.snakeResults[otherSnake.id]
-      voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
+      if (voronoiResultsSelf.reachableCells > voronoiResultsOtherSnake.reachableCells) {
+        voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, false, useTailOffset)
+      } else {
+        voronoiSelf = determineVoronoiSelf(myself, voronoiResultsSelf, useTailChase, useTailOffset)
+      }
       let otherSnakeVoronoi: number
       if (voronoiResultsSelf.reachableCells < voronoiResultsOtherSnake.reachableCells) { // don't penalize otherSnake for chasing my tail if I am likely to die because of it
         otherSnakeVoronoi = determineVoronoiSelf(otherSnake, voronoiResultsOtherSnake, false, useTailOffset)

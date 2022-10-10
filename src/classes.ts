@@ -1914,3 +1914,13 @@ export class HealthTier {
     this.tier = tier
   }
 }
+
+export class SortInfo {
+  distanceToMe: number
+  canBeMurdered: boolean
+
+  constructor(distanceToMe: number, canBeMurdered: boolean) {
+    this.distanceToMe = distanceToMe
+    this.canBeMurdered = canBeMurdered
+  }
+}
