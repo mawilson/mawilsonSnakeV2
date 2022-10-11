@@ -1,9 +1,9 @@
-export const version: string = "1.6.28" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.29" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance, isTestLogging } from "./util"
 import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe, evaluateTailChasePenalty, evaluateWinValue, determineHealthTier } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -117,6 +117,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   let thisGameData: GameData = gameData[gameDataString] || new GameData(gameState) // should always exist from move(), things will be wonky if we have to use a new GameData
   const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
   const startLookahead: number = gameState.you.id === myself.id ? _startLookahead : 0 // otherSnakes always use lookahead of 0
+  const testLogging: boolean = isTestLogging(isDevelopment, gameState)
 
   let movesShortCircuited: number = 0
 
@@ -440,6 +441,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             evalState = new MoveWithEval(move, sum)
           }
 
+          if (testLogging && lookahead === startLookahead) {
+            logToFile(consoleWriteStream, `move: ${move}\nEvalState score: ${evalState.score}\n`)
+          }
           if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
             bestMove.direction = move
             bestMove.score = evalState.score
@@ -820,6 +824,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         cachedEvaluationsThisTurn[hashForMe] = worstOriginalSnakeScore.score
       }
 
+      if (testLogging && lookahead === startLookahead) {
+        logToFile(consoleWriteStream, `move: ${move}\nEvaluation result: ${worstOriginalSnakeScore.evaluationResult?.toString()}\n`)
+      }
       if (bestMove.score === undefined) {
         bestMove.direction = move
         bestMove.score = worstOriginalSnakeScore.score
@@ -881,6 +888,8 @@ export function move(gameState: GameState): MoveResponse {
   let thisGameDataId = createGameDataId(gameState)
   let source: string = gameState.game.source
   let board2d: Board2d = new Board2d(gameState, true)
+
+  let testLogging: boolean = isTestLogging(isDevelopment, gameState)
 
   let thisGameData: GameData
   if (gameData[thisGameDataId]) {
@@ -950,10 +959,12 @@ export function move(gameState: GameState): MoveResponse {
     while(!chosenMove.instantReturn && checkTime(timeBeginning, gameState) && i <= futureSight) { // while true, keep attempting to get a move with increasing depths
       thisGameData.lookahead = i
       thisGameData.cachedEvaluations[gameState.turn + i + 1] = thisGameData.cachedEvaluations[gameState.turn + i + 1] || {} // instantiate cached evaluations for this level of lookahead
+      if (testLogging) { logToFile(consoleWriteStream, `lookahead: ${i}\n`) }
       newMove = decideMove(gameState, gameState.you, timeBeginning, i, board2d, true) // choose another move with increased lookahead depth
       if (checkTime(timeBeginning, gameState)) { 
         chosenMove = newMove // if chosenMove was determined with time to spare, can use it
         i = i + 1
+        if (testLogging) { logToFile(consoleWriteStream, '\n') } // for readability, add a line break between deepening evaluationResults
       } else {
         break // ran out of time, exit loop & use chosenMove of the deepest depth we had time for
       } 
@@ -968,6 +979,7 @@ export function move(gameState: GameState): MoveResponse {
     for (let i: number = 0; i <= (futureSight + 1); i++) {
       thisGameData.cachedEvaluations[gameState.turn + i] = thisGameData.cachedEvaluations[gameState.turn + i] || {}
     }
+    if (testLogging) { logToFile(consoleWriteStream, `lookahead: ${futureSight}\n`) }
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, futureSight, board2d, false)
   }
   
