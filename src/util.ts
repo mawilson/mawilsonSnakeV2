@@ -2767,3 +2767,7 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
 
   return str
 }
+
+export function isTestLogging(isDevelopment: boolean, gameState: GameState): boolean {
+  return isDevelopment && (gameState.game.source === "testing" || gameState.game.source === "testingDeepening")
+}

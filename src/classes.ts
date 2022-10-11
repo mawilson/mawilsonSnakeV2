@@ -297,7 +297,7 @@ export class Board2d {
     this.numHazards = 0
     this.isWrapped = gameStateIsWrapped(gameState)
     let isConstrictor: boolean = gameStateIsConstrictor(gameState)
-    let isArcadeMaze: boolean = gameStateIsArcadeMaze(gameState)
+    let hazardsAreWalls: boolean = this.hazardDamage >= 100
     let isSinkhole: boolean = gameStateIsSinkhole(gameState)
     let isHealingPools: boolean = gameStateIsHealingPools(gameState)
     let sinkholeLatestSpawnTurn: number | undefined = (isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
@@ -437,7 +437,7 @@ export class Board2d {
         let point = voronoiPoints.shift() // get the top point off the list
 
         if (point !== undefined) {
-          let neighbors = getSurroundingCells(point.coord, self, undefined, isArcadeMaze)
+          let neighbors = getSurroundingCells(point.coord, self, undefined, hazardsAreWalls)
           for (const neighbor of neighbors) { // for each neighbor, update its voronoi array if applicable
             let isNewVoronoiBoardCell: boolean = false // if any VoronoiSnakes are added to this neighbor, set this to true so we can add it to voronoiPoints array
             if (point !== undefined) {

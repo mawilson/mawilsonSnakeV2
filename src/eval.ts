@@ -1194,6 +1194,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     const yDiff = Math.abs(myself.head.y - centers.centerY)
 
     evaluationResult.center = xDiff * evalSoloCenter + yDiff * evalSoloCenter
+  } else if (isWrapped) { // give tiny reward to self for chasing tail exactly, which prevents food from spawning & preventing us from being able to do so
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head, gameState)
+    if (tailDist === 1) {
+      evaluationResult.tailChase = 1
+    }
   }
 
   if (isWrapped && !isConstrictor) { // metric is useful outside of duel but minimax is smarter than it in duel 
@@ -1738,6 +1743,13 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
   let availableMoves: Moves = getAvailableMoves(gameState, myself, board2d)
   if (availableMoves.validMoves().length === 0 && evaluationResult.voronoiSelf < 0) {
     evaluationResult.selfMoves = evalAvailableMoves0Moves
+  }
+
+  if (isWrapped) { // give tiny reward to self for chasing tail exactly, which prevents food from spawning & preventing us from being able to do so
+    let tailDist = getDistance(myself.body[myself.body.length - 1], myself.head, gameState)
+    if (tailDist === 1) {
+      evaluationResult.tailChase = 1
+    }
   }
 
   return evaluationResult
