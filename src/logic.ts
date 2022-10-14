@@ -198,7 +198,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
       if (lookahead !== undefined && evalThisState !== undefined) {
         let newScore: number = 0 // should always at least account for this turn
-        if (availableMoves.length < 1) { // will die in one turn, should apply evalNoMe score to all but this state
+        if (availableMoves.length < 1 && gameState.board.snakes.length > 1) { // will die in one turn (& haven't won), should apply evalNoMe score to all but this state
           for (let i: number = lookahead; i >= 0; i--) { // these account for the evalThisState's, but not the final bestMove after the lookaheads
             if (i !== lookahead) {
               newScore = newScore + (noMe * (1 + lookaheadWeight * i)) // if availableMoves length is 0, I will die the turn after this, so use evalNoMe for those turns
@@ -501,9 +501,15 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let stillHaveTime = checkTime(startTime, gameState) // if this is true, we need to hurry & return a value without doing any more significant calculation
     if (!stillHaveTime && iterativeDeepening) { return new MoveWithEval(undefined, undefined) } // Iterative deepening will toss this result anyway, may as well leave now
 
-    let stateContainsMe: boolean = gameState.board.snakes.some(function findSnake(snake) {
-      return snake.id === gameState.you.id
-    })
+    let stateContainsMe: boolean = false
+    let otherSnake: Battlesnake | undefined = undefined
+    for (const snake of gameState.board.snakes) {
+      if (snake.id === gameState.you.id) {
+        stateContainsMe = true
+      } else {
+        otherSnake = snake
+      }
+    }
 
     let startingHealthTier: HealthTier = determineHealthTier(thisGameData.startingGameState, thisGameData.startingGameState.you.health, false)
 
@@ -521,6 +527,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let moves: Moves = getAvailableMoves(gameState, gameState.you, board2d)
     let availableMoves: Direction[] = moves.validMoves()
+
+    let otherSnakeAvailableMoves: Moves
+    let otherSnakeValidMoves: Direction[]
   
     let moveNeighbors = findMoveNeighbors(gameState, gameState.you, board2d, moves)
     let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
@@ -540,14 +549,14 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         finishEvaluatingNow = true
       } else if (availableMoves.length === 1 && lookahead === startLookahead) { // no need to look ahead, just return the only available move with a bogus computed score 
         finishEvaluatingNow = true
-      } else if (gameState.game.ruleset.name !== "solo" && gameState.board.snakes.length === 1) { // it's not a solo game, & we're the only one left - we've won
+      } else if (gameState.board.snakes.length === 1) { // we're the only one left - we've won
         finishEvaluatingNow = true
       }
     }
 
     let cachedEvaluationsThisTurn: {[key: string]: number} = thisGameData.cachedEvaluations[gameState.turn]
 
-    if (finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead (not solo), or there are no available moves, return a direction & the evaluation for this state
+    if (!otherSnake || finishEvaluatingNow) { // if out of time, myself is dead, all other snakes are dead, or there are no available moves, return a direction & the evaluation for this state
       let priorKissOfDeathState: KissOfDeathState = kisses === undefined ? KissOfDeathState.kissOfDeathNo : kisses.deathState
       let priorKissOfMurderState: KissOfMurderState = kisses === undefined ? KissOfMurderState.kissOfMurderNo : kisses.murderState
       let evaluateKisses = new KissStatesForEvaluate(priorKissOfDeathState, priorKissOfMurderState, kisses?.predator, kisses?.prey)
@@ -558,13 +567,28 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
       let hash: string = buildGameStateHash(gameState, gameState.you, evaluateKisses, _eatTurns || 0, undefined, startingHealthTier.tier)
 
-      if (availableMoves.length < 1) { // will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
+      if (availableMoves.length < 1 && otherSnake) { // if I haven't won, will die by next turn, still want to return early to save time but don't want to reward it for still being alive this turn
         // custom build an EvaluationResult here without calling evaluate. Wants noMe provided & winValue provided.
-        let evaluationResult: EvaluationResult = new EvaluationResult(gameState.you) 
-        evaluationResult.noMe = noMe
-        evaluationResult.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
-        _evalThisState = evaluationResult
-        evalThisState = _evalThisState.sum()
+        let evaluationResult: EvaluationResult = new EvaluationResult(gameState.you)
+
+        otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnake, board2d)
+        otherSnakeValidMoves = otherSnakeAvailableMoves.validMoves()
+
+        if (otherSnakeValidMoves.length < 1) { // if other snake also has 0 valid moves, consider this a tie state
+          _evalThisState = determineEvalNoSnakes(gameState, gameState.you, otherSnake, _eatTurns || 0)
+          evalThisState = _evalThisState.sum()
+          cachedEvaluationsThisTurn[hash] = evalThisState
+          // after saving in cache, incorporate gameData dependent evaluation components
+          _evalThisState.tailChasePenalty = evaluateTailChasePenalty(_tailChaseTurns, thisGameData.startingGameState.turn)
+          evalThisState += _evalThisState.tailChasePenalty
+          _evalThisState.winValue = evaluateWinValue(gameState.you, gameState, thisGameData.lookahead, thisGameData.startingGameState.turn)
+          evalThisState += _evalThisState.winValue
+        } else { // otherwise, consider this a loss state
+          evaluationResult.noMe = noMe
+          evaluationResult.winValue = -evalHaveWonTurnStep * (lookahead + 1) // penalize at lookahead = 0, since ideally we wanted to get one more move in after that
+          _evalThisState = evaluationResult
+          evalThisState = _evalThisState.sum()
+        }  
       } else {
         _evalThisState = evaluateMinimax(gameState, _eatTurns || 0, startingHealthTier.tier, evaluateKisses)
         evalThisState = _evalThisState.sum()
@@ -578,11 +602,9 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     
       return new MoveWithEval(defaultDir, evalThisState, _evalThisState, true)
     }
-    
-    let otherSnake: Battlesnake = gameState.board.snakes.find(snake => snake.id !== gameState.you.id)
-    let otherSnakeAvailableMoves: Moves = getAvailableMoves(gameState, otherSnake, board2d)
-    let otherSnakeValidMoves: Direction[] = otherSnakeAvailableMoves.validMoves()
 
+    otherSnakeAvailableMoves = getAvailableMoves(gameState, otherSnake, board2d)
+    otherSnakeValidMoves = otherSnakeAvailableMoves.validMoves()
     let otherSnakeTail: Coord = otherSnake.body[otherSnake.body.length - 1]
 
     if (otherSnakeValidMoves.length === 0) { // otherSnake must move somewhere, so give it a default move
@@ -801,7 +823,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               worstOriginalSnakeScore.evaluationResult = evalState.evaluationResult
             } else {
               if (evalState.score !== undefined) {
-                if (evalState.score < worstOriginalSnakeScore.score) {
+                if (evalState.score < worstOriginalSnakeScore.score) { 
                   worstOriginalSnakeScore.direction = otherMove
                   worstOriginalSnakeScore.score = evalState.score
                   worstOriginalSnakeScore.evaluationResult = evalState.evaluationResult
