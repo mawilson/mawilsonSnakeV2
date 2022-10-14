@@ -823,7 +823,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               worstOriginalSnakeScore.evaluationResult = evalState.evaluationResult
             } else {
               if (evalState.score !== undefined) {
-                if (evalState.score < worstOriginalSnakeScore.score) { 
+                if (evalState.score < worstOriginalSnakeScore.score) {
                   worstOriginalSnakeScore.direction = otherMove
                   worstOriginalSnakeScore.score = evalState.score
                   worstOriginalSnakeScore.evaluationResult = evalState.evaluationResult
