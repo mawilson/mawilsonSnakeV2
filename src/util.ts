@@ -1360,16 +1360,12 @@ export function lookaheadDeterminator(gameState: GameState, board2d: Board2d): n
     return lookahead
   }
 
-  if (gameStateIsConstrictor(gameState)) {
-    if (gameStateIsArcadeMaze(gameState)) {
-      lookahead = 15
-    } else {
-      lookahead = 9
-    }
+  if (gameStateIsConstrictor(gameState) && gameStateIsArcadeMaze(gameState)) {
+    lookahead = 15
   } else {
-    if (gameState.turn <= 1) {
+    if (gameState.turn <= 1 && !gameStateIsConstrictor(gameState)) {
       lookahead = 0
-    } else if (gameState.turn < 11) {
+    } else if (gameState.turn < 11 && !gameStateIsConstrictor(gameState)) {
       lookahead = 2
     } else {
       if (branchingFactor > 45) { // 46 & up
