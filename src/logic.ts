@@ -1,4 +1,4 @@
-export const version: string = "1.6.31" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.32" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -310,6 +310,16 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               }
             })
 
+            // if we are deepening & not on final lookahead, all moves should calculate very quickly because their scores will be cached
+            // we can therefore allow all snakes to choose with as much info as possible, by letting them choose again. We lose the performance, but gain accuracy over fakeMoveSnake
+            let oldLength: number = otherSnakes.length
+            if (iterativeDeepening && lookahead !== 0 && gameState.board.snakes.length >= 3) {
+              // turn array from [1, 2, 3] into [1, 2, 3, 2, 1]
+              for (let i: number = otherSnakes.length - 1; i >= 0; i--) { // start at length -1, go backwards 
+                otherSnakes.push(otherSnakes[i])
+              }
+            }
+
             let otherSnakeMoves: {[key: string]: Direction} = {[myself.id]: move}
             for (const snake of otherSnakes) {
               const snakeMove: MoveWithEval = _decideMove(gameState, snake, 0, undefined, otherSnakeMoves) // decide best move for other snakes according to current data, & tell them what move I am making
@@ -317,6 +327,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               if (snakeMove.direction !== undefined) {
                 otherSnakeMoves[snake.id] = snakeMove.direction // tell subsequent snakes about where this snake is moving
               }
+            }
+
+            if (oldLength < otherSnakes.length) {
+              otherSnakes.length = oldLength // truncate back so as not to double-process snakes now that decisions have been made
             }
 
             moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
@@ -452,7 +466,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             evalState = new MoveWithEval(move, sum)
           }
 
-          if (testLogging && lookahead === startLookahead) {
+          if (originalSnake && testLogging && lookahead === startLookahead) {
             logToFile(consoleWriteStream, `move: ${move}\nEvalState score: ${evalState.score}\n`)
           }
           if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
@@ -985,6 +999,7 @@ export function move(gameState: GameState): MoveResponse {
     thisGameData.lookahead = 0
     thisGameData.cachedEvaluations[gameState.turn] = thisGameData.cachedEvaluations[gameState.turn] || {} // instantiate cached evaluations for base level of lookahead
     thisGameData.cachedEvaluations[gameState.turn + 1] = thisGameData.cachedEvaluations[gameState.turn + 1] || {} // ^^
+    if (testLogging) { logToFile(consoleWriteStream, `lookahead: 0\n`) }
     chosenMove = decideMove(gameState, gameState.you, timeBeginning, 0, board2d, true)
 
     let i: number = 1
