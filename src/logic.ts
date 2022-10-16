@@ -1,4 +1,4 @@
-export const version: string = "1.6.30" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.31" // need to declare this before imports since several imports utilize it
 
 import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
@@ -74,15 +74,26 @@ export async function end(gameState: GameState): Promise<void> {
   }
   let hazardDamage: number = getHazardDamage(gameState)
   let timeouts: number = thisGameData? thisGameData.timeouts : 0
-  let averageMaxLookahead: number | undefined = undefined
-  if (thisGameData && thisGameData.maxLookaheads.length > 0) {
-    let sum: number = 0
-    for (const maxLookahead of thisGameData.maxLookaheads) {
-      sum += maxLookahead
+  let averageMaxLookaheadMaxN: number | undefined = undefined
+  let averageMaxLookaheadMinimax: number | undefined = undefined
+
+  if (thisGameData) { 
+    if (thisGameData.maxLookaheadsMaxN.length > 0) {
+      let sum: number = 0
+      for (const maxLookahead of thisGameData.maxLookaheadsMaxN) {
+        sum += maxLookahead
+      }
+      averageMaxLookaheadMaxN = sum / thisGameData.maxLookaheadsMaxN.length
     }
-    averageMaxLookahead = sum / thisGameData.maxLookaheads.length
+    if (thisGameData.maxLookaheadsMinimax.length > 0) {
+      let sum: number = 0
+      for (const maxLookahead of thisGameData.maxLookaheadsMinimax) {
+        sum += maxLookahead
+      }
+      averageMaxLookaheadMinimax = sum / thisGameData.maxLookaheadsMinimax.length
+    }
   }
-  let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookahead)
+  let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookaheadMaxN, averageMaxLookaheadMinimax)
 
   const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -993,7 +1004,11 @@ export function move(gameState: GameState): MoveResponse {
     }
     if (!chosenMove.instantReturn && (i < 30)) { // don't bother logging max lookahead if it was an instant return, & don't bother logging turns where no meaningful choices were made
       logToFile(consoleWriteStream, `max lookahead depth for iterative deepening on turn ${gameState.turn}: ${i - 1}`)
-      thisGameData.maxLookaheads.push(i - 1)
+      if (thisGameData.isDuel) {
+        thisGameData.maxLookaheadsMinimax.push(i - 1)
+      } else {
+        thisGameData.maxLookaheadsMaxN.push(i - 1)
+      }
     }
   } else {
     futureSight = lookaheadDeterminator(gameState, board2d)
