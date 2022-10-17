@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSnakeScoreHashKey, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, gameStateIsHazardPits, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber, getHazardPitNumber } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, gameStateIsHazardPits, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber, getHazardPitNumber } from "./util"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -1628,55 +1628,12 @@ export class KissStatesForEvaluate {
   }
 }
 
-export class SnakeScore {
-  score: number // the score returned for the best move at this lookahead
-  // board variables that contextualize a score
-  snakeLength: number
-  foodCountTier: FoodCountTier
-  hazardCountTier: HazardCountTier
-  snakeCount: number
-  // game variables that contextualize a score
-  depth: number
-  version: string // the version of Jaguar this score was generated with
-  gameResult: string // SnakeScore won't know this upon creation, it's up to end() to update it properly. Should be 'win', 'loss', 'tie', or 'unknown'
-
-  constructor(score: number, snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number, _version: string) {
-    this.score = score
-    this.snakeLength = snakeLength
-    this.foodCountTier = foodCountTier
-    this.hazardCountTier = hazardCountTier
-    this.snakeCount = snakeCount
-    this.depth = depth // the depth of lookahead this score corresponds with
-    this.gameResult = "unknown" // the fourth gameResult - unknown. To be adjusted later once known.
-    this.version = _version
-  }
-
-  hashKey(): string {
-    return getSnakeScoreHashKey(this.snakeLength, this.foodCountTier, this.hazardCountTier, this.snakeCount, this.depth)
-  }
-}
-
-export class SnakeScoreForMongo {
-  score: number
-  hashKey: string
-  version: string
-  gameResult: string
-
-  constructor(score: number, hashKey: string, _version: string, gameResult: string) {
-    this.score = score
-    this.hashKey = hashKey
-    this.version = _version
-    this.gameResult = gameResult
-  }
-}
-
 export class GameData {
   startingGameState: GameState
   hazardWalls: HazardWalls
   hazardSpiral: HazardSpiral | undefined
   lookahead: number
   timesTaken: number[]
-  evaluationsForLookaheads: SnakeScore[] // a record of the bestMove.score returned by _decideMove, & some context
   isDuel: boolean
   timeouts: number
   priorDeepeningMoves: MoveWithEval[]
@@ -1686,6 +1643,7 @@ export class GameData {
   cachedEvaluations: {[key: number]: {[key: string]: number}} // cached evaluations store by turn, & inside of that, by hash
   maxLookaheadsMaxN: number[]
   maxLookaheadsMinimax: number[]
+  stillRunning: boolean
 
   constructor(gameState: GameState) {
     this.startingGameState = gameState
@@ -1693,7 +1651,6 @@ export class GameData {
     this.hazardSpiral = undefined
     this.lookahead = 0
     this.timesTaken = []
-    this.evaluationsForLookaheads = []
     this.isDuel = false
     this.timeouts = 0
     this.priorDeepeningMoves = []
@@ -1703,6 +1660,7 @@ export class GameData {
     this.cachedEvaluations = {}
     this.maxLookaheadsMaxN = []
     this.maxLookaheadsMinimax = []
+    this.stillRunning = true
   }
 }
 
@@ -1711,14 +1669,12 @@ export class TimingStats {
   max: number
   variance: number
   populationStandardDeviation: number
-  gameResult: string
 
-  constructor(average: number, max: number, variance: number, populationStandardDeviation: number, gameResult: string) {
+  constructor(average: number, max: number, variance: number, populationStandardDeviation: number) {
     this.average = average
     this.max = max
     this.variance = variance
     this.populationStandardDeviation = populationStandardDeviation
-    this.gameResult = gameResult
   }
 }
 
@@ -1726,10 +1682,8 @@ export class TimingData {
   average: number | undefined
   max: number | undefined
   populationStandardDeviaton: number | undefined
-  gameResult: string
+  gameResult: number
   version: string
-  amMachineLearning: boolean
-  amUsingMachineData: boolean
   timeout: number
   gameMode: string
   isDevelopment: boolean
@@ -1741,13 +1695,11 @@ export class TimingData {
   averageMaxLookaheadMaxN: number | undefined
   averageMaxLookaheadMinimax: number | undefined
 
-  constructor(timingStats: TimingStats | undefined, amMachineLearning: boolean, amUsingMachineData: boolean, gameResult: string, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number, averageMaxLookaheadMaxN: number | undefined, averageMaxLookaheadMinimax: number | undefined) {
+  constructor(timingStats: TimingStats | undefined, gameResult: number, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number, averageMaxLookaheadMaxN: number | undefined, averageMaxLookaheadMinimax: number | undefined) {
     this.average = timingStats?.average
     this.max = timingStats?.max
     this.populationStandardDeviaton = timingStats?.populationStandardDeviation
     this.version = _version
-    this.amMachineLearning = amMachineLearning
-    this.amUsingMachineData = amUsingMachineData
     this.gameResult = gameResult
     this.timeout = timeout
     this.gameMode = gameMode
