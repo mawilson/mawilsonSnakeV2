@@ -205,6 +205,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return new MoveWithEval(defaultDir, evalThisState)
     }
 
+    let palindromeOtherSnakeMoves: boolean = iterativeDeepening && lookahead !== 0 && gameState.board.snakes.length >= 3
+
     let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
     let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
     let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
@@ -212,7 +214,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let otherSnakeSortInfo: { [key: string]: SortInfo} = {}
-    if (originalSnake) {
+    if (originalSnake && !palindromeOtherSnakeMoves) { // no need to bother with sorting if doing palindrome snake moves
       for (const snake of gameState.board.snakes) {
         if (snake.id !== myself.id) { // no need to sort self
           let otherSnakeMoves: Moves = getAvailableMoves(gameState, snake, board2d)
@@ -227,9 +229,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
     let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)
-
-    // shuffle availableMoves array so machineLearning/timeout snake doesn't prefer one direction
-    //shuffle(availableMoves)
 
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
@@ -252,25 +251,25 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
 
         let eatTurns: number = _eatTurns || 0
+        let oldLength: number = otherSnakes.length
         if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place
-          otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
-            let aSortInfo: SortInfo = otherSnakeSortInfo[a.id]
-            let bSortInfo: SortInfo = otherSnakeSortInfo[b.id]
-            if (aSortInfo && bSortInfo) {
-              if (aSortInfo.canBeMurdered || bSortInfo.canBeMurdered) { // if either snake is in danger of a kiss of death, sort by length so the smaller can avoid it
+          if (!palindromeOtherSnakeMoves) { // no need to bother with sorting if doing palindrome snake moves
+            otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
+              let aSortInfo: SortInfo = otherSnakeSortInfo[a.id]
+              let bSortInfo: SortInfo = otherSnakeSortInfo[b.id]
+              if (aSortInfo && bSortInfo) {
+                if (aSortInfo.canBeMurdered || bSortInfo.canBeMurdered) { // if either snake is in danger of a kiss of death, sort by length so the smaller can avoid it
+                  return b.length - a.length
+                } else { // if neither snake can be murdered, sort them by distance to me, so the closer one with more potential to harm my Voronoi chooses first
+                  return aSortInfo.distanceToMe - bSortInfo.distanceToMe
+                }
+              } else { // if I somehow don't have sort info for either snake, do the default length sort
                 return b.length - a.length
-              } else { // if neither snake can be murdered, sort them by distance to me, so the closer one with more potential to harm my Voronoi chooses first
-                return aSortInfo.distanceToMe - bSortInfo.distanceToMe
               }
-            } else { // if I somehow don't have sort info for either snake, do the default length sort
-              return b.length - a.length
-            }
-          })
-
-          // if we are deepening & not on final lookahead, all moves should calculate very quickly because their scores will be cached
-          // we can therefore allow all snakes to choose with as much info as possible, by letting them choose again. We lose the performance, but gain accuracy over fakeMoveSnake
-          let oldLength: number = otherSnakes.length
-          if (iterativeDeepening && lookahead !== 0 && gameState.board.snakes.length >= 3) {
+            })
+          } else {
+            // if we are deepening & not on final lookahead, all moves should calculate very quickly because their scores will be cached
+            // we can therefore allow all snakes to choose with as much info as possible, by letting them choose again. We lose the performance, but gain accuracy over fakeMoveSnake
             // turn array from [1, 2, 3] into [1, 2, 3, 2, 1]
             for (let i: number = otherSnakes.length - 1; i >= 0; i--) { // start at length -1, go backwards 
               otherSnakes.push(otherSnakes[i])
@@ -286,7 +285,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             }
           }
 
-          if (oldLength < otherSnakes.length) {
+          if (palindromeOtherSnakeMoves) {
             otherSnakes.length = oldLength // truncate back so as not to double-process snakes now that decisions have been made
           }
 
