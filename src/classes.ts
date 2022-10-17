@@ -1636,7 +1636,6 @@ export class GameData {
   timesTaken: number[]
   isDuel: boolean
   timeouts: number
-  priorDeepeningMoves: MoveWithEval[]
   lastMoveTime: number
   evalNoMe: number | undefined
   evalNoMeEvaluationResult: EvaluationResult | undefined
@@ -1653,7 +1652,6 @@ export class GameData {
     this.timesTaken = []
     this.isDuel = false
     this.timeouts = 0
-    this.priorDeepeningMoves = []
     this.lastMoveTime = Date.now()
     this.evalNoMe = undefined
     this.evalNoMeEvaluationResult = undefined

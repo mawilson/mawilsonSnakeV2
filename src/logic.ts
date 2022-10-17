@@ -583,28 +583,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
     let newGameStates: {[key: number]: GameState} = {}
-    if (lookahead === startLookahead && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
-      thisGameData.priorDeepeningMoves.sort((a: MoveWithEval, b: MoveWithEval) => {
-        if (a.direction !== undefined && a.score !== undefined && b.direction !== undefined && b.score !== undefined) {
-          if (floatsEqual(a.score, b.score)) { // if element scores are equal, don't change order
-            return 0
-          } else if (a.score < b.score) { // if b is better than a, put b first
-            return 1
-          } else { //if (a.score > b.score) // if a is better than b, put a first
-            return -1
-          }
-        } else { // if any of the elements we're trying to sort lack a direction or score, we can't compare them, so don't move them
-          return 0
-        }
-      })
-      for (let i: number = 0; i < thisGameData.priorDeepeningMoves.length; i++) {
-        let dir = thisGameData.priorDeepeningMoves[i].direction
-        if (dir !== undefined) {
-          availableMoves[i] = dir
-        }
-      }
-      thisGameData.priorDeepeningMoves = [] // clear this so next level can repopulate it
-    } else { // do what we can in as little time as possible to sort moves on likelihood of good
+    // do what we can in as little time as possible to sort moves on likelihood of good
+    if (iterativeDeepening) { // can only used cachedEvaluations when iterative deepening, & sorting only matters then
       for (const move of availableMoves) {
         let newGameState: GameState = cloneGameState(gameState)
         let newSelf: Battlesnake = newGameState.you
@@ -612,48 +592,47 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         newGameStates[move] = newGameState
       }
 
-      if (iterativeDeepening) { // can only use cachedEvaluations when iterative deepening
-        availableMoves.sort((moveA: Direction, moveB: Direction): number => {
-          let stateA: GameState = newGameStates[moveA]
-          let stateB: GameState = newGameStates[moveB]
-          let stateAEatTurns: number = _eatTurns || 0
-          let stateBEatTurns: number = _eatTurns || 0
-          if (snakeHasEaten(stateA.you)) { stateAEatTurns += 1 }
-          if (snakeHasEaten(stateB.you)) { stateBEatTurns += 1 }
+      availableMoves.sort((moveA: Direction, moveB: Direction): number => {
+        let stateA: GameState = newGameStates[moveA]
+        let stateB: GameState = newGameStates[moveB]
+        let stateAEatTurns: number = _eatTurns || 0
+        let stateBEatTurns: number = _eatTurns || 0
+        if (snakeHasEaten(stateA.you)) { stateAEatTurns += 1 }
+        if (snakeHasEaten(stateB.you)) { stateBEatTurns += 1 }
 
-          let kissStatesA = determineKissStateForDirection(moveA, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
-          let kissArgsA: KissStatesForEvaluate | undefined
-          if (kissStatesA.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesA.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
-            kissArgsA = undefined
-          } else {
-            kissArgsA = new KissStatesForEvaluate(kissStatesA.kissOfDeathState, kissStatesA.kissOfMurderState, moveNeighbors.getPredator(moveA), moveNeighbors.getPrey(moveA))
-          }
+        let kissStatesA = determineKissStateForDirection(moveA, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
+        let kissArgsA: KissStatesForEvaluate | undefined
+        if (kissStatesA.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesA.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+          kissArgsA = undefined
+        } else {
+          kissArgsA = new KissStatesForEvaluate(kissStatesA.kissOfDeathState, kissStatesA.kissOfMurderState, moveNeighbors.getPredator(moveA), moveNeighbors.getPrey(moveA))
+        }
 
-          let kissStatesB = determineKissStateForDirection(moveB, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
-          let kissArgsB: KissStatesForEvaluate | undefined
-          if (kissStatesB.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesB.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
-            kissArgsB = undefined
-          } else {
-            kissArgsB = new KissStatesForEvaluate(kissStatesB.kissOfDeathState, kissStatesB.kissOfMurderState, moveNeighbors.getPredator(moveB), moveNeighbors.getPrey(moveB))
-          }
+        let kissStatesB = determineKissStateForDirection(moveB, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
+        let kissArgsB: KissStatesForEvaluate | undefined
+        if (kissStatesB.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesB.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+          kissArgsB = undefined
+        } else {
+          kissArgsB = new KissStatesForEvaluate(kissStatesB.kissOfDeathState, kissStatesB.kissOfMurderState, moveNeighbors.getPredator(moveB), moveNeighbors.getPrey(moveB))
+        }
 
-          if (stateA && stateB) {
-            let stateAHash: string = buildGameStateHash(stateA, stateA.you, kissArgsA, stateAEatTurns, undefined, startingHealthTier.tier) // skipping kissStates for performance reasons
-            let stateBHash: string = buildGameStateHash(stateB, stateB.you, kissArgsB, stateBEatTurns, undefined, startingHealthTier.tier)
-            let stateAScore: number = cachedEvaluationsThisTurn[stateAHash]
-            let stateBScore: number = cachedEvaluationsThisTurn[stateBHash]
-            if (stateAScore !== undefined && stateBScore !== undefined) {
-              if (stateAScore > stateBScore) {
-                return -1
-              } else if (stateAScore < stateBScore) {
-                return 1
-              }
+        if (stateA && stateB) {
+          let stateAHash: string = buildGameStateHash(stateA, stateA.you, kissArgsA, stateAEatTurns, undefined, startingHealthTier.tier) // skipping kissStates for performance reasons
+          let stateBHash: string = buildGameStateHash(stateB, stateB.you, kissArgsB, stateBEatTurns, undefined, startingHealthTier.tier)
+          let stateAScore: number = cachedEvaluationsThisTurn[stateAHash]
+          let stateBScore: number = cachedEvaluationsThisTurn[stateBHash]
+          if (stateAScore !== undefined && stateBScore !== undefined) {
+            if (stateAScore > stateBScore) {
+              return -1
+            } else if (stateAScore < stateBScore) {
+              return 1
             }
           }
-          return 0
-        })
-      }
+        }
+        return 0
+      })
     }
+  
 
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
@@ -831,9 +810,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
         }
       }
-      if (lookahead === startLookahead) { // save the top-level moves for each startLookahead, for iterative deepening move sorting
-        thisGameData.priorDeepeningMoves.push(new MoveWithEval(move, worstOriginalSnakeScore.score))
-      }
 
       if (alpha === undefined || (worstOriginalSnakeScore.score !== undefined && worstOriginalSnakeScore.score > alpha)) { // if max player found a higher alpha, assign it
         alpha = worstOriginalSnakeScore.score
@@ -991,7 +967,6 @@ export function move(gameState: GameState): MoveResponse {
   if (timeTaken > gameState.game.timeout) {
     thisGameData.timeouts = thisGameData.timeouts + 1
   }
-  thisGameData.priorDeepeningMoves = []
   thisGameData.lastMoveTime = now
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
