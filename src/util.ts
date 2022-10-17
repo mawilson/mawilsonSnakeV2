@@ -1,6 +1,6 @@
 import { createWriteStream, WriteStream, existsSync, renameSync } from 'fs';
 import { Board, GameState, Game, Ruleset, RulesetSettings, RoyaleSettings, SquadSettings, ICoord } from "./types"
-import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, MoveWithEval, HazardWalls, TimingStats, SnakeScore, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, KissStatesForEvaluate, HealthTier } from "./classes"
+import { Coord, Direction, Battlesnake, BoardCell, Board2d, Moves, SnakeCell, MoveNeighbors, KissStates, KissOfDeathState, KissOfMurderState, HazardWalls, TimingStats, FoodCountTier, HazardCountTier, VoronoiSnake, VoronoiResults, EffectiveHealthData, VoronoiResultsSnake, VoronoiResultsSnakeTailOffset, GameData, HazardSpiral, KissStatesForEvaluate } from "./classes"
 import { gameData, isDevelopment, version } from "./logic"
 
 export function logToFile(file: WriteStream, str: string) {
@@ -2139,7 +2139,7 @@ export function createGameDataId(gameState: GameState): string {
 }
 
 // given an array of numbers, calculates the average, highest, variance, & standard deviation of those numbers
-export function calculateTimingData(numbers: number[], gameResult: string): TimingStats {
+export function calculateTimingData(numbers: number[]): TimingStats {
   let average: number = 0
   let max: number = 0
 
@@ -2161,7 +2161,7 @@ export function calculateTimingData(numbers: number[], gameResult: string): Timi
     logToFile(consoleWriteStream, `of ${numbers.length} total times, average time: ${average}; highest time: ${max}; variance: ${variance}; standard deviation: ${standardDeviation}`)
   }
 
-  return new TimingStats(average, max, variance, standardDeviation, gameResult)
+  return new TimingStats(average, max, variance, standardDeviation)
 }
 
 export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for randomizing array contents
@@ -2180,46 +2180,6 @@ export function shuffle(array: any[]): any[] { // Fisher-Yates Shuffle for rando
   }
 
   return array;
-}
-
-// function to return a unique hash key for retrieving a score based on all unique identifying pieces of data (not version or gameResult, since those are the same for everyone)
-export function getSnakeScoreHashKey(snakeLength: number, foodCountTier: FoodCountTier, hazardCountTier: HazardCountTier, snakeCount: number, depth: number): string {
-  return `${snakeLength};${foodCountTier};${hazardCountTier};${snakeCount};${depth}`
-}
-
-// given a snake score hash key, we should be able to reliably rebuild the SnakeScore
-export function getSnakeScoreFromHashKey(hashKey: string, score: number): SnakeScore | undefined {
-  let parts = hashKey.split(";")
-  if (parts.length !== 5) {
-    return undefined
-  } else {
-    let snakeLength: number = parseInt(parts[0], 10)
-    if (isNaN(snakeLength)) {
-      return undefined
-    }
-    let foodCountTier: FoodCountTier = parseInt(parts[1], 10)
-    if (isNaN(foodCountTier)) {
-      return undefined
-    } else if (!(foodCountTier in FoodCountTier)) {
-      return undefined // invalid number for a FoodCountTier
-    }
-    let hazardCountTier: HazardCountTier = parseInt(parts[2], 10)
-    if (isNaN(hazardCountTier)) {
-      return undefined
-    } else if (!(hazardCountTier in HazardCountTier)) {
-      return undefined // invalid number for a HazardCountTier
-    }
-    let snakeCount: number = parseInt(parts[3], 10)
-    if (isNaN(snakeCount)) {
-      return undefined
-    }
-    let depth: number = parseInt(parts[4], 10)
-    if (isNaN(depth)) {
-      return undefined
-    }
-    // if we get here, all parts appear to be valid - create a new SnakeScore & return it
-    return new SnakeScore(score, snakeLength, foodCountTier, hazardCountTier, snakeCount, depth, version)
-  }
 }
 
 export function getFoodCountTier(numFood: number): FoodCountTier {
@@ -2766,4 +2726,38 @@ export function buildGameStateHash(gameState: GameState, snake: Battlesnake, kis
 
 export function isTestLogging(isDevelopment: boolean, gameState: GameState): boolean {
   return isDevelopment && (gameState.game.source === "testing" || gameState.game.source === "testingDeepening")
+}
+
+// returns a number representing a game result. 0 is a win. -1 is solo. 1 is tie. 2 is 2nd, 3 is 3rd, etc.
+export function getGameResult(gameState: GameState): number {
+  if (gameStateIsSolo(gameState)) {
+    return -1
+  } else if (gameState.board.snakes.length === 0) { // if no snakes are remaining, it is a tie - this is true no matter if I was one of the last remaining snakes or not
+    return 1
+  } else if (gameState.board.snakes.length > 1) { // shouldn't be possible on game end, but maybe for some future game mode. Consider any game with more than 1 snake also a tie.
+    return 1
+  }
+  let id: string = createGameDataId(gameState)
+  let thisGameData: GameData = gameData[id]
+  let haveWon: boolean = true
+  let haveLost: boolean = true
+  for (const snake of gameState.board.snakes) {
+    if (snake.id === gameState.you.id) { // if I am still in the game, I have not lost
+      haveLost = false
+    } else { // if any other snake is still in th game, I have not won
+      haveWon = false
+    }
+  }
+  if (haveWon) {
+    return 0
+  } else if (haveLost) { // if I have lost, make an attempt using startingGameData to find when I lost, otherwise just return a 2 for second
+    if (thisGameData) {
+      return thisGameData.startingGameState.board.snakes.length // last move I processed, includes me. So for 2, that means I was 2nd last, so I get 2; 3, I was third last, so I get 3; etc.
+      // can't account for when I died same turn as another snake, but that's hard to track given what we have
+    } else {
+      return 2
+    }
+  } else { // if I have somehow neither won nor lost, say it's a tie, though this should be unreachable
+    return 1
+  }
 }

@@ -23,28 +23,7 @@ export async function getCollection(mongoClient: MongoClient, collectionName: st
     const db: Db = mongoClient.db(dbName)
 
     return db.collection(collectionName)
-} 
-
-// as gotten from Compass, the aggregator that we can use to get groupings of score averages
-// this one groups based on depth, startLookahead, snakeCount, & snakeLength
-// it only considers scores whose gameResult was a win & version matches my version
-export const snakeScoreAggregations = [
-  {
-    '$match': {
-      'gameResult': 'win', 
-      'version': version
-    }
-  }, {
-    '$group': {
-      '_id': {
-        'hashKey': '$hashKey'
-      }, 
-      'averageScore': {
-        '$avg': '$score'
-      }
-    }
-  }
-]
+}
 
 // not used for anything currently, but I wanted it to be in repo
 const timingAggregations = [
@@ -70,6 +49,15 @@ const timingAggregations = [
       }, 
       'snakeLength': {
         '$exists': true
+      }, 
+      'averageMaxLookaheadMaxN': {
+        '$exists': true
+      }, 
+      'averageMaxLookaheadMinimax': {
+        '$exists': true
+      }, 
+      'gameResult': {
+        '$type': 'number'
       }
     }
   }, {
@@ -102,7 +90,7 @@ const timingAggregations = [
           '$cond': [
             {
               '$eq': [
-                '$gameResult', 'win'
+                '$gameResult', 0
               ]
             }, 1, 0
           ]
@@ -112,8 +100,8 @@ const timingAggregations = [
         '$sum': {
           '$cond': [
             {
-              '$eq': [
-                '$gameResult', 'loss'
+              '$gt': [
+                '$gameResult', 1
               ]
             }, 1, 0
           ]
@@ -124,7 +112,51 @@ const timingAggregations = [
           '$cond': [
             {
               '$eq': [
-                '$gameResult', 'tie'
+                '$gameResult', 1
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'losses2nd': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$gameResult', 2
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'losses3rd': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$gameResult', 3
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'losses4th': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$gameResult', 4
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'lossesOther': {
+        '$sum': {
+          '$cond': [
+            {
+              '$gt': [
+                '$gameResult', 4
               ]
             }, 1, 0
           ]
@@ -135,6 +167,12 @@ const timingAggregations = [
       }, 
       'numTimeouts': {
         '$sum': '$numTimeouts'
+      }, 
+      'averageMLMaxN': {
+        '$avg': '$averageMaxLookaheadMaxN'
+      }, 
+      'averageMLMinimax': {
+        '$avg': '$averageMaxLookaheadMinimax'
       }
     }
   }, {
@@ -167,15 +205,34 @@ const timingAggregations = [
           '$ties', '$total'
         ]
       }, 
+      'loss2ndRate': {
+        '$divide': [
+          '$losses2nd', '$total'
+        ]
+      }, 
+      'loss3rdRate': {
+        '$divide': [
+          '$losses3rd', '$total'
+        ]
+      }, 
+      'loss4thRate': {
+        '$divide': [
+          '$losses4th', '$total'
+        ]
+      }, 
+      'lossOtherRate': {
+        '$divide': [
+          '$lossesOther', '$total'
+        ]
+      }, 
       'total': '$total', 
-      'numTimeouts': '$numTimeouts'
+      'numTimeouts': '$numTimeouts', 
+      'averageMaxLookaheadMaxN': '$averageMLMaxN', 
+      'averageMaxLookaheadMinimax': '$averageMLMinimax'
     }
   }, {
     '$match': {
-      'isDevelopment': false, 
-      'source': 'ladder', 
-      'map': 'healing_pools', 
-      'timeout': 500
+      'isDevelopment': false
     }
   }
 ]

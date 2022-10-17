@@ -1,9 +1,8 @@
-import { info, move, decideMove, start, gameData } from '../src/logic'
+import { info, move, decideMove, gameData } from '../src/logic'
 import { GameState, MoveResponse, RulesetSettings } from '../src/types';
-import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, SnakeScore, FoodCountTier, HazardCountTier, HazardSpiral, Coord, GameData, VoronoiResults, VoronoiResultsSnake, MoveWithEval } from '../src/classes'
-import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, getSnakeScoreFromHashKey, calculateReachableCells, getDistance, createGameDataId } from '../src/util'
+import { Battlesnake, Direction, stringToDirection, BoardCell, Board2d, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, FoodCountTier, HazardCountTier, HazardSpiral, Coord, GameData, VoronoiResults, VoronoiResultsSnake, MoveWithEval } from '../src/classes'
+import { isKingOfTheSnakes, cloneGameState, moveSnake, coordsEqual, createHazardRow, createHazardColumn, isInOrAdjacentToHazard, updateGameStateAfterMove, getLongestOtherSnake, calculateCenterWithHazard, calculateReachableCells, getDistance, createGameDataId } from '../src/util'
 import { evaluate } from '../src/eval'
-import { machineLearningDataResult, server } from '../src/index'
 
 // snake diagrams: x is empty, s is body, h is head, t is tail, f is food, z is hazard
 // for multi-snake diagrams, a - b - c are body, u - v - w are tail, i - j - k are head
@@ -65,15 +64,6 @@ export function createGameState(me: Battlesnake): GameState {
       you: me
   }
 }
-
-beforeAll(() => {
-  // TODO: Fix, currently this is just an empty object after returning, despite it theoretically waiting on the promise to finish
-  return machineLearningDataResult // wait for machine learning data to be processed
-})
-
-afterAll(() => {
-  return server.close()
-})
 
 afterEach(() => {
   let gameDataKeys = Object.keys(gameData)
@@ -2789,28 +2779,6 @@ describe('sandwich tests', () => {
   })
 })
 
-describe('SnakeScore hash key tests', () => {
-  it('can correctly create a hashKey out of a snake score', () => {
-    let snakeScore = new SnakeScore(500, 8, FoodCountTier.less7, HazardCountTier.less31, 4, 4, "1.0.0")
-    let snakeScoreHash = snakeScore.hashKey()
-
-    expect(snakeScoreHash).toBe("8;2;1;4;4")
-  })
-  it('can correctly create a SnakeScore out of a hash key', () => {
-    let snakeScoreHash = "15;3;0;3;4"
-    let snakeScore = getSnakeScoreFromHashKey(snakeScoreHash, 500)
-
-    expect(snakeScore).toBeDefined()
-    if (snakeScore !== undefined) {
-      expect(snakeScore.snakeLength).toBe(15)
-      expect(snakeScore.foodCountTier).toBe(FoodCountTier.lots)
-      expect(snakeScore.hazardCountTier).toBe(HazardCountTier.zero)
-      expect(snakeScore.snakeCount).toBe(3)
-      expect(snakeScore.depth).toBe(4)
-    }
-  })
-})
-
 describe('Voronoi diagram tests', () => {
   it('can correctly map out a Voronoi diagram given no snakes of equal length & no food', () => {
     const snek = new Battlesnake("snek", "snek", 70, [{x: 1, y: 1}, {x: 2, y: 1}, {x: 2, y: 0}], "30", "", "")
@@ -3346,7 +3314,7 @@ describe('constrictor tests', () => {
   }),
   it('chooses board with many ties cells over being forced in a corner', () => {
     for (let i: number = 0; i < 3; i++) {
-      let gameState: GameState = {"game":{"id":"4d11763c-e09f-4e42-b3ae-cd73f7a160e6","ruleset":{"name":"constrictor","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testing"},"turn":11,"board":{"width":11,"height":11,"food":[],"hazards":[],"snakes":[{"id":"gs_fbJVyXJcQWCh7QFFCmVG7ffS","name":"nomblegomble","body":[{"x":1,"y":6},{"x":1,"y":7},{"x":2,"y":7},{"x":3,"y":7},{"x":4,"y":7},{"x":4,"y":8},{"x":3,"y":8},{"x":2,"y":8},{"x":1,"y":8},{"x":0,"y":8},{"x":0,"y":9},{"x":1,"y":9},{"x":1,"y":9}],"health":100,"latency":93,"head":{"x":1,"y":6},"length":13,"shout":"3","squad":""},{"id":"gs_FX4WT34FwBXG8DFXDxXdHwW7","name":"marrrvin","body":[{"x":7,"y":10},{"x":6,"y":10},{"x":5,"y":10},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":6,"y":7},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":8},{"x":8,"y":9},{"x":9,"y":9},{"x":9,"y":9}],"health":100,"latency":18,"head":{"x":7,"y":10},"length":13,"shout":"","squad":""},{"id":"gs_ChRBPxdPG8vFfMwWmpWR96g9","name":"businesssssnake","body":[{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":1,"y":1}],"health":100,"latency":137,"head":{"x":5,"y":0},"length":13,"shout":"","squad":""},{"id":"gs_qhd3JmWGPBJTxBKGq44yGppP","name":"Kisnake","body":[{"x":8,"y":3},{"x":9,"y":3},{"x":10,"y":3},{"x":10,"y":2},{"x":9,"y":2},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2},{"x":6,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":9,"y":1},{"x":9,"y":1}],"health":100,"latency":166,"head":{"x":8,"y":3},"length":13,"shout":"","squad":""}]},"you":{"id":"gs_ChRBPxdPG8vFfMwWmpWR96g9","name":"businesssssnake","body":[{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":1,"y":1}],"health":100,"latency":137,"head":{"x":5,"y":0},"length":13,"shout":"","squad":""}}
+      let gameState: GameState = {"game":{"id":"4d11763c-e09f-4e42-b3ae-cd73f7a160e6","ruleset":{"name":"constrictor","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":0,"royale":{"shrinkEveryNTurns":30},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"timeout":500,"source":"testingDeepening"},"turn":11,"board":{"width":11,"height":11,"food":[],"hazards":[],"snakes":[{"id":"gs_fbJVyXJcQWCh7QFFCmVG7ffS","name":"nomblegomble","body":[{"x":1,"y":6},{"x":1,"y":7},{"x":2,"y":7},{"x":3,"y":7},{"x":4,"y":7},{"x":4,"y":8},{"x":3,"y":8},{"x":2,"y":8},{"x":1,"y":8},{"x":0,"y":8},{"x":0,"y":9},{"x":1,"y":9},{"x":1,"y":9}],"health":100,"latency":93,"head":{"x":1,"y":6},"length":13,"shout":"3","squad":""},{"id":"gs_FX4WT34FwBXG8DFXDxXdHwW7","name":"marrrvin","body":[{"x":7,"y":10},{"x":6,"y":10},{"x":5,"y":10},{"x":5,"y":9},{"x":6,"y":9},{"x":6,"y":8},{"x":6,"y":7},{"x":7,"y":7},{"x":7,"y":8},{"x":8,"y":8},{"x":8,"y":9},{"x":9,"y":9},{"x":9,"y":9}],"health":100,"latency":18,"head":{"x":7,"y":10},"length":13,"shout":"","squad":""},{"id":"gs_ChRBPxdPG8vFfMwWmpWR96g9","name":"businesssssnake","body":[{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":1,"y":1}],"health":100,"latency":137,"head":{"x":5,"y":0},"length":13,"shout":"","squad":""},{"id":"gs_qhd3JmWGPBJTxBKGq44yGppP","name":"Kisnake","body":[{"x":8,"y":3},{"x":9,"y":3},{"x":10,"y":3},{"x":10,"y":2},{"x":9,"y":2},{"x":8,"y":2},{"x":7,"y":2},{"x":6,"y":2},{"x":6,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":9,"y":1},{"x":9,"y":1}],"health":100,"latency":166,"head":{"x":8,"y":3},"length":13,"shout":"","squad":""}]},"you":{"id":"gs_ChRBPxdPG8vFfMwWmpWR96g9","name":"businesssssnake","body":[{"x":5,"y":0},{"x":4,"y":0},{"x":3,"y":0},{"x":2,"y":0},{"x":2,"y":1},{"x":3,"y":1},{"x":4,"y":1},{"x":4,"y":2},{"x":3,"y":2},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":1,"y":1}],"health":100,"latency":137,"head":{"x":5,"y":0},"length":13,"shout":"","squad":""}}
       let moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("up") // right gives 6 turns of life but is probably a loss, up shoves us into chaos & gives us a chance
     }

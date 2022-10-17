@@ -82,12 +82,3 @@ export interface GameState {
   board: Board;
   you: Battlesnake;
 }
-
-export interface SnakeScoreMongoAggregateId {
-  hashKey: string
-}
-
-export interface SnakeScoreMongoAggregate {
-  _id: SnakeScoreMongoAggregateId;
-  averageScore: number;
-}

@@ -1,9 +1,8 @@
-export const version: string = "1.6.32" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.33" // need to declare this before imports since several imports utilize it
 
-import { evaluationsForMachineLearning } from "./index"
 import { InfoResponse, GameState, MoveResponse } from "./types"
-import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, SnakeScore, SnakeScoreForMongo, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getSnakeScoreHashKey, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance, isTestLogging } from "./util"
+import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance, isTestLogging, getGameResult } from "./util"
 import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe, evaluateTailChasePenalty, evaluateWinValue, determineHealthTier } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -14,10 +13,6 @@ import { Collection, MongoClient } from 'mongodb'
 
 const lookaheadWeight = 0.1
 export const isDevelopment: boolean = false
-
-// machine learning constants. First determines whether we're gathering data, second determines whether we're using it. Never use it while gathering it.
-const amMachineLearning: boolean = false // if true, will not use machine learning thresholds & take shortcuts. Will log its results to database.
-export const amUsingMachineData: boolean = false && !amMachineLearning // should never use machine learning data while also collecting it, but also may choose not to use it
 
 export let gameData: {[key: string]: GameData} = {}
 
@@ -47,7 +42,7 @@ export function info(): InfoResponse {
     return response
 }
 
-export async function start(gameState: GameState): Promise<void> {
+export function start(gameState: GameState) {
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData(gameState) // move() will update hazardWalls & lookahead accordingly later on.
   console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
@@ -56,19 +51,12 @@ export async function start(gameState: GameState): Promise<void> {
 export async function end(gameState: GameState): Promise<void> {
   let gameDataId = createGameDataId(gameState)
   let thisGameData = gameData? gameData[gameDataId] : undefined // may be undefined if gameData has already been cleaned up before game ended
-
-  let isWin = gameState.board.snakes.some(function findMe(snake) { // true if my snake is still in the game, indicating I won
-    return snake.id === gameState.you.id
-  })
-  let isTie = gameState.board.snakes.length === 0
-  let isSolo = gameStateIsSolo(gameState)
-  let gameResult = isSolo? "solo" : isWin? "win" : isTie? "tie" : "loss" // it's either a solo, a win, a tie, or a loss
-  
+  let gameResult = getGameResult(gameState)
   
   const mongoClient: MongoClient = await connectToDatabase() // wait for database connection to be opened up
   let timeStats: TimingStats | undefined
   if (thisGameData && thisGameData.timesTaken && thisGameData.timesTaken.length > 0) {
-    timeStats = calculateTimingData(thisGameData.timesTaken, gameResult)
+    timeStats = calculateTimingData(thisGameData.timesTaken)
   } else {
     timeStats = undefined
   }
@@ -93,23 +81,11 @@ export async function end(gameState: GameState): Promise<void> {
       averageMaxLookaheadMinimax = sum / thisGameData.maxLookaheadsMinimax.length
     }
   }
-  let timeData = new TimingData(timeStats, amMachineLearning, amUsingMachineData, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookaheadMaxN, averageMaxLookaheadMinimax)
+  let timeData = new TimingData(timeStats, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookaheadMaxN, averageMaxLookaheadMinimax)
 
   const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
   await timingCollection.insertOne(timeData)
-
-  if (amMachineLearning) { // if I am learning, add the results to the thing
-    const snakeScoresCollection: Collection = await getCollection(mongoClient, "snakeScores")
-
-    if (thisGameData && thisGameData.evaluationsForLookaheads && thisGameData.evaluationsForLookaheads.length > 0) {
-      let snakeScoresForMongo: SnakeScoreForMongo[] = []
-      for (const snakeScore of thisGameData.evaluationsForLookaheads) {
-        snakeScoresForMongo.push(new SnakeScoreForMongo(snakeScore.score, snakeScore.hashKey(), version, gameResult))
-      }
-      await snakeScoresCollection.insertMany(snakeScoresForMongo)
-    }
-  }
 
   await mongoClient.close() // always close your connection out!
   
@@ -129,8 +105,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
   const isTesting: boolean = gameState.game.source === "testing" // currently used to subvert stillHaveTime check when running tests. Remove that to still run stillHaveTime check during tests
   const startLookahead: number = gameState.you.id === myself.id ? _startLookahead : 0 // otherSnakes always use lookahead of 0
   const testLogging: boolean = isTestLogging(isDevelopment, gameState)
-
-  let movesShortCircuited: number = 0
 
   let noMe: number
   if (thisGameData.evalNoMe !== undefined) {
@@ -231,6 +205,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return new MoveWithEval(defaultDir, evalThisState)
     }
 
+    let palindromeOtherSnakeMoves: boolean = iterativeDeepening && lookahead !== 0 && gameState.board.snakes.length >= 3
+
     let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
     let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)
     let kissOfDeathMoves = findKissDeathMoves(moveNeighbors)
@@ -238,7 +214,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let kissStatesThisState: KissStates = kissDecider(gameState, myself, moveNeighbors, kissOfDeathMoves, kissOfMurderMoves, moves, board2d)
 
     let otherSnakeSortInfo: { [key: string]: SortInfo} = {}
-    if (originalSnake) {
+    if (originalSnake && !palindromeOtherSnakeMoves) { // no need to bother with sorting if doing palindrome snake moves
       for (const snake of gameState.board.snakes) {
         if (snake.id !== myself.id) { // no need to sort self
           let otherSnakeMoves: Moves = getAvailableMoves(gameState, snake, board2d)
@@ -254,48 +230,30 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     // of the available remaining moves, evaluate the gameState if we took that move, and then choose the move resulting in the highest scoring gameState
     let bestMove : MoveWithEval = new MoveWithEval(undefined, undefined)
 
-    // shuffle availableMoves array so machineLearning/timeout snake doesn't prefer one direction
-    shuffle(availableMoves)
-
-    let effectiveLookahead = lookahead === undefined? 0 : lookahead
-    let foodCountTier = getFoodCountTier(gameState.board.food.length)
-    let hazardCountTier = getHazardCountTier(board2d.numHazards)
-    let snakeScoreHash = getSnakeScoreHashKey(myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead)
-    let averageMoveScore: number | undefined = evaluationsForMachineLearning[snakeScoreHash]
-    let doneEvaluating: boolean = false
-
     for (let i: number = 0; i < availableMoves.length; i++) {
       let move: Direction = availableMoves[i]
       if (iterativeDeepening && !checkTime(startTime, gameState)) { return new MoveWithEval(undefined, undefined) }
-      if (bestMove && (bestMove.score !== undefined) && amUsingMachineData && originalSnake) { // machine learning check! Only do for self
-        if (averageMoveScore !== undefined) { // if an average move score exists for this game state
-          if (averageMoveScore > 0 && bestMove.score >= (averageMoveScore * 1.1)) { // if the average move score isn't objectively bad, & bestMove is appreciably better than it
-            doneEvaluating = true
-          }
-        }
-      }
 
-      if (doneEvaluating) {
-        movesShortCircuited = movesShortCircuited + 1
-      } else { // not done evaluating
-        let newGameState = cloneGameState(gameState)
+      let newGameState = cloneGameState(gameState)
 
-        let newSelf: Battlesnake | undefined
-        newSelf = newGameState.board.snakes.find(function findSnake(snake) {
-          return snake.id === myself.id
+      let newSelf: Battlesnake | undefined
+      newSelf = newGameState.board.snakes.find(function findSnake(snake) {
+        return snake.id === myself.id
+      })
+
+      if (newSelf !== undefined) {
+        let moveSnakes: { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
+
+        let otherSnakes: Battlesnake[] = newGameState.board.snakes.filter(function filterMeOut(snake) {
+          return newSelf !== undefined && (snake.id !== newSelf.id)
         })
 
-        if (newSelf !== undefined) {
-          let moveSnakes: { [key: string]: MoveWithEval} = {} // array of snake IDs & the MoveWithEval each snake having that ID wishes to move in
+        let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
 
-          let otherSnakes: Battlesnake[] = newGameState.board.snakes.filter(function filterMeOut(snake) {
-            return newSelf !== undefined && (snake.id !== newSelf.id)
-          })
-
-          let kissStates = determineKissStateForDirection(move, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
-
-          let eatTurns: number = _eatTurns || 0
-          if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place
+        let eatTurns: number = _eatTurns || 0
+        let oldLength: number = otherSnakes.length
+        if (originalSnake) { // only move snakes for self snake, otherwise we recurse all over the place
+          if (!palindromeOtherSnakeMoves) { // no need to bother with sorting if doing palindrome snake moves
             otherSnakes.sort((a: Battlesnake, b: Battlesnake) => { // sort otherSnakes by length in descending order. This way, smaller snakes wait for larger snakes to move before seeing if they must move to avoid being killed
               let aSortInfo: SortInfo = otherSnakeSortInfo[a.id]
               let bSortInfo: SortInfo = otherSnakeSortInfo[b.id]
@@ -309,196 +267,181 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                 return b.length - a.length
               }
             })
-
+          } else {
             // if we are deepening & not on final lookahead, all moves should calculate very quickly because their scores will be cached
             // we can therefore allow all snakes to choose with as much info as possible, by letting them choose again. We lose the performance, but gain accuracy over fakeMoveSnake
-            let oldLength: number = otherSnakes.length
-            if (iterativeDeepening && lookahead !== 0 && gameState.board.snakes.length >= 3) {
-              // turn array from [1, 2, 3] into [1, 2, 3, 2, 1]
-              for (let i: number = otherSnakes.length - 1; i >= 0; i--) { // start at length -1, go backwards 
-                otherSnakes.push(otherSnakes[i])
-              }
+            // turn array from [1, 2, 3] into [1, 2, 3, 2, 1]
+            for (let i: number = otherSnakes.length - 1; i >= 0; i--) { // start at length -1, go backwards 
+              otherSnakes.push(otherSnakes[i])
             }
+          }
 
-            let otherSnakeMoves: {[key: string]: Direction} = {[myself.id]: move}
-            for (const snake of otherSnakes) {
-              const snakeMove: MoveWithEval = _decideMove(gameState, snake, 0, undefined, otherSnakeMoves) // decide best move for other snakes according to current data, & tell them what move I am making
-              moveSnakes[snake.id] = snakeMove
-              if (snakeMove.direction !== undefined) {
-                otherSnakeMoves[snake.id] = snakeMove.direction // tell subsequent snakes about where this snake is moving
-              }
+          let otherSnakeMoves: {[key: string]: Direction} = {[myself.id]: move}
+          for (const snake of otherSnakes) {
+            const snakeMove: MoveWithEval = _decideMove(gameState, snake, 0, undefined, otherSnakeMoves) // decide best move for other snakes according to current data, & tell them what move I am making
+            moveSnakes[snake.id] = snakeMove
+            if (snakeMove.direction !== undefined) {
+              otherSnakeMoves[snake.id] = snakeMove.direction // tell subsequent snakes about where this snake is moving
             }
+          }
 
-            if (oldLength < otherSnakes.length) {
-              otherSnakes.length = oldLength // truncate back so as not to double-process snakes now that decisions have been made
-            }
+          if (palindromeOtherSnakeMoves) {
+            otherSnakes.length = oldLength // truncate back so as not to double-process snakes now that decisions have been made
+          }
 
-            moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
-            otherSnakeMoves[myself.id] = Direction.AlreadyMoved // myself has now moved
+          moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move after otherSnakes have decided on their moves
+          otherSnakeMoves[myself.id] = Direction.AlreadyMoved // myself has now moved
 
-            if (snakeHasEaten(newSelf)) {
-              eatTurns += 1
-            }
+          if (snakeHasEaten(newSelf)) {
+            eatTurns += 1
+          }
 
-            for (const snake of otherSnakes) { // move each of the snakes at the same time, without updating gameState until each has moved 
-              if (moveSnakes[snake.id]) { // if I have already decided upon this snake's move, see if it dies doing said move
-                let newHead = getCoordAfterMove(gameState, snake.head, moveSnakes[snake.id].direction)
-                let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
+          for (const snake of otherSnakes) { // move each of the snakes at the same time, without updating gameState until each has moved 
+            if (moveSnakes[snake.id]) { // if I have already decided upon this snake's move, see if it dies doing said move
+              let newHead = getCoordAfterMove(gameState, snake.head, moveSnakes[snake.id].direction)
+              let adjustedMove = moveSnakes[snake.id] // don't modify moveSnakes[snake.id], as this is used by other availableMoves loops
 
-                let murderSnakeBeforeMove: Battlesnake | undefined
-                let murderSnake: Battlesnake | undefined = newGameState.board.snakes.find(murderSnake => { // check if any snake has murdered this snake, including originalSnake
-                  if (murderSnake.id === snake.id) { return false } // return false for self
-                  murderSnakeBeforeMove = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
-                    return murderSnake !== undefined && priorSnake.id === murderSnake.id
-                  })
-                  
-                  if (murderSnakeBeforeMove !== undefined) {
-                    // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
-                    return (coordsEqual(newHead, murderSnake.head) && murderSnakeBeforeMove.length >= snake.length) // snake hasn't moved yet since we're in the process of moving it, can use its length
-                  } else { // return false for nonexistant snakes
-                    return false
-                  }
+              let murderSnakeBeforeMove: Battlesnake | undefined
+              let murderSnake: Battlesnake | undefined = newGameState.board.snakes.find(murderSnake => { // check if any snake has murdered this snake, including originalSnake
+                if (murderSnake.id === snake.id) { return false } // return false for self
+                murderSnakeBeforeMove = gameState.board.snakes.find(priorSnake => { // get murder snake before it had moved
+                  return murderSnake !== undefined && priorSnake.id === murderSnake.id
                 })
-                // allow snakes that died to reroll their move
-                if (murderSnake !== undefined) {
-                  let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(gameState, snake, board2d).validMoves()
-                  let newMove: MoveWithEval
-                  const otherSnakeAvailableMovesAfterDeath: number = otherSnakeAvailableMoves.length - 1
-                  switch (otherSnakeAvailableMovesAfterDeath) { // allow otherSnake to choose again if that may make a difference. Available moves length will be one less than before, as we already know the first one resulted in death
-                    case 0: // otherSnake has no other options, don't change its move
-                      break
-                    case 1: // otherSnake has only one other option left. Evaluate it, choose it if it's better than a tie
-                    case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie
-                      if (otherSnakeAvailableMovesAfterDeath === 1) {
-                        if (isDuel && murderSnakeBeforeMove !== undefined && murderSnakeBeforeMove.length === snake.length) {
-                          newMove = _decideMove(newGameState, snake, 0, undefined, otherSnakeMoves) // let snake decide again, no lookahead this time, & tell it that myself already moved
-                        } else {
-                          let newMoveDir: Direction = otherSnakeAvailableMoves[0]
-                          if (newMoveDir === adjustedMove.direction) { newMoveDir = otherSnakeAvailableMoves[1] } // hack to avoid looping - there are two elements in this array, & we want the one that isn't what adjustedMove already is
-                          newMove = new MoveWithEval(newMoveDir, undefined) // with only one other move available, score only matters in a duel tie
-                        }
-                      } else {
+                
+                if (murderSnakeBeforeMove !== undefined) {
+                  // return true if otherOtherSnake is in the same cell as newHead, & is larger or equal
+                  return (coordsEqual(newHead, murderSnake.head) && murderSnakeBeforeMove.length >= snake.length) // snake hasn't moved yet since we're in the process of moving it, can use its length
+                } else { // return false for nonexistant snakes
+                  return false
+                }
+              })
+              // allow snakes that died to reroll their move
+              if (murderSnake !== undefined) {
+                let otherSnakeAvailableMoves: Direction[] = getAvailableMoves(gameState, snake, board2d).validMoves()
+                let newMove: MoveWithEval
+                const otherSnakeAvailableMovesAfterDeath: number = otherSnakeAvailableMoves.length - 1
+                switch (otherSnakeAvailableMovesAfterDeath) { // allow otherSnake to choose again if that may make a difference. Available moves length will be one less than before, as we already know the first one resulted in death
+                  case 0: // otherSnake has no other options, don't change its move
+                    break
+                  case 1: // otherSnake has only one other option left. Evaluate it, choose it if it's better than a tie
+                  case 2: // otherSnake has more than one other option left (originally had three). Evaluate & choose the best one if they're better than a tie
+                    if (otherSnakeAvailableMovesAfterDeath === 1) {
+                      if (isDuel && murderSnakeBeforeMove !== undefined && murderSnakeBeforeMove.length === snake.length) {
                         newMove = _decideMove(newGameState, snake, 0, undefined, otherSnakeMoves) // let snake decide again, no lookahead this time, & tell it that myself already moved
+                      } else {
+                        let newMoveDir: Direction = otherSnakeAvailableMoves[0]
+                        if (newMoveDir === adjustedMove.direction) { newMoveDir = otherSnakeAvailableMoves[1] } // hack to avoid looping - there are two elements in this array, & we want the one that isn't what adjustedMove already is
+                        newMove = new MoveWithEval(newMoveDir, undefined) // with only one other move available, score only matters in a duel tie
                       }
-                      if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
-                        adjustedMove = newMove
-                      } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
-                        if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
-                          if (!isDuel) { // it's not a duel
-                            if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
-                              adjustedMove = newMove
-                            } else if (murderSnake.id !== gameState.you.id) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, rechoose
-                              adjustedMove = newMove
-                            }
-                          } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
+                    } else {
+                      newMove = _decideMove(newGameState, snake, 0, undefined, otherSnakeMoves) // let snake decide again, no lookahead this time, & tell it that myself already moved
+                    }
+                    if (adjustedMove.score === undefined) { // if for some reason adjustedMove's score was undefined, newMove's score is 'better'
+                      adjustedMove = newMove
+                    } else { // we should only let the snake choose death if it's a duel, a tie, & the alternative move is worse than a tie
+                      if (murderSnakeBeforeMove !== undefined) { // this should always pass, since murderSnake came from a clone of gameState
+                        if (!isDuel) { // it's not a duel
+                          if (murderSnakeBeforeMove.length > snake.length) { // if it's not a tie, should choose elsewhere.
                             adjustedMove = newMove
-                          } else if (newMove.score !== undefined && newMove.score > determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove, eatTurns).sum(noMe)) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose
+                          } else if (murderSnake.id !== gameState.you.id) { // if it is a tie, don't rechoose if murderSnake was me. Otherwise, rechoose
                             adjustedMove = newMove
-                          } // if it fails all three of those, we won't rechoose
-                        }
+                          }
+                        } else if (murderSnakeBeforeMove.length > snake.length) { // it is a duel, but I'm smaller, this is a loss, rechoose
+                          adjustedMove = newMove
+                        } else if (newMove.score !== undefined && newMove.score > determineEvalNoSnakes(newGameState, snake, murderSnakeBeforeMove, eatTurns).sum(noMe)) { // it is a duel & we would tie, but I have a better option than a tie elsewhere, rechoose
+                          adjustedMove = newMove
+                        } // if it fails all three of those, we won't rechoose
                       }
-                      break
-                    default: // should not be able to reach here, as myself snake has already cut one of its moves off
-                      break
-                  }
-                  
-                  
+                    }
+                    break
+                  default: // should not be able to reach here, as myself snake has already cut one of its moves off
+                    break
                 }
-                moveSnake(newGameState, snake, board2d, adjustedMove.direction)
-                otherSnakeMoves[snake.id] = Direction.AlreadyMoved
+                
+                
               }
+              moveSnake(newGameState, snake, board2d, adjustedMove.direction)
+              otherSnakeMoves[snake.id] = Direction.AlreadyMoved
             }
-            updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
-          } else { // for other snakes, still need to be able to move self to a new position to evaluate it
-            moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
-            if (snakeHasEaten(newSelf)) {
-              eatTurns += 1
-            }
+          }
+          updateGameStateAfterMove(newGameState) // update gameState after moving all snakes
+        } else { // for other snakes, still need to be able to move self to a new position to evaluate it
+          moveSnake(newGameState, newSelf, board2d, move) // move newSelf to available move
+          if (snakeHasEaten(newSelf)) {
+            eatTurns += 1
+          }
 
-            // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
-            for (const snake of otherSnakes) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
-              if (_otherSnakeMoves !== undefined && _otherSnakeMoves[snake.id] !== undefined) { // we know exactly what move this snake is making
-                moveSnake(newGameState, snake, board2d, _otherSnakeMoves[snake.id])              
+          // TODO: Figure out a smart way to move otherSnakes' opponents here that doesn't infinitely recurse
+          for (const snake of otherSnakes) { // can't keep asking decideMove how to move them, but we need to at least remove the other snakes' tails without changing their length, or else this otherSnake won't consider tail cells other than its own valid
+            if (_otherSnakeMoves !== undefined && _otherSnakeMoves[snake.id] !== undefined) { // we know exactly what move this snake is making
+              moveSnake(newGameState, snake, board2d, _otherSnakeMoves[snake.id])              
+            } else {
+              let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
+              if (otherSnakeAvailableMoves.length === 0) {
+                moveSnake(newGameState, snake, board2d, getDefaultMove(newGameState, snake, board2d))
+              } else if (otherSnakeAvailableMoves.length === 1) {
+                moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
               } else {
-                let otherSnakeAvailableMoves = getAvailableMoves(newGameState, snake, board2d).validMoves()
-                if (otherSnakeAvailableMoves.length === 0) {
-                  moveSnake(newGameState, snake, board2d, getDefaultMove(newGameState, snake, board2d))
-                } else if (otherSnakeAvailableMoves.length === 1) {
-                  moveSnake(newGameState, snake, board2d, otherSnakeAvailableMoves[0])
-                } else {
-                  fakeMoveSnake(snake)
-                }
+                fakeMoveSnake(snake)
               }
             }
-
-            updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
-          }
-          
-          let evalState: MoveWithEval
-          let evaluationResult: EvaluationResult | undefined = undefined
-          let kissArgs: KissStatesForEvaluate | undefined
-          if (kissStates.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStates.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
-            kissArgs = undefined
-          } else {
-            kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
-          }
-          
-          if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
-            evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, eatTurns) // This is the recursive case!!!
-          } else { // base case, just run the eval
-            let hash: string = buildGameStateHash(newGameState, newSelf, kissArgs, eatTurns, originalSnake, undefined)
-            let sum: number
-            let cache = cachedEvaluationsNextTurn[hash]
-            if (cache !== undefined) { // look for this gameState in cache
-              sum = cache
-              // below lines are useful when testing to catch where gameStateHash isn't adequately distinguishing different game states
-              // even when not iterative deepening, some tie & death states will hit the cache, but their scores should always be equivalent!!
-              // evaluationResult = evaluate(newGameState, newSelf, kissArgs, eatTurns)
-              // if (!floatsEqual(cache, evaluationResult.sum())) {
-              //   debugger
-              // }
-            } else { // if not in cache, evaluate, then store in cache
-              evaluationResult = evaluate(newGameState, newSelf, kissArgs, eatTurns)
-              sum = evaluationResult.sum(noMe)
-
-              cachedEvaluationsNextTurn[hash] = sum // cache this evaluation
-            }
-            evalState = new MoveWithEval(move, sum)
           }
 
-          if (originalSnake && testLogging && lookahead === startLookahead) {
-            logToFile(consoleWriteStream, `move: ${move}\nEvalState score: ${evalState.score}\n`)
-          }
-          if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
-            bestMove.direction = move
-            bestMove.score = evalState.score
-          } else {
-            if (evalState.score !== undefined) { // if evalState has a score, we want to compare it to bestMove's score
-              if (evalState.score > bestMove.score) { // if evalState represents a better move & score, assign bestMove to it
-                //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
-                bestMove.direction = move
-                bestMove.score = evalState.score
-              } else if (floatsEqual(evalState.score, bestMove.score) && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
-                //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
-                bestMove.direction = move
-                bestMove.score = evalState.score
-              } // else don't replace bestMove
-            } // evalState has no score, & bestMove does, we don't want to replace bestMove with evalState
-          }
-        } // if newSelf isn't defined, I have died, will evaluate the state without me lower down
-      }
-    }
+          updateGameStateAfterMove(newGameState) // update gameState after moving newSelf
+        }
+        
+        let evalState: MoveWithEval
+        let evaluationResult: EvaluationResult | undefined = undefined
+        let kissArgs: KissStatesForEvaluate | undefined
+        if (kissStates.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStates.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+          kissArgs = undefined
+        } else {
+          kissArgs = new KissStatesForEvaluate(kissStates.kissOfDeathState, kissStates.kissOfMurderState, moveNeighbors.getPredator(move), moveNeighbors.getPrey(move))
+        }
+        
+        if (lookahead !== undefined && lookahead > 0) { // don't run evaluate at this level, run it at the next level
+          evalState = _decideMove(newGameState, newSelf, lookahead - 1, kissArgs, undefined, eatTurns) // This is the recursive case!!!
+        } else { // base case, just run the eval
+          let hash: string = buildGameStateHash(newGameState, newSelf, kissArgs, eatTurns, originalSnake, undefined)
+          let sum: number
+          let cache = cachedEvaluationsNextTurn[hash]
+          if (cache !== undefined) { // look for this gameState in cache
+            sum = cache
+            // below lines are useful when testing to catch where gameStateHash isn't adequately distinguishing different game states
+            // even when not iterative deepening, some tie & death states will hit the cache, but their scores should always be equivalent!!
+            // evaluationResult = evaluate(newGameState, newSelf, kissArgs, eatTurns)
+            // if (!floatsEqual(cache, evaluationResult.sum())) {
+            //   debugger
+            // }
+          } else { // if not in cache, evaluate, then store in cache
+            evaluationResult = evaluate(newGameState, newSelf, kissArgs, eatTurns)
+            sum = evaluationResult.sum(noMe)
 
-    // need to process this & add to DB before adding evalThisState, becaause evalThisState is normally only added for a given lookahead after examining availableMoves
-    let canLearn: boolean = averageMoveScore === undefined || averageMoveScore < 0 // can still learn if we didn't have data for this move, or the only data we had was worthless
-    if ((amMachineLearning || canLearn) && originalSnake && (bestMove.score !== undefined) && !finishEvaluatingNow) { // only add machine learning data for my own moves, & only consider moves that weren't defaults
-      if (thisGameData.evaluationsForLookaheads) { // if game data exists, append to it
-        let effectiveLookahead: number = lookahead === undefined? 0 : lookahead
-        let foodCountTier = getFoodCountTier(gameState.board.food.length)
-        let hazardCountTier = getHazardCountTier(board2d.numHazards)
-        let newSnakeScore = new SnakeScore(bestMove.score, myself.length, foodCountTier, hazardCountTier, gameState.board.snakes.length, effectiveLookahead, version)
-        thisGameData.evaluationsForLookaheads.push(newSnakeScore)
-      }
+            cachedEvaluationsNextTurn[hash] = sum // cache this evaluation
+          }
+          evalState = new MoveWithEval(move, sum)
+        }
+
+        if (originalSnake && testLogging && lookahead === startLookahead) {
+          logToFile(consoleWriteStream, `move: ${move}\nEvalState score: ${evalState.score}\n`)
+        }
+        if (bestMove.score === undefined) { // we don't have a best move yet, assign it to this one (even if its score is also undefined)
+          bestMove.direction = move
+          bestMove.score = evalState.score
+        } else {
+          if (evalState.score !== undefined) { // if evalState has a score, we want to compare it to bestMove's score
+            if (evalState.score > bestMove.score) { // if evalState represents a better move & score, assign bestMove to it
+              //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
+              bestMove.direction = move
+              bestMove.score = evalState.score
+            } else if (floatsEqual(evalState.score, bestMove.score) && getRandomInt(0, 2)) { // in the event of tied evaluations, choose between them at random
+              //logToFile(consoleWriteStream, `replacing prior best move ${bestMove.direction} with eval ${bestMove.score} with new move ${move} & eval ${evalState.score}`)
+              bestMove.direction = move
+              bestMove.score = evalState.score
+            } // else don't replace bestMove
+          } // evalState has no score, & bestMove does, we don't want to replace bestMove with evalState
+        }
+      } // if newSelf isn't defined, I have died, will evaluate the state without me lower down
     }
 
     // want to weight moves earlier in the lookahead heavier, as they represent more concrete information
@@ -639,28 +582,8 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
     let bestMove: MoveWithEval = new MoveWithEval(undefined, undefined)
 
     let newGameStates: {[key: number]: GameState} = {}
-    if (lookahead === startLookahead && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
-      thisGameData.priorDeepeningMoves.sort((a: MoveWithEval, b: MoveWithEval) => {
-        if (a.direction !== undefined && a.score !== undefined && b.direction !== undefined && b.score !== undefined) {
-          if (floatsEqual(a.score, b.score)) { // if element scores are equal, don't change order
-            return 0
-          } else if (a.score < b.score) { // if b is better than a, put b first
-            return 1
-          } else { //if (a.score > b.score) // if a is better than b, put a first
-            return -1
-          }
-        } else { // if any of the elements we're trying to sort lack a direction or score, we can't compare them, so don't move them
-          return 0
-        }
-      })
-      for (let i: number = 0; i < thisGameData.priorDeepeningMoves.length; i++) {
-        let dir = thisGameData.priorDeepeningMoves[i].direction
-        if (dir !== undefined) {
-          availableMoves[i] = dir
-        }
-      }
-      thisGameData.priorDeepeningMoves = [] // clear this so next level can repopulate it
-    } else { // do what we can in as little time as possible to sort moves on likelihood of good
+    // do what we can in as little time as possible to sort moves on likelihood of good
+    if (iterativeDeepening) { // can only used cachedEvaluations when iterative deepening, & sorting only matters then
       for (const move of availableMoves) {
         let newGameState: GameState = cloneGameState(gameState)
         let newSelf: Battlesnake = newGameState.you
@@ -668,48 +591,47 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         newGameStates[move] = newGameState
       }
 
-      if (iterativeDeepening) { // can only use cachedEvaluations when iterative deepening
-        availableMoves.sort((moveA: Direction, moveB: Direction): number => {
-          let stateA: GameState = newGameStates[moveA]
-          let stateB: GameState = newGameStates[moveB]
-          let stateAEatTurns: number = _eatTurns || 0
-          let stateBEatTurns: number = _eatTurns || 0
-          if (snakeHasEaten(stateA.you)) { stateAEatTurns += 1 }
-          if (snakeHasEaten(stateB.you)) { stateBEatTurns += 1 }
+      availableMoves.sort((moveA: Direction, moveB: Direction): number => {
+        let stateA: GameState = newGameStates[moveA]
+        let stateB: GameState = newGameStates[moveB]
+        let stateAEatTurns: number = _eatTurns || 0
+        let stateBEatTurns: number = _eatTurns || 0
+        if (snakeHasEaten(stateA.you)) { stateAEatTurns += 1 }
+        if (snakeHasEaten(stateB.you)) { stateBEatTurns += 1 }
 
-          let kissStatesA = determineKissStateForDirection(moveA, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
-          let kissArgsA: KissStatesForEvaluate | undefined
-          if (kissStatesA.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesA.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
-            kissArgsA = undefined
-          } else {
-            kissArgsA = new KissStatesForEvaluate(kissStatesA.kissOfDeathState, kissStatesA.kissOfMurderState, moveNeighbors.getPredator(moveA), moveNeighbors.getPrey(moveA))
-          }
+        let kissStatesA = determineKissStateForDirection(moveA, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
+        let kissArgsA: KissStatesForEvaluate | undefined
+        if (kissStatesA.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesA.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+          kissArgsA = undefined
+        } else {
+          kissArgsA = new KissStatesForEvaluate(kissStatesA.kissOfDeathState, kissStatesA.kissOfMurderState, moveNeighbors.getPredator(moveA), moveNeighbors.getPrey(moveA))
+        }
 
-          let kissStatesB = determineKissStateForDirection(moveB, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
-          let kissArgsB: KissStatesForEvaluate | undefined
-          if (kissStatesB.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesB.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
-            kissArgsB = undefined
-          } else {
-            kissArgsB = new KissStatesForEvaluate(kissStatesB.kissOfDeathState, kissStatesB.kissOfMurderState, moveNeighbors.getPredator(moveB), moveNeighbors.getPrey(moveB))
-          }
+        let kissStatesB = determineKissStateForDirection(moveB, kissStatesThisState) // this can be calculated independently of snakes moving, as it's dependent on gameState, not newGameState
+        let kissArgsB: KissStatesForEvaluate | undefined
+        if (kissStatesB.kissOfDeathState === KissOfDeathState.kissOfDeathNo && kissStatesB.kissOfMurderState === KissOfMurderState.kissOfMurderNo) {
+          kissArgsB = undefined
+        } else {
+          kissArgsB = new KissStatesForEvaluate(kissStatesB.kissOfDeathState, kissStatesB.kissOfMurderState, moveNeighbors.getPredator(moveB), moveNeighbors.getPrey(moveB))
+        }
 
-          if (stateA && stateB) {
-            let stateAHash: string = buildGameStateHash(stateA, stateA.you, kissArgsA, stateAEatTurns, undefined, startingHealthTier.tier) // skipping kissStates for performance reasons
-            let stateBHash: string = buildGameStateHash(stateB, stateB.you, kissArgsB, stateBEatTurns, undefined, startingHealthTier.tier)
-            let stateAScore: number = cachedEvaluationsThisTurn[stateAHash]
-            let stateBScore: number = cachedEvaluationsThisTurn[stateBHash]
-            if (stateAScore !== undefined && stateBScore !== undefined) {
-              if (stateAScore > stateBScore) {
-                return -1
-              } else if (stateAScore < stateBScore) {
-                return 1
-              }
+        if (stateA && stateB) {
+          let stateAHash: string = buildGameStateHash(stateA, stateA.you, kissArgsA, stateAEatTurns, undefined, startingHealthTier.tier) // skipping kissStates for performance reasons
+          let stateBHash: string = buildGameStateHash(stateB, stateB.you, kissArgsB, stateBEatTurns, undefined, startingHealthTier.tier)
+          let stateAScore: number = cachedEvaluationsThisTurn[stateAHash]
+          let stateBScore: number = cachedEvaluationsThisTurn[stateBHash]
+          if (stateAScore !== undefined && stateBScore !== undefined) {
+            if (stateAScore > stateBScore) {
+              return -1
+            } else if (stateAScore < stateBScore) {
+              return 1
             }
           }
-          return 0
-        })
-      }
+        }
+        return 0
+      })
     }
+  
 
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
@@ -887,9 +809,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
           }
         }
       }
-      if (lookahead === startLookahead) { // save the top-level moves for each startLookahead, for iterative deepening move sorting
-        thisGameData.priorDeepeningMoves.push(new MoveWithEval(move, worstOriginalSnakeScore.score))
-      }
 
       if (alpha === undefined || (worstOriginalSnakeScore.score !== undefined && worstOriginalSnakeScore.score > alpha)) { // if max player found a higher alpha, assign it
         alpha = worstOriginalSnakeScore.score
@@ -921,10 +840,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       myselfMove = _decideMove(gameState, myself, startLookahead)
     }
 
-    if (isDevelopment && amUsingMachineData) { // if I'm using machine learning data, log how many times I took advantage of the data
-      logToFile(consoleWriteStream, `Turn ${gameState.turn}: used machine learning to short circuit available moves iterator ${movesShortCircuited} times.`)
-    }
-
     return myselfMove
   }
 }
@@ -948,16 +863,23 @@ export function move(gameState: GameState): MoveResponse {
 
   let gameDataIds: string[] = Object.keys(gameData)
   let otherLeagueGameRunning: boolean = false
+  let otherGameRunning: boolean = false
 
   for (const id of gameDataIds) {
     if (id !== thisGameDataId) { // don't consider myself when finding other gameDatas
       let otherGameData: GameData = gameData[id]
       let otherGameTimeout: number = otherGameData.startingGameState.game.timeout
-      if ((timeBeginning - otherGameData.lastMoveTime) > otherGameTimeout * 5) { // if other game hasn't returned a move in significantly longer than the timeout, clean it up
+      if ((timeBeginning - otherGameData.lastMoveTime) > otherGameTimeout * 1500) { // if other game hasn't returned a move in significantly longer than the timeout, clean it up
+        // ideally 1500 will be long enough for an end() request to come, as we want to properly process the ended game. This is a failsafe for if end() never comes, to avoid memory leaks.
         delete gameData[id]
         console.log(`cleaned up game. Still ${Object.keys(gameData).length} games running.\n`)
-      } else if (otherGameData.startingGameState.game.source === "league") { // if other game is still running & is a league game
-        otherLeagueGameRunning = true // true if some other game is currently running with a league source
+      } else if ((timeBeginning - otherGameData.lastMoveTime) > otherGameTimeout * 5) { // if other game hasn't returned a move in longer than the timeout, set its stillRunning to false
+        gameData[id].stillRunning = false
+      } else if (otherGameData.stillRunning) {
+        if (otherGameData.startingGameState.game.source === "league") { // if other game is still running & is a league game
+          otherLeagueGameRunning = true // true if some other game is currently running with a league source
+        }
+        otherGameRunning = true
       }
     }
   }
@@ -994,7 +916,7 @@ export function move(gameState: GameState): MoveResponse {
     gameState.board.hazards = []
   }
 
-  if (gameDataIds.length === 1 && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
+  if (!otherGameRunning && gameState.game.source !== "testing") { // if running only one game, do iterative deepening. Don't iteratively deepen when testing
     futureSight = lookaheadDeterminatorDeepening(gameState, board2d)
     thisGameData.lookahead = 0
     thisGameData.cachedEvaluations[gameState.turn] = thisGameData.cachedEvaluations[gameState.turn] || {} // instantiate cached evaluations for base level of lookahead
@@ -1044,7 +966,6 @@ export function move(gameState: GameState): MoveResponse {
   if (timeTaken > gameState.game.timeout) {
     thisGameData.timeouts = thisGameData.timeouts + 1
   }
-  thisGameData.priorDeepeningMoves = []
   thisGameData.lastMoveTime = now
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
