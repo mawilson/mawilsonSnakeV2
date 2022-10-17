@@ -42,7 +42,7 @@ export function info(): InfoResponse {
     return response
 }
 
-export async function start(gameState: GameState): Promise<void> {
+export function start(gameState: GameState) {
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData(gameState) // move() will update hazardWalls & lookahead accordingly later on.
   console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
