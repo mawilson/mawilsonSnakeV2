@@ -1,4 +1,4 @@
-export const version: string = "1.6.33" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.34" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -271,7 +271,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             // if we are deepening & not on final lookahead, all moves should calculate very quickly because their scores will be cached
             // we can therefore allow all snakes to choose with as much info as possible, by letting them choose again. We lose the performance, but gain accuracy over fakeMoveSnake
             // turn array from [1, 2, 3] into [1, 2, 3, 2, 1]
-            for (let i: number = otherSnakes.length - 1; i >= 0; i--) { // start at length -1, go backwards 
+            for (let i: number = otherSnakes.length - 2; i >= 0; i--) { // start at length -2, go backwards 
               otherSnakes.push(otherSnakes[i])
             }
           }
