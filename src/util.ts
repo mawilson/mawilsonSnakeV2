@@ -293,40 +293,6 @@ export function snakeToString(snake: Battlesnake) : string {
 
 // function for duplicating a game state, with no references to original
 export function cloneGameState(gameState: GameState) : GameState {
-  // create new RoyaleSettings
-  let cloneRoyaleSettings : RoyaleSettings = {
-    shrinkEveryNTurns: gameState.game.ruleset.settings.royale.shrinkEveryNTurns
-  }
-  // create new SquadSettings
-  let cloneSquadSettings : SquadSettings = {
-    allowBodyCollisions: gameState.game.ruleset.settings.squad.allowBodyCollisions,
-    sharedElimination: gameState.game.ruleset.settings.squad.sharedElimination,
-    sharedHealth: gameState.game.ruleset.settings.squad.sharedHealth,
-    sharedLength: gameState.game.ruleset.settings.squad.sharedLength
-  }
-  // create new RulesetSettings
-  let cloneRulesetSettings : RulesetSettings = {
-    foodSpawnChance: gameState.game.ruleset.settings.foodSpawnChance,
-    minimumFood: gameState.game.ruleset.settings.minimumFood,
-    hazardDamagePerTurn: gameState.game.ruleset.settings.hazardDamagePerTurn,
-    royale: cloneRoyaleSettings,
-    squad: cloneSquadSettings
-  }
-  // create new Ruleset
-  let cloneRuleset : Ruleset = {
-    name: gameState.game.ruleset.name,
-    version: gameState.game.ruleset.version,
-    settings: cloneRulesetSettings
-  }
-  // create new Game
-  let cloneGame : Game = {
-    id: gameState.game.id,
-    ruleset: cloneRuleset,
-    timeout: gameState.game.timeout,
-    map: gameState.game.map,
-    source: gameState.game.source
-  }
-
   // create new Food array
   let cloneFood : ICoord[] = []
   for (const coord of gameState.board.food) {
@@ -334,12 +300,19 @@ export function cloneGameState(gameState: GameState) : GameState {
   }
 
   let cloneSnakes : Battlesnake[] = [] // note that this is of type Battlesnake, not IBattlesnake, meaning our clone diverges from the original here. But our class is better, so maybe that's okay.
+  let cloneYouProbably: Battlesnake | undefined = undefined
+  let newSnake: Battlesnake
   for (const snake of gameState.board.snakes) {
     let newBody : Coord[] = []
     for (const coord of snake.body) {
       newBody.push({x: coord.x, y: coord.y})
     }
-    cloneSnakes.push(new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad, snake.hasEaten))
+    
+    newSnake = new Battlesnake(snake.id, snake.name, snake.health, newBody, snake.latency, snake.shout, snake.squad, snake.hasEaten)
+    cloneSnakes.push(newSnake)
+    if (newSnake.id === gameState.you.id) {
+      cloneYouProbably = newSnake
+    }
   }
 
   let cloneHazards : ICoord[] = []
@@ -356,9 +329,6 @@ export function cloneGameState(gameState: GameState) : GameState {
     hazards: cloneHazards
   }
 
-  let cloneYouProbably : Battlesnake | undefined = cloneBoard.snakes.find(function findSnake(snake) {
-    return snake.id === gameState.you.id
-  })
   let cloneYou: Battlesnake
   if (cloneYouProbably === undefined) { // if youSnake is no longer in the game, use the old gameState.you
     let newBody: Coord[] = []
@@ -371,7 +341,7 @@ export function cloneGameState(gameState: GameState) : GameState {
   }
 
   let cloneGameState : GameState = {
-    game: cloneGame,
+    game: gameState.game, // don't need to clone game, none of its information changes throughout the game
     turn: gameState.turn,
     board: cloneBoard,
     you: cloneYou
