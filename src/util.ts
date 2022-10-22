@@ -151,6 +151,10 @@ export function gameStateIsHazardPits(gameState: GameState): boolean {
   return gameState.game.map === "hz_hazard_pits"
 }
 
+export function gameStateIsIslandsBridges(gameState: GameState): boolean {
+  return gameState.game.map === "hz_islands_bridges"
+}
+
 // returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.
 export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)

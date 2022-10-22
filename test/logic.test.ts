@@ -1198,38 +1198,7 @@ describe('Cloned game state tests', () => {
     clone.turn = 40
 
     expect(gameState.turn).toBe(30)
-    // modify clone game values, check if originals were affected
-    clone.game.id = "cloneGameId"
-    clone.game.source = "cloneSource"
-    clone.game.timeout = 1000
 
-    expect(gameState.game.id).toBe("totally-unique-game-id")
-    expect(gameState.game.source).toBe("testing")
-    expect(gameState.game.timeout).toBe(600)
-    // modify clone game ruleset, check if originals were affected
-    clone.game.ruleset.version = "cloneRulesetVersion"
-    clone.game.ruleset.name = "cloneRulesetName"
-
-    expect(gameState.game.ruleset.name).toBe("standard")
-    expect(gameState.game.ruleset.version).toBe("v1.2.3")
-    // modify clone game ruleset settings, check if originals were affected
-    clone.game.ruleset.settings.foodSpawnChance = 5
-    clone.game.ruleset.settings.minimumFood = 5
-    clone.game.ruleset.settings.hazardDamagePerTurn = 5
-    clone.game.ruleset.settings.royale.shrinkEveryNTurns = 5
-    clone.game.ruleset.settings.squad.allowBodyCollisions = false
-    clone.game.ruleset.settings.squad.sharedElimination = false
-    clone.game.ruleset.settings.squad.sharedLength = false
-    clone.game.ruleset.settings.squad.sharedHealth = false
-
-    expect(gameState.game.ruleset.settings.foodSpawnChance).toBe(25)
-    expect(gameState.game.ruleset.settings.minimumFood).toBe(1)
-    expect(gameState.game.ruleset.settings.hazardDamagePerTurn).toBe(14)
-    expect(gameState.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(25)
-    expect(gameState.game.ruleset.settings.squad.allowBodyCollisions).toBe(true)
-    expect(gameState.game.ruleset.settings.squad.sharedElimination).toBe(true)
-    expect(gameState.game.ruleset.settings.squad.sharedLength).toBe(true)
-    expect(gameState.game.ruleset.settings.squad.sharedHealth).toBe(true)
     // modify clone game board, check if originals were affected
     clone.board.height = 15
     clone.board.width = 15
@@ -3888,6 +3857,11 @@ describe('islands and bridges tests', () => {
     const gameState: GameState = {"game":{"id":"8fd762c6-243a-4c64-8551-6c43b6bc0bdb","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":100,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"hz_islands_bridges","timeout":500,"source":"testingDeepening"},"turn":199,"board":{"width":11,"height":11,"food":[{"x":10,"y":3},{"x":9,"y":3},{"x":3,"y":0},{"x":3,"y":9}],"hazards":[{"x":5,"y":10},{"x":5,"y":9},{"x":5,"y":7},{"x":5,"y":6},{"x":5,"y":5},{"x":5,"y":4},{"x":5,"y":3},{"x":5,"y":0},{"x":5,"y":1},{"x":6,"y":5},{"x":7,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":4,"y":5},{"x":3,"y":5},{"x":1,"y":5},{"x":0,"y":5},{"x":1,"y":10},{"x":9,"y":10},{"x":1,"y":0},{"x":9,"y":0},{"x":10,"y":1},{"x":10,"y":0},{"x":10,"y":10},{"x":10,"y":9},{"x":0,"y":10},{"x":0,"y":9},{"x":0,"y":1},{"x":0,"y":0},{"x":0,"y":6},{"x":0,"y":4},{"x":10,"y":6},{"x":10,"y":4},{"x":6,"y":10},{"x":4,"y":10},{"x":6,"y":0},{"x":4,"y":0}],"snakes":[{"id":"gs_MgpGFvSFdP9j698d3xt73xv8","name":"conesnake","health":82,"body":[{"x":8,"y":9},{"x":8,"y":8},{"x":8,"y":7},{"x":7,"y":7},{"x":7,"y":6},{"x":6,"y":6},{"x":6,"y":7},{"x":6,"y":8},{"x":6,"y":9},{"x":7,"y":9}],"latency":429,"head":{"x":8,"y":9},"length":10,"shout":"","squad":"","customizations":{"color":"#c42b3a","head":"sand-worm","tail":"fat-rattle"}},{"id":"gs_XXw6c3PrJQ69yTTfKS49PD7J","name":"Jagwire","health":95,"body":[{"x":3,"y":10},{"x":2,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":1,"y":3},{"x":1,"y":2},{"x":0,"y":2},{"x":10,"y":2},{"x":9,"y":2},{"x":9,"y":1},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3}],"latency":431,"head":{"x":3,"y":10},"length":17,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}},{"id":"gs_hgS3kxY4MDTqkTcG78RpTXR9","name":"Combat Reptile","health":93,"body":[{"x":3,"y":8},{"x":2,"y":8},{"x":1,"y":8},{"x":0,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":0,"y":7},{"x":1,"y":7}],"latency":423,"head":{"x":3,"y":8},"length":8,"shout":"","squad":"","customizations":{"color":"#ff5900","head":"tongue","tail":"sharp"}}]},"you":{"id":"gs_XXw6c3PrJQ69yTTfKS49PD7J","name":"Jagwire","health":95,"body":[{"x":3,"y":10},{"x":2,"y":10},{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":1,"y":3},{"x":1,"y":2},{"x":0,"y":2},{"x":10,"y":2},{"x":9,"y":2},{"x":9,"y":1},{"x":8,"y":1},{"x":8,"y":2},{"x":8,"y":3},{"x":7,"y":3},{"x":6,"y":3}],"latency":431,"head":{"x":3,"y":10},"length":17,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
     const moveResponse: MoveResponse = move(gameState)
     expect(moveResponse.move).toBe("up") // down lets combat reptile trap & kill us in four turns, up is safe for awhile
+  })
+  it('islandsBridges8: chooses not to eat when it would eventually murder him', () => {
+    const gameState: GameState = {"game":{"id":"8e7e4de1-e4de-4963-908d-ff22436c368b","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":100,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"hz_islands_bridges","timeout":500,"source":"testingDeepening"},"turn":405,"board":{"width":11,"height":11,"food":[{"x":2,"y":5},{"x":7,"y":10},{"x":7,"y":0},{"x":7,"y":6},{"x":2,"y":6},{"x":6,"y":9},{"x":4,"y":1},{"x":8,"y":5},{"x":4,"y":4}],"hazards":[{"x":5,"y":10},{"x":5,"y":9},{"x":5,"y":7},{"x":5,"y":6},{"x":5,"y":5},{"x":5,"y":4},{"x":5,"y":3},{"x":5,"y":0},{"x":5,"y":1},{"x":6,"y":5},{"x":7,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":4,"y":5},{"x":3,"y":5},{"x":1,"y":5},{"x":0,"y":5},{"x":1,"y":10},{"x":9,"y":10},{"x":1,"y":0},{"x":9,"y":0},{"x":10,"y":1},{"x":10,"y":0},{"x":10,"y":10},{"x":10,"y":9},{"x":0,"y":10},{"x":0,"y":9},{"x":0,"y":1},{"x":0,"y":0},{"x":0,"y":6},{"x":0,"y":4},{"x":10,"y":6},{"x":10,"y":4},{"x":6,"y":10},{"x":4,"y":10},{"x":6,"y":0},{"x":4,"y":0}],"snakes":[{"id":"gs_S6MSXDpTmHfXCjQbkjmKDqgH","name":"Shapeshifter","health":73,"body":[{"x":9,"y":7},{"x":8,"y":7},{"x":7,"y":7},{"x":7,"y":8},{"x":7,"y":9},{"x":8,"y":9},{"x":8,"y":8},{"x":9,"y":8},{"x":10,"y":8},{"x":0,"y":8},{"x":1,"y":8},{"x":2,"y":8},{"x":2,"y":9},{"x":2,"y":10},{"x":2,"y":0},{"x":3,"y":0},{"x":3,"y":10},{"x":3,"y":9},{"x":3,"y":8},{"x":3,"y":7},{"x":4,"y":7}],"latency":411,"head":{"x":9,"y":7},"length":21,"shout":"","squad":"","customizations":{"color":"#900050","head":"cosmic-horror-special","tail":"cosmic-horror"}},{"id":"gs_x3HHXGbR9C6PRKMjXMYqkCvW","name":"🇺🇦 Jagwire 🇺🇦","health":59,"body":[{"x":4,"y":3},{"x":4,"y":2},{"x":5,"y":2},{"x":6,"y":2},{"x":6,"y":1},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":6,"y":3},{"x":6,"y":4},{"x":7,"y":4},{"x":8,"y":4},{"x":9,"y":4},{"x":9,"y":3},{"x":8,"y":3},{"x":8,"y":2},{"x":8,"y":1},{"x":9,"y":1},{"x":9,"y":2},{"x":10,"y":2},{"x":0,"y":2},{"x":0,"y":3},{"x":1,"y":3},{"x":1,"y":4},{"x":2,"y":4},{"x":2,"y":3},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":2,"y":1},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3}],"latency":431,"head":{"x":4,"y":3},"length":33,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}]},"you":{"id":"gs_x3HHXGbR9C6PRKMjXMYqkCvW","name":"🇺🇦 Jagwire 🇺🇦","health":59,"body":[{"x":4,"y":3},{"x":4,"y":2},{"x":5,"y":2},{"x":6,"y":2},{"x":6,"y":1},{"x":7,"y":1},{"x":7,"y":2},{"x":7,"y":3},{"x":6,"y":3},{"x":6,"y":4},{"x":7,"y":4},{"x":8,"y":4},{"x":9,"y":4},{"x":9,"y":3},{"x":8,"y":3},{"x":8,"y":2},{"x":8,"y":1},{"x":9,"y":1},{"x":9,"y":2},{"x":10,"y":2},{"x":0,"y":2},{"x":0,"y":3},{"x":1,"y":3},{"x":1,"y":4},{"x":2,"y":4},{"x":2,"y":3},{"x":2,"y":2},{"x":1,"y":2},{"x":1,"y":1},{"x":2,"y":1},{"x":3,"y":1},{"x":3,"y":2},{"x":3,"y":3}],"latency":431,"head":{"x":4,"y":3},"length":33,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("left") // up eventually lets Shapeshifter get between me & my tail, left lets me keep chasing my tail
   })
 })
 
