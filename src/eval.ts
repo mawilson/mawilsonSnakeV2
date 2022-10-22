@@ -1,7 +1,7 @@
 import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, EffectiveHealthData, VoronoiResultsSnake, VoronoiResults, HealthTier } from "./classes"
 import { createWriteStream } from "fs"
-import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits, getLongestOtherSnake } from "./util"
+import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits, getLongestOtherSnake, gameStateIsIslandsBridges } from "./util"
 import { gameData, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
@@ -56,7 +56,9 @@ function determineHealthEval(gameState: GameState, _snakeHealth: number, hazardD
     healthStep = _healthStep
   }
   
-  if (hazardDamage < 0 || hazardDamage >= 100) { // use arcadeMaze health evaluater for healing pools or walls (arcade maze)
+  if (hazardDamage >= 100) {
+    return determineHealthEvalDeadlyWalls(_snakeHealth, healthBase, starvationPenalty, haveWon)
+  } else if (hazardDamage < 0) {
     return determineHealthEvalArcadeMaze(_snakeHealth, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
   } else if (gameStateIsSinkhole(gameState)) {
     return determineHealthEvalSinkhole(_snakeHealth, hazardDamage, healthStep, healthTierDifference, healthBase, starvationPenalty, haveWon)
@@ -183,6 +185,25 @@ function determineHealthEvalArcadeMaze(_snakeHealth: number, healthStep: number,
     evaluation = new HealthTier(evalHealth3, 3)  
   } else if (snakeHealth > 15) {
     evaluation = new HealthTier(evalHealth2, 2)
+  } else {
+    evaluation = new HealthTier(evalHealth1, 1)
+  }
+
+  return evaluation
+}
+
+// for use in games with max hazard damage, aka walls
+function determineHealthEvalDeadlyWalls(_snakeHealth: number, healthBase: number, starvationPenalty: number, haveWon: boolean): HealthTier {
+  const snakeHealth: number = haveWon? 100 : _snakeHealth
+  const evalHealth7 = healthBase // evalHealth tiers should differ in severity based on how hungry I am
+  const evalHealth1 = 0
+  const evalHealthStarved = evalHealth1 - starvationPenalty // there is never a circumstance where starving is good, even other snake bodies are better than this
+  let evaluation: HealthTier
+
+  if (snakeHealth <= 0) {
+    evaluation = new HealthTier(evalHealthStarved, -1)
+  } else if (snakeHealth > 15) {
+    evaluation = new HealthTier(evalHealth7, 7)
   } else {
     evaluation = new HealthTier(evalHealth1, 1)
   }
@@ -1346,6 +1367,7 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
   const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
   const isConstrictor = gameStateIsConstrictor(gameState)
   const isHealingPools: boolean = gameStateIsHealingPools(gameState)
+  const isIslandsBridges: boolean = gameStateIsIslandsBridges(gameState)
 
   const haveWon: boolean = (myself !== undefined) && gameState.board.snakes.length === 1
   const thisGameData = gameData? gameData[createGameDataId(gameState)] : undefined
@@ -1473,7 +1495,7 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
     evaluationResult.hazardWall = evalHazardWallPenalty
   }
 
-  if (otherSnake) {
+  if (otherSnake && !isIslandsBridges) { // don't bother penalizing otherSnake health in islands bridges - good luck starving them out anyhow
     let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEvalDuel(otherSnake)
     evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
   }
@@ -1598,7 +1620,11 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
     } else if (delta < 1) { // care a bit more about food to try to regain the length advantage
       evalFoodVal = evalFoodVal < 4? 4 : evalFoodVal
     } else if (delta > 6) { // If I am more than 6 bigger, want food less
-      evalFoodVal = 2
+      if (isIslandsBridges) {
+        evalFoodVal = 0
+      } else {
+        evalFoodVal = 2
+      }
     }
   }
 
@@ -1670,7 +1696,7 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
     }
   }
 
-  if (!isConstrictor) { // only add food calc if snake wants to eat
+  if (!isConstrictor && (evalFoodVal > 0)) { // only add food calc if snake wants to eat
     let j = foodSearchDepth + 1 // because we start at depth 0 for food just eaten, j needs to be 1 higher so at foodSearchDepth we're not multiplying by 0
     let foodCalc : number = 0
     for (let i: number = 0; i <= foodSearchDepth; i++) {

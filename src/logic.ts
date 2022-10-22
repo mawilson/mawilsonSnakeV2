@@ -1,4 +1,4 @@
-export const version: string = "1.6.35" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.36" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -583,7 +583,28 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
 
     let newGameStates: {[key: number]: GameState} = {}
     // do what we can in as little time as possible to sort moves on likelihood of good
-    if (iterativeDeepening) { // can only used cachedEvaluations when iterative deepening, & sorting only matters then
+    if (lookahead === startLookahead && thisGameData.priorDeepeningMoves.length > 1) { // by default order the previous deepening choice first, as it is most likely to be the best option
+      thisGameData.priorDeepeningMoves.sort((a: MoveWithEval, b: MoveWithEval) => {
+        if (a.direction !== undefined && a.score !== undefined && b.direction !== undefined && b.score !== undefined) {
+          if (floatsEqual(a.score, b.score)) { // if element scores are equal, don't change order
+            return 0
+          } else if (a.score < b.score) { // if b is better than a, put b first
+            return 1
+          } else { //if (a.score > b.score) // if a is better than b, put a first
+            return -1
+          }
+        } else { // if any of the elements we're trying to sort lack a direction or score, we can't compare them, so don't move them
+          return 0
+        }
+      })
+      for (let i: number = 0; i < thisGameData.priorDeepeningMoves.length; i++) {
+        let dir = thisGameData.priorDeepeningMoves[i].direction
+        if (dir !== undefined) {
+          availableMoves[i] = dir
+        }
+      }
+      thisGameData.priorDeepeningMoves = [] // clear this so next level can repopulate it
+    } else if (iterativeDeepening) { // can only used cachedEvaluations when iterative deepening, & sorting only matters then
       for (const move of availableMoves) {
         let newGameState: GameState = cloneGameState(gameState)
         let newSelf: Battlesnake = newGameState.you
@@ -810,6 +831,10 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         }
       }
 
+      if (lookahead === startLookahead) { // save the top-level moves for each startLookahead, for iterative deepening move sorting
+        thisGameData.priorDeepeningMoves.push(new MoveWithEval(move, worstOriginalSnakeScore.score))
+      }
+
       if (alpha === undefined || (worstOriginalSnakeScore.score !== undefined && worstOriginalSnakeScore.score > alpha)) { // if max player found a higher alpha, assign it
         alpha = worstOriginalSnakeScore.score
       }
@@ -966,6 +991,7 @@ export function move(gameState: GameState): MoveResponse {
   if (timeTaken > gameState.game.timeout) {
     thisGameData.timeouts = thisGameData.timeouts + 1
   }
+  thisGameData.priorDeepeningMoves = []
   thisGameData.lastMoveTime = now
 
   return {move: directionToString(chosenMoveDirection) || "up"} // if somehow we don't have a move at this point, give up
