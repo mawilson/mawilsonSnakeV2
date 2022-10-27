@@ -1,8 +1,8 @@
-export const version: string = "1.6.36" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.37" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
-import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, shuffle, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance, isTestLogging, getGameResult } from "./util"
+import { logToFile, checkTime, moveSnake, updateGameStateAfterMove, findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, kissDecider, cloneGameState, getRandomInt, getDefaultMove, getAvailableMoves, determineKissStateForDirection, fakeMoveSnake, getCoordAfterMove, coordsEqual, createLogAndCycle, createGameDataId, calculateTimingData, getFoodCountTier, getHazardCountTier, gameStateIsSolo, gameStateIsHazardSpiral, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsHazardPits, getSuicidalMove, lookaheadDeterminator, lookaheadDeterminatorDeepening, getHazardDamage, floatsEqual, snakeHasEaten, gameStateIsSinkhole, buildGameStateHash, getDistance, isTestLogging, getGameResult } from "./util"
 import { evaluate, evaluateMinimax, determineEvalNoSnakes, evalHaveWonTurnStep, determineEvalNoMe, getDefaultEvalNoMe, evaluateTailChasePenalty, evaluateWinValue, determineHealthTier } from "./eval"
 import { connectToDatabase, getCollection } from "./db"
 
@@ -694,18 +694,15 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         let minAlpha: number | undefined = alpha // minAlpha & minBeta are passed along by calling max function, but can't overwrite max's alpha & beta
         let minBeta: number | undefined = beta
 
-        // shuffle otherSnakeValidMoves array so snake doesn't prefer one direction
-        shuffle(otherSnakeValidMoves)
-
         let otherNewGameStates: {[key: number]: GameState} = {}
-        for (const move of otherSnakeValidMoves) {
-          let otherNewGameState: GameState = cloneGameState(newGameState)
-          let newOtherself: Battlesnake = otherNewGameState.board.snakes.find(snake => snake.id !== otherNewGameState.you.id)
-          moveSnake(otherNewGameState, newOtherself, board2d, move)
-          otherNewGameStates[move] = otherNewGameState
-        }
-
         if (iterativeDeepening) { // can only use cachedEvaluations when iterative deepening
+          for (const move of otherSnakeValidMoves) {
+            let otherNewGameState: GameState = cloneGameState(newGameState)
+            let newOtherself: Battlesnake = otherNewGameState.board.snakes.find(snake => snake.id !== otherNewGameState.you.id)
+            moveSnake(otherNewGameState, newOtherself, board2d, move)
+            otherNewGameStates[move] = otherNewGameState
+          }
+
           otherSnakeValidMoves.sort((moveA: Direction, moveB: Direction): number => {
             let stateA: GameState = otherNewGameStates[moveA]
             let stateB: GameState = otherNewGameStates[moveB]
