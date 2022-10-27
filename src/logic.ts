@@ -24,7 +24,7 @@ export function info(): InfoResponse {
         apiversion: "1",
         author: "waryferryman",
         color: "#afeeee", // #A06D4A
-        head: "cosmic-horror", // "replit-mark", 
+        head: "cosmic-horror", // "replit-mark",
         tail: "do-sammy", // "rbc-necktie",
         version: version
       }
