@@ -1,4 +1,4 @@
-export const version: string = "1.6.37" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.38" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -24,7 +24,7 @@ export function info(): InfoResponse {
         apiversion: "1",
         author: "waryferryman",
         color: "#afeeee", // #A06D4A
-        head: "cosmic-horror", // "replit-mark",
+        head: "cosmic-horror", // "replit-mark", 
         tail: "do-sammy", // "rbc-necktie",
         version: version
       }
@@ -80,6 +80,12 @@ export async function end(gameState: GameState): Promise<void> {
       }
       averageMaxLookaheadMinimax = sum / thisGameData.maxLookaheadsMinimax.length
     }
+  }
+  if (averageMaxLookaheadMaxN) {
+    logToFile(consoleWriteStream, `Average max lookahead MaxN: ${averageMaxLookaheadMaxN}`)
+  }
+  if (averageMaxLookaheadMinimax) {
+    logToFile(consoleWriteStream, `Average max lookahead Minimax: ${averageMaxLookaheadMinimax}`)
   }
   let timeData = new TimingData(timeStats, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookaheadMaxN, averageMaxLookaheadMinimax)
 
@@ -652,7 +658,6 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
         return 0
       })
     }
-  
 
     // first, move my snake in each direction it can move
     for (let i: number = 0; i < availableMoves.length; i++) {
@@ -702,7 +707,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             moveSnake(otherNewGameState, newOtherself, board2d, move)
             otherNewGameStates[move] = otherNewGameState
           }
-
+          
           otherSnakeValidMoves.sort((moveA: Direction, moveB: Direction): number => {
             let stateA: GameState = otherNewGameStates[moveA]
             let stateB: GameState = otherNewGameStates[moveB]

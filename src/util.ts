@@ -731,7 +731,7 @@ export function checkTime(timeBeginning: number, gameState: GameState, logTime?:
   //let myLatency : number = gameState.you.latency ? parseInt(gameState.you.latency, 10) : 200, // assume a high latency when no value exists, either on first run or after timeout
   let myLatency = isDevelopment? 30 : 30
   // comfort margin represents the time we want to leave ourselves to finish up calculations & return a value.
-  let comfortMargin: number = 60 // gameState.game.timeout / 10, or myLatency - not sure what's best
+  let comfortMargin: number = 40 // gameState.game.timeout / 10, or myLatency - not sure what's best
   let timeLeft = gameState.game.timeout - timeElapsed - myLatency
   let timeGood = timeLeft > comfortMargin
   if (!timeGood && logTime) {
