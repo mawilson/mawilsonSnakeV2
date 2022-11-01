@@ -633,7 +633,7 @@ export function checkForSnakes(me: Battlesnake, board: Board2d, moves: Moves) {
     let newCell = board.getCell(x, y)
     if (newCell instanceof BoardCell) {
       if (newCell.snakeCell instanceof SnakeCell) { // if newCell has a snake, we may be able to move into it if it's a tail
-        if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake) && !(newCell.snakeCell.snake.body[1].x === x && newCell.snakeCell.snake.body[1].y === y)) { // if a snake hasn't eaten on this turn, its tail will recede next turn, making it a safe place to move. Third check is to ensure the tail is not also the neck - this only applies for turns 0 & 1, when the snake has not yet expanded out to its full starting length of 3
+        if (newCell.snakeCell.isTail && !snakeHasEaten(newCell.snakeCell.snake)) { // if a snake hasn't eaten on this turn (or it's turn 0 or 1)
           return true
         } else { // cannot move into any other body part
           return false
