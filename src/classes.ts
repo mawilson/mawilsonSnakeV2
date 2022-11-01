@@ -324,7 +324,7 @@ export class Board2d {
         let part: Coord = inputSnake.body[idx]   
         let isHead: boolean = coordsEqual(part, inputSnake.head)
         let newSnakeCell = new SnakeCell(inputSnake, idx)
-        let board2dCell = self.getCell(part)
+        let board2dCell = self.getCell(part.x, part.y)
         if (board2dCell) {
           // wild edge case - when repicking a murdered otherSnake, myself has already moved once, possibly onto another snake tail. Need to not replace my head with otherSnake tail.
           if (!(board2dCell.snakeCell !== undefined && board2dCell.snakeCell.snake.id !== newSnakeCell.snake.id && newSnakeCell.isTail)) {
@@ -344,7 +344,7 @@ export class Board2d {
     board.snakes.forEach(processSnake)
 
     for (const coord of board.food) {
-      let board2dCell = self.getCell(coord);
+      let board2dCell = self.getCell(coord.x, coord.y);
       if (board2dCell instanceof BoardCell) {
         board2dCell.food = true;
       }
@@ -360,7 +360,7 @@ export class Board2d {
             for (let j: number = 0; j < hazardSpiral.height; j++) {
               let coord = new Coord(i, j)
               let hazardSpiralCell = hazardSpiral.getCell(coord)
-              let board2dCell = self.getCell(coord)
+              let board2dCell = self.getCell(coord.x, coord.y)
               if (hazardSpiralCell !== undefined && board2dCell !== undefined) { // if this coord exists in the HazardSpiral & the Board2d, should add its hazard to Board2d
                 if (gameState.turn >= hazardSpiralCell.turnIsHazard) { // if gameState is far enough along, this cell is a hazard
                   this.numHazards = this.numHazards + 1
@@ -387,7 +387,7 @@ export class Board2d {
         hazards = []
       }
       for (const coord of hazards) {
-        let board2dCell = self.getCell(coord)
+        let board2dCell = self.getCell(coord.x, coord.y)
         if (board2dCell instanceof BoardCell) {
           if (board2dCell.hazard === 0) { // this is a new hazard, increment number of cells on board that have hazard
             this.numHazards = this.numHazards + 1
@@ -408,7 +408,7 @@ export class Board2d {
               continue
             }
           }
-          let board2dCell = self.getCell({x: i, y: j})
+          let board2dCell = self.getCell(i, j)
           if (board2dCell instanceof BoardCell) {
             board2dCell.hazard = hazardNumber
           }
@@ -416,7 +416,7 @@ export class Board2d {
       }
     } else {
       for (const coord of gameState.board.hazards) {
-        let board2dCell = self.getCell(coord)
+        let board2dCell = self.getCell(coord.x, coord.y)
         if (board2dCell instanceof BoardCell) {
           if (board2dCell.hazard === 0) { // this is a new hazard, increment number of cells on board that have hazard
             this.numHazards = this.numHazards + 1
@@ -618,9 +618,7 @@ export class Board2d {
     }
   }
 
-  getCell(coord: Coord) : BoardCell | undefined {
-    let x: number = coord.x
-    let y: number = coord.y
+  getCell(x: number, y: number) : BoardCell | undefined {
     if (this.isWrapped) {
       if (x === -1) {
         x = this.width - 1 // wrap from left edge to right edge
@@ -646,7 +644,7 @@ export class Board2d {
   }
 
   logCell(coord: Coord) : string {
-    let cell = this.getCell(coord);
+    let cell = this.getCell(coord.x, coord.y);
     if (cell) {
       return cell.logSelf();
     } else {
@@ -669,7 +667,7 @@ export class Board2d {
     let str : string = ""
     for (let j = this.height - 1; j >= 0; j--) {
       for (let i = 0; i < this.width; i++) {
-        let tempCell = this.getCell({x: i, y: j})
+        let tempCell = this.getCell(i, j)
         if (tempCell) {
           if (i !== 0) {
             str = str + "  "
@@ -703,7 +701,7 @@ export class Board2d {
     let str : string = ""
     for (let j = this.height - 1; j >= 0; j--) {
       for (let i = 0; i < this.width; i++) {
-        let tempCell = this.getCell({x: i, y: j})
+        let tempCell = this.getCell(i, j)
         if (tempCell) {
           if (i !== 0) {
             str = str + "  "
@@ -734,7 +732,7 @@ export class Board2d {
 
   // returns true if a snake exists at coord that is not the inputSnake
   hasSnake(coord: Coord, inputSnake: Battlesnake) : boolean {
-    let cell = this.getCell(coord);
+    let cell = this.getCell(coord.x, coord.y);
     if (cell) {
       return cell.snakeCell ? cell.snakeCell.snake.id === inputSnake.id : false;
     } else {
@@ -770,7 +768,7 @@ export class HazardWalls {
 
       for (let i: number = 0; i< board2d.width; i++) {
         for (let j: number = 0; j < board2d.height; j++) { // iterate through each cell in board2d
-          let cell = board2d.getCell({x: i, y: j})
+          let cell = board2d.getCell(i, j)
           if (cell !== undefined && cell.hazard) { // if cell exists & has hazard, add its coordinates to the xValues & yValues objects
             if (xValues[i] !== undefined) { // entry exists, increment it
               xValues[i] = xValues[i] + 1
