@@ -709,7 +709,11 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         let longestOtherSnake: Battlesnake | undefined = getLongestOtherSnake(_myself, gameState) || _myself // if board is now just one snake, treat _myself as the longestOtherSnake
         let delta: number
         if (longestOtherSnake) {
-          delta = _myself.length - longestOtherSnake.length
+          if (priorKissStates.predator && priorKissStates.predator.length > longestOtherSnake.length) { // basically, in the event of a tie, if predator is longest snake, use that
+            delta = _myself.length - priorKissStates.predator.length // should be 0 in all cases
+          } else {
+            delta = _myself.length - longestOtherSnake.length
+          }
         } else {
           delta = -evalLengthMaxDelta // give max delta to account for possible eats
         }

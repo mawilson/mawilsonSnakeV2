@@ -261,7 +261,7 @@ export function isKingOfTheSnakes(me: Battlesnake, board: Board) : boolean {
   return kingOfTheSnakes
 }
 
-// finds the longest snake on the board. Returns undefined if only snake on board
+// finds the longest snake on the board. Returns undefined if me is the only snake on the board
 export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Battlesnake | undefined {
   let longestSnakeIndex : number = 0
   let len : number = 0
@@ -269,7 +269,11 @@ export function getLongestOtherSnake(me: Battlesnake, gameState: GameState) : Ba
   if (gameState.board.snakes.length === 0) {
     return undefined
   } else if (gameState.board.snakes.length === 1) {
-    return undefined
+    if (gameState.board.snakes[0].id !== me.id) {
+    return gameState.board.snakes[0]
+    } else { // if me is the only snake on the board, return undefined
+      return undefined
+    }
   }
   for (let idx: number = 0, snakesLength: number = gameState.board.snakes.length; idx < snakesLength; idx++) {
     let snake: Battlesnake = gameState.board.snakes[idx]
