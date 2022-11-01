@@ -1,4 +1,4 @@
-export const version: string = "1.6.39" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.40" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -211,7 +211,18 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
       return new MoveWithEval(defaultDir, evalThisState)
     }
 
-    let palindromeOtherSnakeMoves: boolean = iterativeDeepening && lookahead !== 0 && gameState.board.snakes.length >= 3
+    let palindromeOtherSnakeMoves: boolean
+    if (iterativeDeepening && gameState.board.snakes.length >= 3) {
+      if (startLookahead === 0) { // palindrome on startLookahead 0 - otherwise cache entries in future may be misinformed.
+        palindromeOtherSnakeMoves = true
+      } else if (lookahead !== 0) { // palindrome on iterative deepening turns that aren't the max depth - we should have these move scores in cache
+        palindromeOtherSnakeMoves = true
+      } else {
+        palindromeOtherSnakeMoves = false // don't have cached entries for this (it's the end of the iterativeDeepening for this depth), too expensive to palindrome
+      }
+    } else { // don't palindrome otherSnakes if not deepening (too expensive, no cache entries) or there's only two snakes on board (me & another)
+      palindromeOtherSnakeMoves = false
+    }
 
     let moveNeighbors = findMoveNeighbors(gameState, myself, board2d, moves)
     let kissOfMurderMoves = findKissMurderMoves(moveNeighbors)

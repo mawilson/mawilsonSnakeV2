@@ -670,7 +670,7 @@ export function checkForHealth(me: Battlesnake, gameState: GameState, board: Boa
       if (newCell.food) {
         return true // will not starve if we got food on this cell
       } else if (newCell.hazard) {
-        return (me.health - 1 - hazardDamage) > 0 // true if I will not starve here after accounting for hazard, false if not
+        return (me.health - 1 - hazardDamage * newCell.hazard) > 0 // true if I will not starve here after accounting for hazard, false if not
       } else {
         return (me.health - 1) > 0 // true if I will not starve here, false if not
       }

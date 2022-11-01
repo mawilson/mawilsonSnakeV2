@@ -3865,6 +3865,15 @@ describe('islands and bridges tests', () => {
   })
 })
 
+describe('castle walls tests', () => {
+  it('castleWalls1: does not assume another snake will choose death to avoid tying me', () => {
+    debugger
+    const gameState: GameState = {"game":{"id":"4f253974-f8d8-4139-adbd-92be25c024fd","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":50,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"hz_castle_wall","timeout":500,"source":"testingDeepening"},"turn":69,"board":{"width":11,"height":11,"food":[{"x":8,"y":5},{"x":5,"y":2}],"hazards":[{"x":2,"y":2},{"x":2,"y":3},{"x":2,"y":4},{"x":2,"y":6},{"x":2,"y":7},{"x":2,"y":8},{"x":3,"y":2},{"x":3,"y":8},{"x":4,"y":2},{"x":4,"y":8},{"x":6,"y":2},{"x":6,"y":8},{"x":7,"y":2},{"x":7,"y":8},{"x":8,"y":2},{"x":8,"y":3},{"x":8,"y":4},{"x":8,"y":6},{"x":8,"y":7},{"x":8,"y":8},{"x":2,"y":4},{"x":2,"y":6},{"x":4,"y":2},{"x":4,"y":8},{"x":6,"y":2},{"x":6,"y":8},{"x":8,"y":4},{"x":8,"y":6}],"snakes":[{"id":"gs_TQXPKyDJVTGp7c9QVV7ggH8G","name":"🧙 doctor strangle","health":92,"body":[{"x":4,"y":7},{"x":3,"y":7},{"x":3,"y":6},{"x":3,"y":5},{"x":4,"y":5},{"x":4,"y":6}],"latency":37,"head":{"x":4,"y":7},"length":6,"shout":"","squad":"","customizations":{"color":"#ab4377","head":"trans-rights-scarf","tail":"mystic-moon"}},{"id":"gs_F4MrkwtKbJ39b6bFvjYKdjtP","name":"Kisnake","health":90,"body":[{"x":5,"y":8},{"x":5,"y":9},{"x":4,"y":9},{"x":3,"y":9},{"x":2,"y":9},{"x":1,"y":9},{"x":1,"y":8}],"latency":14,"head":{"x":5,"y":8},"length":7,"shout":"","squad":"","customizations":{"color":"#99ff00","head":"tongue","tail":"freckled"}},{"id":"gs_jkW9hG4hgKjTpWVJWBB4cgdM","name":"🇺🇦 Jagwire 🇺🇦","health":38,"body":[{"x":5,"y":6},{"x":5,"y":5},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":5},{"x":7,"y":5}],"latency":21,"head":{"x":5,"y":6},"length":6,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}]},"you":{"id":"gs_jkW9hG4hgKjTpWVJWBB4cgdM","name":"🇺🇦 Jagwire 🇺🇦","health":38,"body":[{"x":5,"y":6},{"x":5,"y":5},{"x":5,"y":4},{"x":6,"y":4},{"x":6,"y":5},{"x":7,"y":5}],"latency":21,"head":{"x":5,"y":6},"length":6,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    const moveResponse: MoveResponse = move(gameState)
+    expect(moveResponse.move).toBe("right") // up is certain kiss of death, left is certain kiss of death mutual, right is safe
+  })
+})
+
 // for testing performance changes over a long period. Run with changes, & run without, & compare times
 describe.skip('performance testing', () => {
   it('islandsBridges2: follows othersnake tail when necessary', () => { // for minimax testing

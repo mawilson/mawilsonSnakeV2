@@ -706,7 +706,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
         let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakesPlusVictim)
         evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
-        let longestOtherSnake: Battlesnake | undefined = getLongestOtherSnake(_myself, gameState)
+        let longestOtherSnake: Battlesnake | undefined = getLongestOtherSnake(_myself, gameState) || _myself // if board is now just one snake, treat _myself as the longestOtherSnake
         let delta: number
         if (longestOtherSnake) {
           delta = _myself.length - longestOtherSnake.length
