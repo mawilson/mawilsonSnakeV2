@@ -706,10 +706,14 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
         }
         let otherSnakeHealthPenalty: number = determineOtherSnakeHealthEval(otherSnakesPlusVictim)
         evaluationResult.otherSnakeHealth = otherSnakeHealthPenalty
-        let longestOtherSnake: Battlesnake | undefined = getLongestOtherSnake(_myself, gameState)
+        let longestOtherSnake: Battlesnake | undefined = getLongestOtherSnake(_myself, gameState) || _myself // if board is now just one snake, treat _myself as the longestOtherSnake
         let delta: number
         if (longestOtherSnake) {
-          delta = _myself.length - longestOtherSnake.length
+          if (priorKissStates.predator && priorKissStates.predator.length > longestOtherSnake.length) { // basically, in the event of a tie, if predator is longest snake, use that
+            delta = _myself.length - priorKissStates.predator.length // should be 0 in all cases
+          } else {
+            delta = _myself.length - longestOtherSnake.length
+          }
         } else {
           delta = -evalLengthMaxDelta // give max delta to account for possible eats
         }
@@ -745,7 +749,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   }
 
   // penalize spaces that ARE hazard
-  let myCell = board2d.getCell(myself.head)
+  let myCell = board2d.getCell(myself.head.x, myself.head.y)
   if (myCell !== undefined && myCell.hazard > 0 && hazardDamage > 0) {
     evaluationResult.hazard = evalHazardPenalty * myCell.hazard // penalty is multiplied for how many stacks of hazard live here
   }
@@ -1166,7 +1170,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   
         let foodToHuntLength: number = foodToHunt.length
         for(const fud of foodToHunt) {
-          let foodCell = board2d.getCell(fud)
+          let foodCell = board2d.getCell(fud.x, fud.y)
           if (foodCell && foodCell.hazard && hazardDamage > 0) {
             foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
@@ -1486,7 +1490,7 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
   }
 
   // penalize spaces that ARE hazard
-  let myCell = board2d.getCell(myself.head)
+  let myCell = board2d.getCell(myself.head.x, myself.head.y)
   if (myCell !== undefined && myCell.hazard > 0 && hazardDamage > 0) {
     evaluationResult.hazard = evalHazardPenalty * myCell.hazard // penalty is multiplied for how many stacks of hazard live here
   }
@@ -1706,7 +1710,7 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
   
         let foodToHuntLength: number = foodToHunt.length
         for(const fud of foodToHunt) {
-          let foodCell = board2d.getCell(fud)
+          let foodCell = board2d.getCell(fud.x, fud.y)
           if (foodCell && foodCell.hazard && hazardDamage > 0) {
             foodToHuntLength = foodToHuntLength - 0.4 // hazard food is worth 0.6 that of normal food
           }
