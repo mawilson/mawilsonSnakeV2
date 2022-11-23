@@ -1,4 +1,4 @@
-export const version: string = "1.6.40" // need to declare this before imports since several imports utilize it
+export const version: string = "1.6.41" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -664,6 +664,16 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
             } else if (stateAScore < stateBScore) {
               return 1
             }
+          } else { // if we don't have cached entries, try a simple, cheap sort
+            if (stateAScore !== undefined) { // if stateAScore exists & B doesn't, maybe B was pruned in the past, treat A as better
+              return -1
+            } else if (stateBScore !== undefined) { // likewise for B
+              return 1
+            } else if (stateA.you.health !== stateB.you.health) {
+              return stateB.you.health - stateA.you.health // sorts in descending order of health, so higher health states go first
+            } else if (stateA.board.snakes.length !== stateB.board.snakes.length) {
+              return stateB.you.length - stateA.you.length // sorts in descending order of length, so higher length states go first
+            }
           }
         }
         return 0
@@ -732,6 +742,16 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                   return -1
                 } else if (stateAScore > stateBScore) {
                   return 1
+                }
+              } else { // if we don't have cached entries, try a simple, cheap sort
+                if (stateAScore !== undefined) { // if stateAScore exists & B doesn't, maybe B was pruned in the past, treat A as worse
+                  return -1
+                } else if (stateBScore !== undefined) { // likewise for B
+                  return 1
+                } else if (stateA.you.health !== stateB.you.health) {
+                  return stateA.you.health - stateB.you.health // sorts in ascending order of health, so lower health states go first
+                } else if (stateA.board.snakes.length !== stateB.board.snakes.length) {
+                  return stateA.you.length - stateB.you.length // sorts in ascending order of length, so lower length states go first
                 }
               }
             }
