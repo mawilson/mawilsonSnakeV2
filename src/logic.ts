@@ -1,4 +1,4 @@
-export const version: string = "1.6.41" // need to declare this before imports since several imports utilize it
+export const version: string = "1.7.0" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -15,6 +15,7 @@ const lookaheadWeight = 0.1
 export const isDevelopment: boolean = false
 
 export let gameData: {[key: string]: GameData} = {}
+export let preySnakeName: string | undefined = undefined
 
 export function info(): InfoResponse {
     console.log("INFO")
@@ -87,7 +88,22 @@ export async function end(gameState: GameState): Promise<void> {
   if (averageMaxLookaheadMinimax) {
     logToFile(consoleWriteStream, `Average max lookahead Minimax: ${averageMaxLookaheadMinimax}`)
   }
-  let timeData = new TimingData(timeStats, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookaheadMaxN, averageMaxLookaheadMinimax)
+
+  let winningSnakeName: string | undefined
+  let preySnakeWon: boolean | undefined = preySnakeName !== undefined ? false : undefined // if preySnakeName is defined, it can win or lose. Set to false here, & true below if it won
+  if (gameState.board.snakes.length === 1 && gameResult > 1) { // if somebody other than me won, set preySnakeName to that snake. gameResult > 1 means I neither won, tied, nor solo'd
+    winningSnakeName = gameState.board.snakes[0].name
+    if (winningSnakeName === preySnakeName) { // if preySnake won, don't overwrite preySnakeName
+      logToFile(consoleWriteStream, `${gameState.game.id} saw a preySnake with name ${preySnakeName} win consecutively`)
+      preySnakeWon = true
+    } else {
+      preySnakeName = winningSnakeName
+    }
+  } else { // if I won or nobody won, clear the previous preySnakeName
+    preySnakeName = undefined
+  }
+
+  let timeData = new TimingData(timeStats, gameResult, version, gameState.game.timeout, gameState.game.ruleset.name, isDevelopment, gameState.game.source, hazardDamage, gameState.game.map, gameState.you.length, timeouts, averageMaxLookaheadMaxN, averageMaxLookaheadMinimax, preySnakeWon)
 
   const timingCollection: Collection = await getCollection(mongoClient, "timing")
 
@@ -917,6 +933,13 @@ export function move(gameState: GameState): MoveResponse {
   } else { // if for some reason game data for this game doesn't exist yet (happens when testing due to lack of proper start() & end()s, create it & add it to gameData
     thisGameData = new GameData(gameState)
     gameData[thisGameDataId] = thisGameData
+  }
+
+  if (preySnakeName && thisGameData.preySnakeLives) { // if we had a prey snake & it was still alive, check to see if it is still alive
+    let preySnake: Battlesnake = gameState.board.snakes.find(snake => snake.name === preySnakeName)
+    if (!preySnake) {
+      thisGameData.preySnakeLives = false // if preySnake no longer exists, or never existed in this game, clear preySnakeName
+    }
   }
 
   let gameDataIds: string[] = Object.keys(gameData)

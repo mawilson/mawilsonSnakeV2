@@ -1642,6 +1642,7 @@ export class GameData {
   maxLookaheadsMaxN: number[]
   maxLookaheadsMinimax: number[]
   stillRunning: boolean
+  preySnakeLives: boolean
 
   constructor(gameState: GameState) {
     this.startingGameState = gameState
@@ -1659,6 +1660,7 @@ export class GameData {
     this.maxLookaheadsMaxN = []
     this.maxLookaheadsMinimax = []
     this.stillRunning = true
+    this.preySnakeLives = true
   }
 }
 
@@ -1692,8 +1694,9 @@ export class TimingData {
   numTimeouts: number
   averageMaxLookaheadMaxN: number | undefined
   averageMaxLookaheadMinimax: number | undefined
+  preySnakeWon: boolean | undefined
 
-  constructor(timingStats: TimingStats | undefined, gameResult: number, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number, averageMaxLookaheadMaxN: number | undefined, averageMaxLookaheadMinimax: number | undefined) {
+  constructor(timingStats: TimingStats | undefined, gameResult: number, _version: string, timeout: number, gameMode: string, isDevelopment: boolean, source: string, hazardDamage: number, map: string | undefined, snakeLength: number, numTimeouts: number, averageMaxLookaheadMaxN: number | undefined, averageMaxLookaheadMinimax: number | undefined, preySnakeWon: boolean | undefined) {
     this.average = timingStats?.average
     this.max = timingStats?.max
     this.populationStandardDeviaton = timingStats?.populationStandardDeviation
@@ -1709,6 +1712,7 @@ export class TimingData {
     this.numTimeouts = numTimeouts
     this.averageMaxLookaheadMaxN = averageMaxLookaheadMaxN
     this.averageMaxLookaheadMinimax = averageMaxLookaheadMinimax
+    this.preySnakeWon = preySnakeWon
   }
 }
 

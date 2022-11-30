@@ -236,3 +236,80 @@ const timingAggregations = [
     }
   }
 ]
+
+const preySnakeWonAggregations = [
+  {
+    '$match': {
+      'preySnakeWon': {
+        '$exists': true, 
+        '$ne': null
+      }
+    }
+  }, {
+    '$group': {
+      '_id': {
+        'version': '$version', 
+        'amMachineLearning': '$amMachineLearning', 
+        'amUsingMachineData': '$amUsingMachineData', 
+        'timeout': '$timeout', 
+        'gameMode': '$gameMode', 
+        'isDevelopment': '$isDevelopment', 
+        'source': '$source', 
+        'hazardDamage': '$hazardDamage', 
+        'map': '$map'
+      }, 
+      'preySnakeRepeatWin': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$preySnakeWon', true
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'preySnakeLoss': {
+        '$sum': {
+          '$cond': [
+            {
+              '$eq': [
+                '$preySnakeWon', false
+              ]
+            }, 1, 0
+          ]
+        }
+      }, 
+      'total': {
+        '$sum': 1
+      }
+    }
+  }, {
+    '$project': {
+      'version': '$_id.version', 
+      'amMachineLearning': '$_id.amMachineLearning', 
+      'amUsingMachineData': '$_id.amUsingMachineData', 
+      'timeout': '$_id.timeout', 
+      'gameMode': '$_id.gameMode', 
+      'source': '$_id.source', 
+      'hazardDamage': '$_id.hazardDamage', 
+      'map': '$_id.map', 
+      'isDevelopment': '$_id.isDevelopment', 
+      'preySnakeRepeatWinRate': {
+        '$divide': [
+          '$preySnakeRepeatWin', '$total'
+        ]
+      }, 
+      'preySnakeLossRate': {
+        '$divide': [
+          '$preySnakeLoss', '$total'
+        ]
+      }, 
+      'total': '$total'
+    }
+  }, {
+    '$match': {
+      'isDevelopment': false
+    }
+  }
+]
