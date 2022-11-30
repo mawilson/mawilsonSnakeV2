@@ -2,7 +2,7 @@ import { GameState } from "./types"
 import { Direction, Battlesnake, Board2d, Moves, Coord, KissOfDeathState, KissOfMurderState, HazardWalls, KissStatesForEvaluate, EvaluationResult, EffectiveHealthData, VoronoiResultsSnake, VoronoiResults, HealthTier } from "./classes"
 import { createWriteStream } from "fs"
 import { findMoveNeighbors, findKissDeathMoves, findKissMurderMoves, calculateFoodSearchDepth, findFood, snakeHasEaten, kissDecider, isHazardCutoff, isAdjacentToHazard, calculateCenterWithHazard, getAvailableMoves, isOnHorizontalWall, isOnVerticalWall, createGameDataId, calculateReachableCells, getSnakeDirection, getDistance, gameStateIsRoyale, gameStateIsWrapped, gameStateIsSolo, gameStateIsConstrictor, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, logToFile, determineVoronoiBaseGood, determineVoronoiSelf, determineVoronoiHazardValue, getHazardDamage, isFlip, getFoodModifier, gameStateIsHazardPits, getLongestOtherSnake, gameStateIsIslandsBridges } from "./util"
-import { gameData, isDevelopment } from "./logic"
+import { gameData, preySnakeName, isDevelopment } from "./logic"
 
 let evalWriteStream = createWriteStream("consoleLogs_eval.txt", {
   encoding: "utf8"
@@ -498,7 +498,9 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   if (!isOriginalSnake) {
     preySnake = originalSnake || gameState.you // due to paranoia, assume all otherSnakes are out to get originalSnake
     // if originalSnake has died, use the prior reference in gameState.you
-  } // completely remove preySnake from originalSnake calq. Let minimax handle it once it's actually a duel, rather than a MaxN projected duel.
+  } else if (thisGameData && thisGameData.preySnakeLives && preySnakeName) { // for originalSnake, preySnake can be used if preySnakeName exists & matches a snake still in the game
+    preySnake = gameState.board.snakes.find(snake => snake.name === preySnakeName)
+  }
 
   // returns the evaluation value associated with the given kissOfDeathState
   function getPriorKissOfDeathValue(kissOfDeathState: KissOfDeathState, evalNoMeEvaluationResult: EvaluationResult): number {
@@ -1072,7 +1074,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
       let evalVoronoiNegativeMax = voronoiBaseGood * evalVoronoiNegativeStep // without a cap, this max is effectively the full base good delta times the negative step award
 
       // tell snake to reward positions to limit preySnake's Voronoi coverage significantly
-      if (!isOriginalSnake && originalSnake === undefined) { // add max Voronoi reward for winning snake or otherSnake that has outlasted me so as not to encourage it to keep opponent alive for that sweet reward
+      if ((!isOriginalSnake && originalSnake === undefined) || (!preySnake && preySnakeName)) { // add max Voronoi reward for winning snake or otherSnake that has outlasted me so as not to encourage it to keep opponent alive for that sweet reward
         let lastVoronoiReward: number = evalVoronoiNegativeMax / 2 // otherSnake beat me but still needs to beat another snake, haveWon is still false
         voronoiPredatorBonus = lastVoronoiReward
         evaluationResult.otherSnakeHealth = evaluationResult.otherSnakeHealth + evalHealthOthersnakeStarveReward * 3 // need to apply this reward no matter how other snake died
