@@ -1,4 +1,4 @@
-export const version: string = "1.7.0" // need to declare this before imports since several imports utilize it
+export const version: string = "1.7.1" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -47,6 +47,14 @@ export function start(gameState: GameState) {
   const gameDataId = createGameDataId(gameState)
   gameData[gameDataId] = new GameData(gameState) // move() will update hazardWalls & lookahead accordingly later on.
   console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
+
+  if (preySnakeName) { // on game start, check to see if preySnakeName is defined & valid for the upcoming game
+    let preySnake: Battlesnake = gameState.board.snakes.find(snake => snake.name === preySnakeName)
+    if (!preySnake) {
+      preySnakeName = undefined // if preySnake is defined but is not in the game, cannot use it, so reset it
+      gameData[gameDataId].preySnakeLives = false
+    }
+  }
 }
 
 export async function end(gameState: GameState): Promise<void> {
@@ -681,11 +689,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
               return 1
             }
           } else { // if we don't have cached entries, try a simple, cheap sort
-            if (stateAScore !== undefined) { // if stateAScore exists & B doesn't, maybe B was pruned in the past, treat A as better
-              return -1
-            } else if (stateBScore !== undefined) { // likewise for B
-              return 1
-            } else if (stateA.you.health !== stateB.you.health) {
+            if (stateA.you.health !== stateB.you.health) {
               return stateB.you.health - stateA.you.health // sorts in descending order of health, so higher health states go first
             } else if (stateA.board.snakes.length !== stateB.board.snakes.length) {
               return stateB.you.length - stateA.you.length // sorts in descending order of length, so higher length states go first
@@ -760,11 +764,7 @@ export function decideMove(gameState: GameState, myself: Battlesnake, startTime:
                   return 1
                 }
               } else { // if we don't have cached entries, try a simple, cheap sort
-                if (stateAScore !== undefined) { // if stateAScore exists & B doesn't, maybe B was pruned in the past, treat A as worse
-                  return -1
-                } else if (stateBScore !== undefined) { // likewise for B
-                  return 1
-                } else if (stateA.you.health !== stateB.you.health) {
+                if (stateA.you.health !== stateB.you.health) {
                   return stateA.you.health - stateB.you.health // sorts in ascending order of health, so lower health states go first
                 } else if (stateA.board.snakes.length !== stateB.board.snakes.length) {
                   return stateA.you.length - stateB.you.length // sorts in ascending order of length, so lower length states go first
