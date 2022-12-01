@@ -1,4 +1,4 @@
-export const version: string = "1.7.1" // need to declare this before imports since several imports utilize it
+export const version: string = "1.7.2" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -49,7 +49,8 @@ export function start(gameState: GameState) {
   console.log(`${gameState.game.id} with game source ${gameState.game.source} START. Now ${Object.keys(gameData).length} running.`)
 
   if (preySnakeName) { // on game start, check to see if preySnakeName is defined & valid for the upcoming game
-    let preySnake: Battlesnake = gameState.board.snakes.find(snake => snake.name === preySnakeName)
+    // prey snake should never be myself, which is possible in games with multiple me's
+    let preySnake: Battlesnake = gameState.board.snakes.find(snake => (snake.name === preySnakeName) && (snake.id !== gameState.you.id))
     if (!preySnake) {
       preySnakeName = undefined // if preySnake is defined but is not in the game, cannot use it, so reset it
       gameData[gameDataId].preySnakeLives = false
