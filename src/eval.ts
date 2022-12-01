@@ -1086,7 +1086,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
 
         if (preySnakeResults !== undefined) {
           let preySnakeVoronoi: number = determineVoronoiSelf(preySnake, preySnakeResults, true, false, voronoiBaseGood) // will only reach here for preys of originalSnake, so provide 'true' for tail params
-          if ((preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) || (!isConstrictor && preySnakeVoronoi < -5)) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
+          if ((preySnakeVoronoi < 0 && voronoiSelf > preySnakeVoronoi) || (!isOriginalSnake && !isConstrictor && preySnakeVoronoi < -5)) { // don't have predator do a move that gives itself even worse Voronoi coverage than prey
             let howBad: number = -preySnakeVoronoi * evalVoronoiPreyStep // preySnakeVoronoi is negative so need to negate this
             if (isOriginalSnake) {
               howBad = howBad / 2 // don't make Jaguar act too irrationally when pursuing prey, this reward is still less than its pursuit of its own score

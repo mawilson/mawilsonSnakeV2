@@ -1,4 +1,4 @@
-export const version: string = "1.7.2" // need to declare this before imports since several imports utilize it
+export const version: string = "1.7.3" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
