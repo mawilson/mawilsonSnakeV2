@@ -499,7 +499,8 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
     preySnake = originalSnake || gameState.you // due to paranoia, assume all otherSnakes are out to get originalSnake
     // if originalSnake has died, use the prior reference in gameState.you
   } else if (thisGameData && thisGameData.preySnakeLives && preySnakeName) { // for originalSnake, preySnake can be used if preySnakeName exists & matches a snake still in the game
-    preySnake = gameState.board.snakes.find(snake => snake.name === preySnakeName)
+    // prey snake should never be myself, which is possible in games with multiple me's
+    preySnake = gameState.board.snakes.find(snake => (snake.name === preySnakeName) && (snake.id !== gameState.you.id))
   }
 
   // returns the evaluation value associated with the given kissOfDeathState
