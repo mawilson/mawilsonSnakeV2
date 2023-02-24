@@ -1295,11 +1295,18 @@ describe('Cloned game state tests', () => {
     expect(clone.game.ruleset.settings.foodSpawnChance).toBe(25)
     expect(clone.game.ruleset.settings.minimumFood).toBe(1)
     expect(clone.game.ruleset.settings.hazardDamagePerTurn).toBe(14)
-    expect(clone.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(25)
-    expect(clone.game.ruleset.settings.squad.allowBodyCollisions).toBe(true)
-    expect(clone.game.ruleset.settings.squad.sharedElimination).toBe(true)
-    expect(clone.game.ruleset.settings.squad.sharedLength).toBe(true)
-    expect(clone.game.ruleset.settings.squad.sharedHealth).toBe(true)
+    
+    expect(clone.game.ruleset.settings.royale).toBeDefined()
+    if (clone.game.ruleset.settings.royale) {
+      expect(clone.game.ruleset.settings.royale.shrinkEveryNTurns).toBe(25)
+    }
+    expect(clone.game.ruleset.settings.squad).toBeDefined()
+    if (clone.game.ruleset.settings.squad) {
+      expect(clone.game.ruleset.settings.squad.allowBodyCollisions).toBe(true)
+      expect(clone.game.ruleset.settings.squad.sharedElimination).toBe(true)
+      expect(clone.game.ruleset.settings.squad.sharedLength).toBe(true)
+      expect(clone.game.ruleset.settings.squad.sharedHealth).toBe(true)
+    }
 
     expect(clone.board.height).toBe(11)
     expect(clone.board.width).toBe(11)
@@ -3907,6 +3914,73 @@ describe.skip('performance testing', () => {
       const gameState: GameState = {"game":{"id":"d87b6e7c-e31f-4dfd-9841-2eab784e103b","ruleset":{"name":"wrapped","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":100,"royale":{},"squad":{"allowBodyCollisions":false,"sharedElimination":false,"sharedHealth":false,"sharedLength":false}}},"map":"hz_islands_bridges","timeout":500,"source":"testingDeepening"},"turn":27,"board":{"width":11,"height":11,"food":[{"x":2,"y":10}],"hazards":[{"x":5,"y":10},{"x":5,"y":9},{"x":5,"y":7},{"x":5,"y":6},{"x":5,"y":5},{"x":5,"y":4},{"x":5,"y":3},{"x":5,"y":0},{"x":5,"y":1},{"x":6,"y":5},{"x":7,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":4,"y":5},{"x":3,"y":5},{"x":1,"y":5},{"x":0,"y":5},{"x":1,"y":10},{"x":9,"y":10},{"x":1,"y":0},{"x":9,"y":0},{"x":10,"y":1},{"x":10,"y":0},{"x":10,"y":10},{"x":10,"y":9},{"x":0,"y":10},{"x":0,"y":9},{"x":0,"y":1},{"x":0,"y":0},{"x":0,"y":6},{"x":0,"y":4},{"x":10,"y":6},{"x":10,"y":4},{"x":6,"y":10},{"x":4,"y":10},{"x":6,"y":0},{"x":4,"y":0}],"snakes":[{"id":"gs_bFrTcVCYR3fXWrRxCxgcTb9H","name":"☠️ Snakebeard ☠️","health":80,"body":[{"x":9,"y":8},{"x":9,"y":7},{"x":10,"y":7},{"x":0,"y":7},{"x":0,"y":8}],"latency":451,"head":{"x":9,"y":8},"length":5,"shout":"","squad":"","customizations":{"color":"#ef5c26","head":"pirate-special","tail":"pirate-special"}},{"id":"gs_MxqhdRkBFq6xDKD9FfcVfGD8","name":"Jagwire","health":99,"body":[{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":1,"y":3},{"x":0,"y":3},{"x":0,"y":2}],"latency":451,"head":{"x":2,"y":0},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}},{"id":"gs_XP3v8c9D8Vt9pPMYKxByhDXD","name":"hawthhhh++","health":99,"body":[{"x":6,"y":3},{"x":6,"y":4},{"x":7,"y":4},{"x":7,"y":3},{"x":8,"y":3},{"x":8,"y":2}],"latency":23,"head":{"x":6,"y":3},"length":6,"shout":"","squad":"","customizations":{"color":"#fcba03","head":"caffeine","tail":"bolt"}},{"id":"gs_wdYDDbKbMpBfhgwbdKTvv6X7","name":"WhitishMeteor","health":75,"body":[{"x":2,"y":8},{"x":3,"y":8},{"x":3,"y":7},{"x":2,"y":7}],"latency":364,"head":{"x":2,"y":8},"length":4,"shout":":(","squad":"","customizations":{"color":"#e8e8e8","head":"comet","tail":"comet"}}]},"you":{"id":"gs_MxqhdRkBFq6xDKD9FfcVfGD8","name":"Jagwire","health":99,"body":[{"x":2,"y":0},{"x":2,"y":1},{"x":2,"y":2},{"x":2,"y":3},{"x":1,"y":3},{"x":0,"y":3},{"x":0,"y":2}],"latency":451,"head":{"x":2,"y":0},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
       const moveResponse: MoveResponse = move(gameState)
       expect(moveResponse.move).toBe("right") // down lets Whitish & Hawth coordinate to murder me in a few turns, right lets me chase my own tail safely
+    }
+  })
+})
+
+describe.only('snail mode tests', () => {
+  it('snailMode1: does not leave a snail trail when tail chasing own tail', () => {
+    const gameState: GameState = {"game":{"id":"e3b13048-268b-49af-bfb9-9f1fa371a27f","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14}},"map":"snail_mode","timeout":500,"source":"custom"},"turn":108,"board":{"width":11,"height":11,"food":[{"x":4,"y":10},{"x":8,"y":7},{"x":1,"y":2},{"x":4,"y":9},{"x":9,"y":10}],"hazards":[{"x":7,"y":1},{"x":7,"y":1},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":8,"y":1},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":1,"y":6},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":5},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":1,"y":5},{"x":1,"y":5},{"x":7,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":5,"y":15},{"x":4,"y":11},{"x":4,"y":11},{"x":4,"y":11},{"x":4,"y":11},{"x":4,"y":11},{"x":4,"y":11},{"x":4,"y":11},{"x":4,"y":1},{"x":4,"y":1},{"x":4,"y":1},{"x":4,"y":1},{"x":4,"y":1},{"x":4,"y":1},{"x":4,"y":1}],"snakes":[{"id":"gs_GySyPJHM7rTSx4XpRP7rgFy6","name":"Gene Scallop","health":81,"body":[{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":5},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4}],"latency":36,"head":{"x":4,"y":4},"length":10,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}},{"id":"gs_BpgwdyQ9PbF7x6wTkjrPS9Xd","name":"Gene Scallop","health":61,"body":[{"x":4,"y":2},{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0}],"latency":30,"head":{"x":4,"y":2},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}]},"you":{"id":"gs_GySyPJHM7rTSx4XpRP7rgFy6","name":"Gene Scallop","health":81,"body":[{"x":4,"y":4},{"x":3,"y":4},{"x":3,"y":5},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4}],"latency":36,"head":{"x":4,"y":4},"length":10,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    let board2d: Board2d = new Board2d(gameState)
+    debugger
+    moveSnake(gameState, gameState.board.snakes[0], board2d, Direction.Right) // tail chasing eliminates the snail trail, so Gene chasing his own tail here should not leave a trail
+    updateGameStateAfterMove(gameState)
+    board2d = new Board2d(gameState) // recreate board2d now that moveSnake has run & hazards have been updated
+    let newCell = board2d.getCell(5, 4)
+    if (newCell) {
+      expect(newCell.hazard).toBe(0)
+    }
+  })
+  it('snailMode1-1: does not leave a snail trail when chasing another snake tail', () => {
+    const gameState: GameState = {"game":{"id":"e3b13048-268b-49af-bfb9-9f1fa371a27f","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14}},"map":"snail_mode","timeout":500,"source":"custom"},"turn":107,"board":{"width":11,"height":11,"food":[{"x":4,"y":10},{"x":8,"y":7},{"x":1,"y":2},{"x":4,"y":9}],"hazards":[{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":1,"y":7},{"x":1,"y":5},{"x":1,"y":5},{"x":1,"y":5},{"x":7,"y":1},{"x":7,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":8,"y":1},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":1,"y":6},{"x":1,"y":6},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":8,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1}],"snakes":[{"id":"gs_GySyPJHM7rTSx4XpRP7rgFy6","name":"Gene Scallop","health":82,"body":[{"x":3,"y":4},{"x":3,"y":5},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":4,"y":4}],"latency":39,"head":{"x":3,"y":4},"length":10,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}},{"id":"gs_BpgwdyQ9PbF7x6wTkjrPS9Xd","name":"Gene Scallop","health":62,"body":[{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1}],"latency":63,"head":{"x":4,"y":3},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}]},"you":{"id":"gs_BpgwdyQ9PbF7x6wTkjrPS9Xd","name":"Gene Scallop","health":62,"body":[{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1}],"latency":63,"head":{"x":4,"y":3},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    let board2d: Board2d = new Board2d(gameState)
+    moveSnake(gameState, gameState.board.snakes[1], board2d, Direction.Up) // tail chasing eliminates the snail trail, so Gene moving up here into notGene should not leave a trail
+    updateGameStateAfterMove(gameState)
+    board2d = new Board2d(gameState)
+    let newCell = board2d.getCell(4, 4)
+    if (newCell) {
+      expect(newCell.hazard).toBe(0)
+    }
+  })
+  it('snailMode1-2: does leave a snail trail when not tail chasing', () => {
+    const gameState: GameState = {"game":{"id":"e3b13048-268b-49af-bfb9-9f1fa371a27f","ruleset":{"name":"standard","version":"?","settings":{"foodSpawnChance":15,"minimumFood":1,"hazardDamagePerTurn":14}},"map":"snail_mode","timeout":500,"source":"custom"},"turn":107,"board":{"width":11,"height":11,"food":[{"x":4,"y":10},{"x":8,"y":7},{"x":1,"y":2},{"x":4,"y":9}],"hazards":[{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":2,"y":2},{"x":1,"y":7},{"x":1,"y":5},{"x":1,"y":5},{"x":1,"y":5},{"x":7,"y":1},{"x":7,"y":1},{"x":7,"y":1},{"x":8,"y":1},{"x":8,"y":1},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":6,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":7,"y":2},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":2,"y":4},{"x":1,"y":6},{"x":1,"y":6},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":5},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":2,"y":3},{"x":8,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":5,"y":2},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":15},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":4,"y":12},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1},{"x":5,"y":1}],"snakes":[{"id":"gs_GySyPJHM7rTSx4XpRP7rgFy6","name":"Gene Scallop","health":82,"body":[{"x":3,"y":4},{"x":3,"y":5},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":4},{"x":4,"y":4}],"latency":39,"head":{"x":3,"y":4},"length":10,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}},{"id":"gs_BpgwdyQ9PbF7x6wTkjrPS9Xd","name":"Gene Scallop","health":62,"body":[{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1}],"latency":63,"head":{"x":4,"y":3},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}]},"you":{"id":"gs_BpgwdyQ9PbF7x6wTkjrPS9Xd","name":"Gene Scallop","health":62,"body":[{"x":4,"y":3},{"x":3,"y":3},{"x":3,"y":2},{"x":3,"y":1},{"x":3,"y":0},{"x":4,"y":0},{"x":4,"y":1}],"latency":63,"head":{"x":4,"y":3},"length":7,"shout":"","squad":"","customizations":{"color":"#ffd900","head":"smile","tail":"wave"}}}
+    let board2d: Board2d = new Board2d(gameState)
+    moveSnake(gameState, gameState.board.snakes[1], board2d, Direction.Down)
+    updateGameStateAfterMove(gameState)
+    board2d = new Board2d(gameState)
+    let newCell = board2d.getCell(4, 1)
+    if (newCell) {
+      expect(newCell.hazard).toBe(7)
+    }
+
+    // test the other hazard cells to confirm they also decremented as expected
+    let cell6 = board2d.getCell(5, 1)
+    if (cell6) {
+      expect(cell6.hazard).toBe(6)
+    }
+    let cell5 = board2d.getCell(5, 2)
+    if (cell5) {
+      expect(cell5.hazard).toBe(5)
+    }
+    let cell4 = board2d.getCell(6, 2)
+    if (cell4) {
+      expect(cell4.hazard).toBe(4)
+    }
+    let cell3 = board2d.getCell(7, 2)
+    if (cell3) {
+      expect(cell3.hazard).toBe(3)
+    }
+    let cell2 = board2d.getCell(7, 1)
+    if (cell2) {
+      expect(cell2.hazard).toBe(2)
+    }
+    let cell1 = board2d.getCell(8, 1)
+    if (cell1) {
+      expect(cell1.hazard).toBe(1)
+    }
+    let cell0 = board2d.getCell(8, 2) // this one should have expired now
+    if (cell0) {
+      expect(cell0.hazard).toBe(0)
     }
   })
 })

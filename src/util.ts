@@ -155,6 +155,10 @@ export function gameStateIsIslandsBridges(gameState: GameState): boolean {
   return gameState.game.map === "hz_islands_bridges"
 }
 
+export function gameStateIsSnail(gameState: GameState): boolean {
+  return gameState.game.map === "snail_mode"
+}
+
 // returns coordinate after move has been applied to it. If move is undefined or AlreadyMoved, returns the same coordinate.
 export function getCoordAfterMove(gameState: GameState, coord: Coord, move: Direction | undefined) : Coord {
   let newPosition : Coord = new Coord(coord.x, coord.y)
@@ -478,11 +482,19 @@ export function moveSnake(gameState: GameState, snake: Battlesnake, board2d: Boa
     return // snake has already moved, don't move it
   }
   let isConstrictor: boolean = gameStateIsConstrictor(gameState)
+  let isSnail: boolean = gameStateIsSnail(gameState)
   let move : Direction = _move === undefined ? getDefaultMove(gameState, snake, board2d) : _move // if a move was not provided, get a default one
   let newCoord = getCoordAfterMove(gameState, snake.head, move)
   let newCell = board2d.getCell(newCoord.x, newCoord.y)
   if (newCell instanceof BoardCell) { // if it's a valid cell to move to
     // even if snake has eaten this turn, its tail cell will be duplicated, so we will still want to slice off the last element
+    if (isSnail) { // if in snail mode, need to add snail trail to place tail receded from
+      let tail: Coord = snake.body[snake.body.length - 1]
+      for (let i: number = 0; i <= 7; i++) {
+        gameState.board.hazards.push(new Coord(tail.x, tail.y)) // push 8 new hazards to where the tail was - will remove one immediately in updateGameState
+      }
+    }
+    
     snake.body = snake.body.slice(0, -1) // remove last element of body
       
     snake.body.unshift(newCoord) // add new coordinate to front of body
@@ -518,6 +530,7 @@ export function fakeMoveSnake(snake: Battlesnake) {
 
 // After snakes have moved, may need to do some gamestate updating - removing eaten food & dead snakes, increment turn
 export function updateGameStateAfterMove(gameState: GameState) {
+  let isSnail: boolean = gameStateIsSnail(gameState)
   gameState.board.food = gameState.board.food.filter(function findUneatenFood(food): boolean {
     let eatSnake : Battlesnake | undefined = gameState.board.snakes.find(function findEatSnake(snake : Battlesnake): boolean { // find any snake whose head is at this food
       return coordsEqual(snake.head, food) // if snake head is at this food, the food has been eaten. True means this head is on a food, false means it is not
@@ -585,8 +598,43 @@ export function updateGameStateAfterMove(gameState: GameState) {
       }
     }
   }
-  if (gameStateIsHealingPools(gameState) && gameState.game.ruleset.settings.royale.shrinkEveryNTurns !== undefined && gameState.turn === ((gameState.game.ruleset.settings.royale.shrinkEveryNTurns * 2) + 1)) {
+  if (gameStateIsHealingPools(gameState) && gameState.game.ruleset.settings.royale?.shrinkEveryNTurns !== undefined && gameState.turn === ((gameState.game.ruleset.settings.royale.shrinkEveryNTurns * 2) + 1)) {
     gameState.board.hazards = [] // after 2 * shrinkEveryNTurns + 1, all healing pools are guaranteed gone
+  }
+  if (isSnail) { // if snail mode, need to remove one hazard from each cell
+    let removedHazards: {[key: string]: number} = {} // keep track of hazards seen, so we always remove the first one
+    let newHazards: Coord[] = []
+    for (const hazard of gameState.board.hazards) { // iterate thru & make a new hazard list so as to avoid making holes while deleting entries
+      let hazardKey = hazard.x + "," + hazard.y // key is 'x,y'
+      if (!removedHazards[hazardKey]) { // if we haven't seen this coord yet, we don't want to add it (remove the hazard), but we want to mark it as seen
+        removedHazards[hazardKey] = 1 // we've seen one of this hazard key now
+      } else { // else we have seen this coord already, thus we do want to process the hazard as normal
+        newHazards.push(hazard)
+        removedHazards[hazardKey] = removedHazards[hazardKey] + 1 // we've now seen one more of this hazard key
+      }
+    }
+
+    // also need to not add hazard trails where any snake heads are
+    let newHazardsForTailChases: Coord[] = []
+    let mustReconstruct: boolean = false // only want to rebuild newHazards if necessary
+    for (const snake of gameState.board.snakes) {
+      let headKey = snake.head.x + "," + snake.head.y
+      if (removedHazards[headKey] === 8) { // if there are 8 hazards here, then there shouldn't be any, as a snail trail doesn't spawn on tail chasing snakes
+        removedHazards[headKey] = 0 // reset this coord key to 0, which will be falsy
+        mustReconstruct = true
+      }
+    }
+    if (mustReconstruct) {
+      for (const hazard of newHazards) {
+        let hazardKey = hazard.x + "," + hazard.y
+        if (removedHazards[hazardKey] && removedHazards[hazardKey] > 0) { // if removedHazards at this key exists & is still >0, should add it to the list
+          newHazardsForTailChases.push(hazard)
+        }
+      }
+      newHazards = newHazardsForTailChases // replace old listing with new
+    }
+
+    gameState.board.hazards = newHazards // replace old hazard list with new one, with one instance of each coord stripped out
   }
 }
 

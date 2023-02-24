@@ -466,7 +466,7 @@ export function evaluate(gameState: GameState, _myself: Battlesnake, _priorKissS
   let isOriginalSnake: boolean = _myself !== undefined && _myself.id === gameState.you.id // true if _myself's id matches the original you of the game
 
   const hazardDamage: number = getHazardDamage(gameState)
-  const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
+  const hazardFrequency: number = gameState.game.ruleset.settings.royale?.shrinkEveryNTurns || 0
   const isRoyale = gameStateIsRoyale(gameState)
   const isWrapped = gameStateIsWrapped(gameState)
   //const isHazardSpiral = gameStateIsHazardSpiral(gameState)
@@ -1371,7 +1371,7 @@ export function evaluateMinimax(gameState: GameState, eatTurns: number, starting
   }
   
   const hazardDamage: number = getHazardDamage(gameState)
-  const hazardFrequency: number = gameState.game.ruleset.settings.royale.shrinkEveryNTurns || 0
+  const hazardFrequency: number = gameState.game.ruleset.settings.royale?.shrinkEveryNTurns || 0
   const isConstrictor = gameStateIsConstrictor(gameState)
   const isHealingPools: boolean = gameStateIsHealingPools(gameState)
   const isIslandsBridges: boolean = gameStateIsIslandsBridges(gameState)
