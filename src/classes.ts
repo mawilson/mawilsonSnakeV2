@@ -128,6 +128,7 @@ export class Battlesnake implements IBattlesnake {
   head: ICoord
   length: number
   hasEaten: boolean
+  priorTail?: Coord // used by snail mode to determine where snail trails spawn & how long they should be
 
   // Used in non-standard game modes
   shout: string;
