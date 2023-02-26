@@ -29,8 +29,8 @@ export interface RulesetSettings {
   foodSpawnChance: number;
   minimumFood: number;
   hazardDamagePerTurn?: number;
-  royale: RoyaleSettings;
-  squad: SquadSettings;
+  royale?: RoyaleSettings;
+  squad?: SquadSettings;
 }
 
 export interface Ruleset {

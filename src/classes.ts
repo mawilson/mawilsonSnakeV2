@@ -128,6 +128,7 @@ export class Battlesnake implements IBattlesnake {
   head: ICoord
   length: number
   hasEaten: boolean
+  priorTail?: Coord // used by snail mode to determine where snail trails spawn & how long they should be
 
   // Used in non-standard game modes
   shout: string;
@@ -290,7 +291,7 @@ export class Board2d {
 
   constructor(gameState: GameState, populateVoronoi?: boolean) {
     let board: Board = gameState.board
-    let expansionRate: number | undefined = gameState.game.ruleset.settings.royale.shrinkEveryNTurns
+    let expansionRate: number | undefined = gameState.game.ruleset.settings.royale?.shrinkEveryNTurns
     this.width = board.width;
     this.height = board.height;
     this.hazardDamage = getHazardDamage(gameState)
