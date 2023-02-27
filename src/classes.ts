@@ -1,6 +1,6 @@
 
 import { ICoord, IBattlesnake, Board, GameState } from "./types"
-import { logToFile, coordsEqual, snakeHasEaten, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsArcadeMaze, gameStateIsSinkhole, gameStateIsHealingPools, gameStateIsHazardPits, createGameDataId, getAvailableMoves, getAvailableMovesHealth, getHazardDamage, getSinkholeNumber, getHazardPitNumber } from "./util"
+import { logToFile, coordsEqual, snakeHasEaten, getSurroundingCells, gameStateIsWrapped, gameStateIsConstrictor, gameStateIsHazardSpiral, gameStateIsSinkhole, gameStateIsHealingPools, gameStateIsHazardPits, gameStateIsSnail, createGameDataId, getHazardDamage, getSinkholeNumber, getHazardPitNumber } from "./util"
 import { gameData } from "./logic"
 
 import { createWriteStream, WriteStream } from 'fs';
@@ -301,6 +301,7 @@ export class Board2d {
     let hazardsAreWalls: boolean = this.hazardDamage >= 100
     let isSinkhole: boolean = gameStateIsSinkhole(gameState)
     let isHealingPools: boolean = gameStateIsHealingPools(gameState)
+    let isSnail: boolean = gameStateIsSnail(gameState)
     let sinkholeLatestSpawnTurn: number | undefined = (isSinkhole && expansionRate !== undefined && gameState.board.height === 11 && gameState.board.width === 11)?
       (2 + expansionRate * 4) : undefined // sinkhole map only works on 11x11 boards, & only if shrink turns are provided
     let isHazardPits:boolean = gameStateIsHazardPits(gameState)
@@ -479,7 +480,11 @@ export class Board2d {
                         if (duplicatedTail && !snakeHasEaten(neighbor.snakeCell.snake)) {
                           tailOffset = tailOffset - 1 // this is a fakeMoveSnake, its tailOffset is always 1 less because its tail did not actually exist
                         }
-                        isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
+                        if (isSnail) { // shortcutting because tails are often quite lethal - need depth Voronoi likely won't reach to chase most body cells
+                          isBodyCell = tailOffset === 0 ? false : true // only exact tail chases count in allowing us into a former snake cell
+                        } else {
+                          isBodyCell = tailOffset > 0 // tailOffset still valid for possible food spawns, but we can always chase our own tail without fear of food growth
+                        }
                       }
                     }
                   }
