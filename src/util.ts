@@ -321,6 +321,10 @@ export function cloneGameState(gameState: GameState) : GameState {
     if (newSnake.id === gameState.you.id) {
       cloneYouProbably = newSnake
     }
+
+    if (snake.priorTail) { // if priorTail exists, clone it to the new snake
+      newSnake.priorTail = new Coord(snake.priorTail.x, snake.priorTail.y)
+    }
   }
 
   let cloneHazards : ICoord[] = []
