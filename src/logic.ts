@@ -1,4 +1,4 @@
-export const version: string = "1.7.8" // need to declare this before imports since several imports utilize it
+export const version: string = "1.7.9" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -24,7 +24,7 @@ export function info(): InfoResponse {
       response = {
         apiversion: "1",
         author: "waryferryman",
-        color: "#f7dca2", // #A06D4A
+        color: "#ee2c2c", // #A06D4A
         head: "chicken", // "replit-mark",
         tail: "ghost", // "rbc-necktie",
         version: version
