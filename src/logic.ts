@@ -1,4 +1,4 @@
-export const version: string = "1.7.7" // need to declare this before imports since several imports utilize it
+export const version: string = "1.7.8" // need to declare this before imports since several imports utilize it
 
 import { InfoResponse, GameState, MoveResponse } from "./types"
 import { Direction, directionToString, Board2d, Moves, Battlesnake, MoveWithEval, KissOfDeathState, KissOfMurderState, KissStates, HazardWalls, KissStatesForEvaluate, GameData, TimingData, HazardSpiral, EvaluationResult, Coord, TimingStats, HealthTier, SortInfo } from "./classes"
@@ -20,22 +20,22 @@ export let preySnakeName: string | undefined = undefined
 export function info(): InfoResponse {
     console.log("INFO")
     let response: InfoResponse
-    if (isDevelopment) { // Gene Scallop
+    if (isDevelopment) { // Chicken in a Biskit
       response = {
         apiversion: "1",
         author: "waryferryman",
-        color: "#afeeee", // #A06D4A
-        head: "cosmic-horror", // "replit-mark",
-        tail: "do-sammy", // "rbc-necktie",
+        color: "#f7dca2", // #A06D4A
+        head: "chicken", // "replit-mark",
+        tail: "ghost", // "rbc-necktie",
         version: version
       }
-    } else { // Jagwire
+    } else { // Geriatric Jagwire
       response = {
         apiversion: "1",
         author: "waryferryman",
-        color: "#ffd900", // #ff9900
-        head: "smile", //"tiger-king",
-        tail: "wave", //"mystic-moon",
+        color: "#ffe58f", // #ff9900
+        head: "glasses", //"tiger-king",
+        tail: "freckled", //"mystic-moon",
         version: version
       }
     }
